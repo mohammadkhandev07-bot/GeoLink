@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { ImageIcon, Film, X, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,7 +23,6 @@ export default function FeedPage() {
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'none'>('none')
   const [posting, setPosting] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -34,8 +32,7 @@ export default function FeedPage() {
     if (!file) return
     setMediaFile(file)
     setMediaType(file.type.startsWith('video') ? 'video' : 'image')
-    const url = URL.createObjectURL(file)
-    setMediaPreview(url)
+    setMediaPreview(URL.createObjectURL(file))
   }
 
   const clearMedia = () => {
@@ -48,29 +45,23 @@ export default function FeedPage() {
   const handlePost = async () => {
     if (!user || (!content.trim() && !mediaFile)) return
     setPosting(true)
-
     try {
       let media_url: string | null = null
-
       if (mediaFile) {
         const ext = mediaFile.name.split('.').pop()
         const path = `${user.id}/${Date.now()}.${ext}`
-        const bucket = mediaType === 'video' ? 'posts' : 'posts'
-        const { data, error } = await supabase.storage.from(bucket).upload(path, mediaFile)
+        const { error } = await supabase.storage.from('posts').upload(path, mediaFile)
         if (error) throw error
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path)
+        const { data: urlData } = supabase.storage.from('posts').getPublicUrl(path)
         media_url = urlData.publicUrl
       }
-
       await supabase.from('posts').insert({
         user_id: user.id,
         content: content.trim() || null,
         media_url,
         media_type: mediaType,
       })
-
       await supabase.rpc('increment_posts_count', { profile_id: user.id })
-
       setContent('')
       clearMedia()
       queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
@@ -78,7 +69,6 @@ export default function FeedPage() {
       console.error(err)
     } finally {
       setPosting(false)
-      setUploadProgress(0)
     }
   }
 
@@ -89,14 +79,13 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-xl mx-auto">
-      {/* Create Post */}
       {profile && (
         <Card className="m-4 mb-2">
           <CardContent className="pt-4 space-y-3">
             <div className="flex gap-3">
               <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
                 <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
-                <AvatarFallback src={getAvatarUrl(profile.avatar_url)} />
               </Avatar>
               <Textarea
                 placeholder={`What's on your mind, ${profile.full_name || profile.username}?`}
@@ -105,7 +94,6 @@ export default function FeedPage() {
                 className="resize-none min-h-[60px]"
               />
             </div>
-
             {mediaPreview && (
               <div className="relative rounded-lg overflow-hidden">
                 {mediaType === 'image' ? (
@@ -113,49 +101,25 @@ export default function FeedPage() {
                 ) : (
                   <video src={mediaPreview} controls className="w-full max-h-64" />
                 )}
-                <button
-                  onClick={clearMedia}
-                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1"
-                >
+                <button onClick={clearMedia} className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1">
                   <X className="h-4 w-4" />
                 </button>
               </div>
             )}
-
             <div className="flex items-center justify-between">
               <div className="flex gap-1">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  id="image-upload"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-muted-foreground"
-                  onClick={() => { fileRef.current!.accept = 'image/*'; fileRef.current?.click() }}
-                >
+                <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelect} />
+                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
+                  onClick={() => { if(fileRef.current){ fileRef.current.accept='image/*'; fileRef.current.click() } }}>
                   <ImageIcon className="h-4 w-4" /> Photo
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-muted-foreground"
-                  onClick={() => { fileRef.current!.accept = 'video/*'; fileRef.current?.click() }}
-                >
+                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
+                  onClick={() => { if(fileRef.current){ fileRef.current.accept='video/*'; fileRef.current.click() } }}>
                   <Film className="h-4 w-4" /> Video
                 </Button>
               </div>
-              <Button
-                size="sm"
-                variant="gradient"
-                onClick={handlePost}
-                disabled={posting || (!content.trim() && !mediaFile)}
-                className="gap-1.5"
-              >
+              <Button size="sm" variant="gradient" onClick={handlePost}
+                disabled={posting || (!content.trim() && !mediaFile)} className="gap-1.5">
                 <Send className="h-3.5 w-3.5" />
                 {posting ? 'Posting...' : 'Post'}
               </Button>
@@ -163,21 +127,19 @@ export default function FeedPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Feed */}
       <div>
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)
-        ) : posts.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
-            <p className="text-lg font-medium">Your feed is empty</p>
-            <p className="text-sm mt-1">Follow people to see their posts here</p>
-          </div>
-        ) : (
-          posts.map((post, index) => (
+        {isLoading
+          ? Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)
+          : posts.length === 0
+          ? (
+            <div className="text-center py-20 text-muted-foreground">
+              <p className="text-lg font-medium">Your feed is empty</p>
+              <p className="text-sm mt-1">Follow people to see their posts here</p>
+            </div>
+          )
+          : posts.map((post, index) => (
             <div key={post.id}>
               <PostCard post={post} onDelete={handleDeletePost} />
-              {/* Ad after every post */}
               {(index + 1) % 4 === 0 && (
                 <div className="flex justify-center py-2 bg-muted/30">
                   <AdsterraBanner slotKey={`feed_slot_${index}`} width={320} height={50} />
@@ -185,7 +147,7 @@ export default function FeedPage() {
               )}
             </div>
           ))
-        )}
+        }
       </div>
     </div>
   )
