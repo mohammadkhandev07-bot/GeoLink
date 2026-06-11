@@ -3,8 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
+  const { postId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,24 +15,25 @@ export async function POST(
 
   const { data, error } = await supabase
     .from('comments')
-    .insert({ post_id: params.postId, user_id: user.id, content })
+    .insert({ post_id: postId, user_id: user.id, content })
     .select('*, profiles(*)')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  await supabase.rpc('increment_comments', { post_id: params.postId })
+  await supabase.rpc('increment_comments', { post_id: postId })
   return NextResponse.json(data, { status: 201 })
 }
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
+  const { postId } = await params
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('comments')
     .select('*, profiles(*)')
-    .eq('post_id', params.postId)
+    .eq('post_id', postId)
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
