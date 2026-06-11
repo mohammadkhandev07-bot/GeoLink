@@ -14,7 +14,8 @@ import { getAvatarUrl } from '@/lib/utils/helpers'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 
 export default function ChatRoomPage() {
-  const { chatId } = useParams<{ chatId: string }>()
+  const params = useParams()
+  const chatId = params.chatId as string
   const { user, loading } = useUser()
   const [chat, setChat] = useState<ChatWithProfiles | null>(null)
   const router = useRouter()
@@ -33,7 +34,6 @@ export default function ChatRoomPage() {
       .then(({ data }) => setChat(data as ChatWithProfiles))
   }, [chatId])
 
-  // Mark messages as read
   useEffect(() => {
     if (!user || !chatId) return
     supabase
@@ -52,12 +52,12 @@ export default function ChatRoomPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] max-w-xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b bg-background sticky top-14 z-10">
         <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <Avatar className="h-9 w-9">
+          <AvatarImage src={getAvatarUrl(other.avatar_url)} />
           <AvatarFallback>{other.username?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
@@ -68,15 +68,8 @@ export default function ChatRoomPage() {
           </div>
         </div>
       </div>
-
-      {/* Messages */}
       <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} />
-
-      {/* Input */}
-      <MessageInput
-        onSend={sendMessage}
-        onTyping={sendTypingIndicator}
-      />
+      <MessageInput onSend={sendMessage} onTyping={sendTypingIndicator} />
     </div>
   )
 }
