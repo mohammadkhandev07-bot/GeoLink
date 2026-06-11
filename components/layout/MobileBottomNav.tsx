@@ -1,95 +1,55 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Home, Compass, Film, MessageCircle, User } from 'lucide-react'
+import { cn } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
-import { CommentWithProfile } from '@/lib/types/database.types'
-import { formatTimeAgo, getAvatarUrl } from '@/lib/utils/helpers'
 
-export function CommentSection({ postId }: { postId: string }) {
-  const [newComment, setNewComment] = useState('')
-  const { user } = useUser()
-  const supabase = createClient()
-  const queryClient = useQueryClient()
+const navItems = [
+  { href: '/feed', icon: Home, label: 'Home' },
+  { href: '/explore', icon: Compass, label: 'Explore' },
+  { href: '/reels', icon: Film, label: 'Reels' },
+  { href: '/chat', icon: MessageCircle, label: 'Chat' },
+]
 
-  const { data: comments = [], isLoading } = useQuery({
-    queryKey: ['comments', postId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*, profiles(*)')
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      return data as CommentWithProfile[]
-    },
-  })
-
-  const addComment = useMutation({
-    mutationFn: async (content: string) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await supabase.from('comments').insert({
-        post_id: postId,
-        user_id: user.id,
-        content,
-      })
-      if (error) throw error
-      await supabase.rpc('increment_comments', { post_id: postId })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['comments', postId] })
-      setNewComment('')
-    },
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newComment.trim()) addComment.mutate(newComment.trim())
-  }
+export function MobileBottomNav() {
+  const pathname = usePathname()
+  const { profile } = useUser()
 
   return (
-    <div className="px-4 pb-4 border-t pt-3">
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading comments...</p>
-      ) : (
-        <div className="space-y-3 max-h-60 overflow-y-auto mb-3">
-          {comments.map((comment) => (
-            <div key={comment.id} className="flex items-start gap-2">
-              <Avatar className="h-7 w-7 shrink-0">
-                <AvatarImage src={getAvatarUrl(comment.profiles.avatar_url)} />
-                <AvatarFallback>{comment.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold text-sm">{comment.profiles.username} </span>
-                <span className="text-sm">{comment.content}</span>
-                <p className="text-xs text-muted-foreground mt-0.5">{formatTimeAgo(comment.created_at)}</p>
-              </div>
-            </div>
-          ))}
-          {comments.length === 0 && (
-            <p className="text-sm text-muted-foreground">No comments yet. Be the first!</p>
-          )}
-        </div>
-      )}
-
-      {user && (
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment..."
-            className="h-8 text-sm"
-          />
-          <Button type="submit" size="icon" className="h-8 w-8" disabled={!newComment.trim() || addComment.isPending}>
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        </form>
-      )}
-    </div>
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center justify-around h-14">
+        {navItems.map(({ href, icon: Icon, label }) => (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              'flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors',
+              pathname.startsWith(href)
+                ? 'text-pink-500'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Icon className="h-5 w-5" />
+            <span className="text-[10px]">{label}</span>
+          </Link>
+        ))}
+        {profile && (
+          <Link
+            href={`/profile/${profile.username}`}
+            className={cn(
+              'flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors',
+              pathname.startsWith('/profile')
+                ? 'text-pink-500'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <User className="h-5 w-5" />
+            <span className="text-[10px]">Profile</span>
+          </Link>
+        )}
+      </div>
+    </nav>
   )
 }
