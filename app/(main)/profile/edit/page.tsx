@@ -3,18 +3,22 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
-import { editProfileSchema, type EditProfileSchema } from '@/lib/utils/validation'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
+
+interface EditProfileForm {
+  full_name: string
+  username: string
+  bio: string
+}
 
 export default function EditProfilePage() {
   const { user, profile, loading } = useUser()
@@ -28,8 +32,7 @@ export default function EditProfilePage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const { register, handleSubmit, formState: { errors } } = useForm<EditProfileSchema>({
-    resolver: zodResolver(editProfileSchema),
+  const { register, handleSubmit, formState: { errors } } = useForm<EditProfileForm>({
     values: {
       full_name: profile?.full_name ?? '',
       bio: profile?.bio ?? '',
@@ -37,10 +40,9 @@ export default function EditProfilePage() {
     },
   })
 
-  const onSubmit = async (data: EditProfileSchema) => {
+  const onSubmit = async (data: EditProfileForm) => {
     if (!user || !profile) return
     setSaving(true)
-
     try {
       let avatar_url = profile.avatar_url
       let cover_photo_url = profile.cover_photo_url
@@ -59,10 +61,14 @@ export default function EditProfilePage() {
         cover_photo_url = urlData.publicUrl
       }
 
-      await supabase
-        .from('profiles')
-        .update({ ...data, avatar_url, cover_photo_url, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
+      await supabase.from('profiles').update({
+        full_name: data.full_name,
+        username: data.username,
+        bio: data.bio,
+        avatar_url,
+        cover_photo_url,
+        updated_at: new Date().toISOString(),
+      }).eq('id', user.id)
 
       router.push(`/profile/${data.username || profile.username}`)
     } finally {
@@ -84,13 +90,10 @@ export default function EditProfilePage() {
 
       <Card>
         <CardContent className="pt-6 space-y-5">
-          {/* Cover photo */}
           <div>
             <p className="text-sm font-medium mb-2">Cover Photo</p>
-            <div
-              className="relative h-28 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 cursor-pointer overflow-hidden"
-              onClick={() => coverRef.current?.click()}
-            >
+            <div className="relative h-28 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 cursor-pointer overflow-hidden"
+              onClick={() => coverRef.current?.click()}>
               {(coverPreview || profile.cover_photo_url) && (
                 <img src={coverPreview || profile.cover_photo_url!} alt="Cover" className="w-full h-full object-cover" />
               )}
@@ -98,11 +101,10 @@ export default function EditProfilePage() {
                 <Camera className="h-6 w-6 text-white" />
               </div>
               <input ref={coverRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if(f){setCoverFile(f);setCoverPreview(URL.createObjectURL(f))} }} />
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCoverFile(f); setCoverPreview(URL.createObjectURL(f)) } }} />
             </div>
           </div>
 
-          {/* Avatar */}
           <div className="flex items-center gap-4">
             <div className="relative cursor-pointer" onClick={() => avatarRef.current?.click()}>
               <Avatar className="h-20 w-20">
@@ -113,7 +115,7 @@ export default function EditProfilePage() {
                 <Camera className="h-5 w-5 text-white" />
               </div>
               <input ref={avatarRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if(f){setAvatarFile(f);setAvatarPreview(URL.createObjectURL(f))} }} />
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAvatarFile(f); setAvatarPreview(URL.createObjectURL(f)) } }} />
             </div>
             <div>
               <p className="font-semibold">{profile.username}</p>
@@ -125,19 +127,15 @@ export default function EditProfilePage() {
             <div>
               <label className="text-sm font-medium">Full Name</label>
               <Input {...register('full_name')} className="mt-1" />
-              {errors.full_name && <p className="text-xs text-destructive mt-1">{errors.full_name.message}</p>}
             </div>
             <div>
               <label className="text-sm font-medium">Username</label>
-              <Input {...register('username')} className="mt-1" />
-              {errors.username && <p className="text-xs text-destructive mt-1">{errors.username.message}</p>}
+              <Input {...register('username', { required: true })} className="mt-1" />
             </div>
             <div>
               <label className="text-sm font-medium">Bio</label>
               <Textarea {...register('bio')} className="mt-1 resize-none" rows={3} placeholder="Tell people about yourself..." />
-              {errors.bio && <p className="text-xs text-destructive mt-1">{errors.bio.message}</p>}
             </div>
-
             <Button type="submit" className="w-full" variant="gradient" disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
