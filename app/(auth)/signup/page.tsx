@@ -32,11 +32,12 @@ export default function SignupPage() {
     setLoading(true)
     setError(null)
 
+    // Check username
     const { data: existing } = await supabase
       .from('profiles')
       .select('id')
       .eq('username', data.username)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       setError('Username already taken')
@@ -59,12 +60,16 @@ export default function SignupPage() {
       return
     }
 
+    // Profile will be auto-created by DB trigger
+    // But insert manually as fallback
     if (authData.user) {
-      await supabase.from('profiles').insert({
+      const profileData = {
         id: authData.user.id,
         username: data.username,
         full_name: data.full_name,
-      })
+      }
+      // Use type assertion to bypass strict typing
+      await (supabase.from('profiles') as any).insert(profileData)
     }
 
     setSent(true)
@@ -114,31 +119,54 @@ export default function SignupPage() {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div>
-            <Input {...register('full_name', { required: 'Full name required' })} placeholder="Full Name" />
+            <Input
+              {...register('full_name', { required: 'Full name required' })}
+              placeholder="Full Name"
+            />
             {errors.full_name && <p className="text-xs text-destructive mt-1">{errors.full_name.message}</p>}
           </div>
           <div>
-            <Input {...register('username', { required: 'Username required', minLength: { value: 3, message: 'Min 3 characters' }, pattern: { value: /^[a-zA-Z0-9_]+$/, message: 'Only letters, numbers, underscores' } })} placeholder="Username" />
+            <Input
+              {...register('username', {
+                required: 'Username required',
+                minLength: { value: 3, message: 'Min 3 characters' },
+                pattern: { value: /^[a-zA-Z0-9_]+$/, message: 'Only letters, numbers, underscores' }
+              })}
+              placeholder="Username"
+            />
             {errors.username && <p className="text-xs text-destructive mt-1">{errors.username.message}</p>}
           </div>
           <div>
-            <Input {...register('email', { required: 'Email required' })} type="email" placeholder="Email" />
+            <Input
+              {...register('email', { required: 'Email required' })}
+              type="email"
+              placeholder="Email"
+            />
             {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
           </div>
           <div className="relative">
             <Input
-              {...register('password', { required: 'Password required', minLength: { value: 8, message: 'Min 8 characters' } })}
+              {...register('password', {
+                required: 'Password required',
+                minLength: { value: 8, message: 'Min 8 characters' }
+              })}
               type={showPassword ? 'text' : 'password'}
               placeholder="Password (min 8 chars)"
               className="pr-10"
             />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
             {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
           </div>
 
-          {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</div>}
+          {error && (
+            <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</div>
+          )}
 
           <Button type="submit" className="w-full" variant="gradient" disabled={loading}>
             {loading ? 'Creating account...' : 'Sign Up'}
