@@ -1,18 +1,8 @@
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  // Static files skip karo
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/images') ||
-    pathname.includes('.')
-  ) {
-    return NextResponse.next()
-  }
 
   let response = NextResponse.next({ request })
 
@@ -35,19 +25,24 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const authRoutes = ['/login', '/signup', '/verify-email']
-  const protectedRoutes = ['/feed', '/explore', '/reels', '/chat', '/profile', '/settings']
-
-  const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
-
-  // Login nahi hai aur protected page pe hai
-  if (!user && isProtectedRoute) {
+  // Protected routes - login chahiye
+  if (!user && (
+    pathname.startsWith('/feed') ||
+    pathname.startsWith('/explore') ||
+    pathname.startsWith('/reels') ||
+    pathname.startsWith('/chat') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/settings')
+  )) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Login hai aur auth page pe hai
-  if (user && isAuthRoute) {
+  // Auth routes - agar login hai toh feed pe bhejo
+  if (user && (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/verify-email')
+  )) {
     return NextResponse.redirect(new URL('/feed', request.url))
   }
 
@@ -55,5 +50,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/feed/:path*',
+    '/explore/:path*',
+    '/reels/:path*',
+    '/chat/:path*',
+    '/profile/:path*',
+    '/settings/:path*',
+    '/login',
+    '/signup',
+    '/verify-email',
+  ],
 }
