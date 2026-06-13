@@ -6,14 +6,19 @@ export async function middleware(request: NextRequest) {
 
   let response = NextResponse.next({ request })
 
+  // Supabase client banao
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll()
+        },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -23,27 +28,25 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // User check karo
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Protected routes - login chahiye
-  if (!user && (
-    pathname.startsWith('/feed') ||
-    pathname.startsWith('/explore') ||
-    pathname.startsWith('/reels') ||
-    pathname.startsWith('/chat') ||
-    pathname.startsWith('/profile') ||
-    pathname.startsWith('/settings')
-  )) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Protected pages - bina login nahi milenge
+  const protectedPaths = ['/feed', '/explore', '/reels', '/chat', '/profile', '/settings']
+  const isProtected = protectedPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+
+  // Auth pages - login ke baad nahi milenge
+  const authPaths = ['/login', '/signup', '/verify-email']
+  const isAuth = authPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+
+  if (!user && isProtected) {
+    const url = new URL('/login', request.url)
+    return NextResponse.redirect(url)
   }
 
-  // Auth routes - agar login hai toh feed pe bhejo
-  if (user && (
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
-    pathname.startsWith('/verify-email')
-  )) {
-    return NextResponse.redirect(new URL('/feed', request.url))
+  if (user && isAuth) {
+    const url = new URL('/feed', request.url)
+    return NextResponse.redirect(url)
   }
 
   return response
@@ -51,11 +54,17 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/feed',
     '/feed/:path*',
+    '/explore',
     '/explore/:path*',
+    '/reels',
     '/reels/:path*',
+    '/chat',
     '/chat/:path*',
+    '/profile',
     '/profile/:path*',
+    '/settings',
     '/settings/:path*',
     '/login',
     '/signup',
