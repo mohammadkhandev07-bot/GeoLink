@@ -28,14 +28,18 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setLoading(true)
     setError(null)
+
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     })
+
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
+      // router.refresh() - cookies update karo server pe
+      router.refresh()
       router.push('/feed')
     }
   }
@@ -62,7 +66,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div>
             <Input
-              {...register('email', { required: 'Email is required' })}
+              {...register('email', { required: 'Email required' })}
               type="email"
               placeholder="Email"
             />
@@ -70,7 +74,7 @@ export default function LoginPage() {
           </div>
           <div className="relative">
             <Input
-              {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Min 6 characters' } })}
+              {...register('password', { required: 'Password required' })}
               type={showPassword ? 'text' : 'password'}
               placeholder="Password"
               className="pr-10"
