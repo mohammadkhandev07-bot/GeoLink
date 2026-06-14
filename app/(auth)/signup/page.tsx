@@ -32,47 +32,60 @@ export default function SignupPage() {
     setLoading(true)
     setError(null)
 
-    // Check username
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', data.username)
-      .maybeSingle()
+    try {
+      // 1. Signup karo
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+          data: {
+            username: data.username,
+            full_name: data.full_name,
+          },
+        },
+      })
 
-    if (existing) {
-      setError('Username already taken')
-      setLoading(false)
-      return
-    }
-
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-        data: { username: data.username, full_name: data.full_name },
-      },
-    })
-
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-      return
-    }
-
-    // Profile will be auto-created by DB trigger
-    // But insert manually as fallback
-    if (authData.user) {
-      const profileData = {
-        id: authData.user.id,
-        username: data.username,
-        full_name: data.full_name,
+      if (authError) {
+        setError(authError.message)
+        setLoading(false)
+        return
       }
-      // Use type assertion to bypass strict typing
-      await (supabase.from('profiles') as any).insert(profileData)
+
+      if (!authData.user) {
+        setError('Signup failed. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // 2. Profile manually insert karo
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: authData.user.id,
+          username: data.username.toLowerCase().trim(),
+          full_name: data.full_name.trim(),
+          bio: null,
+          avatar_url: null,
+          cover_photo_url: null,
+          is_private: false,
+          is_verified: false,
+          posts_count: 0,
+          followers_count: 0,
+          following_count: 0,
+        })
+
+      if (profileError) {
+        console.error('Profile error:', profileError)
+        // Profile error ignore karo - trigger se ban jayega
+      }
+
+      setSent(true)
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+      console.error(err)
     }
 
-    setSent(true)
     setLoading(false)
   }
 
@@ -88,17 +101,25 @@ export default function SignupPage() {
       <Card className="w-full max-w-sm shadow-xl text-center">
         <CardHeader>
           <div className="flex justify-center mb-2">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-3xl">✉️</div>
+            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-3xl">✉️</div>
           </div>
           <CardTitle>Check your email!</CardTitle>
-          <CardDescription>We sent a verification link. Please verify before logging in.</CardDescription>
+          <CardDescription>
+            We sent a verification link to your email. Please verify to continue.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
+          <Button
+            variant="gradient"
+            className="w-full"
+            onClick={() => router.push('/login')}
+          >
             Go to Login
           </Button>
           <Link href="/verify-email">
-            <Button variant="ghost" className="w-full text-sm">Resend verification email</Button>
+            <Button variant="ghost" className="w-full text-sm">
+              Resend verification email
+            </Button>
           </Link>
         </CardContent>
       </Card>
@@ -109,7 +130,13 @@ export default function SignupPage() {
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <Image src="/images/geolink-logo.png" alt="GeoLink" width={56} height={56} className="rounded-xl" />
+          <Image
+            src="/images/geolink-logo.png"
+            alt="GeoLink"
+            width={56}
+            height={56}
+            className="rounded-xl"
+          />
         </div>
         <CardTitle className="text-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
           Create Account
@@ -120,35 +147,44 @@ export default function SignupPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div>
             <Input
-              {...register('full_name', { required: 'Full name required' })}
+              {...register('full_name', { required: 'Full name is required' })}
               placeholder="Full Name"
             />
-            {errors.full_name && <p className="text-xs text-destructive mt-1">{errors.full_name.message}</p>}
+            {errors.full_name && (
+              <p className="text-xs text-destructive mt-1">{errors.full_name.message}</p>
+            )}
           </div>
           <div>
             <Input
               {...register('username', {
-                required: 'Username required',
+                required: 'Username is required',
                 minLength: { value: 3, message: 'Min 3 characters' },
-                pattern: { value: /^[a-zA-Z0-9_]+$/, message: 'Only letters, numbers, underscores' }
+                pattern: {
+                  value: /^[a-zA-Z0-9_]+$/,
+                  message: 'Only letters, numbers, underscores',
+                },
               })}
               placeholder="Username"
             />
-            {errors.username && <p className="text-xs text-destructive mt-1">{errors.username.message}</p>}
+            {errors.username && (
+              <p className="text-xs text-destructive mt-1">{errors.username.message}</p>
+            )}
           </div>
           <div>
             <Input
-              {...register('email', { required: 'Email required' })}
+              {...register('email', { required: 'Email is required' })}
               type="email"
               placeholder="Email"
             />
-            {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
+            {errors.email && (
+              <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
+            )}
           </div>
           <div className="relative">
             <Input
               {...register('password', {
-                required: 'Password required',
-                minLength: { value: 8, message: 'Min 8 characters' }
+                required: 'Password is required',
+                minLength: { value: 8, message: 'Min 8 characters' },
               })}
               type={showPassword ? 'text' : 'password'}
               placeholder="Password (min 8 chars)"
@@ -161,20 +197,31 @@ export default function SignupPage() {
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
-            {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
+            {errors.password && (
+              <p className="text-xs text-destructive mt-1">{errors.password.message}</p>
+            )}
           </div>
 
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</div>
+            <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
+              {error}
+            </div>
           )}
 
-          <Button type="submit" className="w-full" variant="gradient" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full"
+            variant="gradient"
+            disabled={loading}
+          >
             {loading ? 'Creating account...' : 'Sign Up'}
           </Button>
         </form>
 
         <div className="relative">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t" />
+          </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-card px-2 text-muted-foreground">Or</span>
           </div>
@@ -192,7 +239,9 @@ export default function SignupPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link href="/login" className="text-pink-500 font-medium hover:underline">Log in</Link>
+          <Link href="/login" className="text-pink-500 font-medium hover:underline">
+            Log in
+          </Link>
         </p>
       </CardContent>
     </Card>
