@@ -1,111 +1,54 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PageLoader } from './LoadingSpinner'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<'loading' | 'authed' | 'unauthed'>('loading')
+  const [ready, setReady] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    let mounted = true
-
-    const check = async () => {
-      try {
-        // Pehle local session check karo
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (!mounted) return
-
-        if (session?.user) {
-          setStatus('authed')
-          return
-        }
-
-        // Session nahi mili - refresh try karo
-        const { data: { session: refreshed } } = await supabase.auth.refreshSession()
-        
-        if (!mounted) return
-
-        if (refreshed?.user) {
-          setStatus('authed')
-        } else {
-          setStatus('unauthed')
-          router.replace('/login')
-        }
-      } catch {
-        if (mounted) {
-          setStatus('unauthed')
-          router.replace('/login')
-        }
-      }
-    }
-
-    check()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session) setStatus('authed')
-      } else if (event === 'SIGNED_OUT') {
-        setStatus('unauthed')
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
         router.replace('/login')
+      } else {
+        setReady(true)
       }
     })
 
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        router.replace('/login')
+      } else if (session) {
+        setReady(true)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  if (status === 'loading') return <PageLoader />
-  if (status === 'unauthed') return null
-
+  if (!ready) return <PageLoader />
   return <>{children}</>
 }
 
 export function GuestGuard({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<'loading' | 'guest' | 'authed'>('loading')
+  const [ready, setReady] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    let mounted = true
-
-    const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!mounted) return
-      
-      if (session?.user) {
-        setStatus('authed')
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         router.replace('/feed')
       } else {
-        setStatus('guest')
-      }
-    }
-
-    check()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return
-      if (event === 'SIGNED_IN' && session) {
-        setStatus('authed')
-        router.replace('/feed')
+        setReady(true)
       }
     })
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
   }, [])
 
-  if (status === 'loading') return <PageLoader />
-  if (status === 'authed') return null
-
+  if (!ready) return <PageLoader />
   return <>{children}</>
 }
