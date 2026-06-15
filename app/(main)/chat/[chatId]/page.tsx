@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Circle } from 'lucide-react'
+import { ArrowLeft, Circle, MoreVertical, Trash2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
@@ -12,12 +12,19 @@ import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function ChatRoomPage() {
   const params = useParams()
   const chatId = params.chatId as string
   const { user, loading } = useUser()
   const [chat, setChat] = useState<ChatWithProfiles | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -44,6 +51,21 @@ export default function ChatRoomPage() {
       .then(() => {})
   }, [messages, chatId, user])
 
+  const handleDeleteChat = async () => {
+    if (!confirm('Delete this conversation? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      // Pehle messages delete karo
+      await supabase.from('messages').delete().eq('chat_id', chatId)
+      // Phir chat delete karo
+      await supabase.from('chats').delete().eq('id', chatId)
+      router.replace('/chat')
+    } catch (err) {
+      console.error(err)
+      setDeleting(false)
+    }
+  }
+
   if (loading || !chat) return <PageLoader />
   if (!user) return null
 
@@ -52,6 +74,7 @@ export default function ChatRoomPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] max-w-xl mx-auto">
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b bg-background sticky top-14 z-10">
         <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
@@ -60,15 +83,38 @@ export default function ChatRoomPage() {
           <AvatarImage src={getAvatarUrl(other.avatar_url)} />
           <AvatarFallback>{other.username?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-sm">{other.username}</p>
           <div className="flex items-center gap-1">
             <Circle className={`h-2 w-2 fill-current ${isOnline ? 'text-green-500' : 'text-muted-foreground'}`} />
             <span className="text-xs text-muted-foreground">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
         </div>
+
+        {/* 3 dot menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
+              <MoreVertical className="h-5 w-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive gap-2 cursor-pointer"
+              onClick={handleDeleteChat}
+              disabled={deleting}
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleting ? 'Deleting...' : 'Delete Conversation'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      {/* Messages */}
       <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} />
+
+      {/* Input */}
       <MessageInput onSend={sendMessage} onTyping={sendTypingIndicator} />
     </div>
   )
