@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { Moon, Sun, Bell, Search } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { NotificationPanel } from '@/components/shared/NotificationPanel'
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
@@ -24,18 +25,20 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* Search - center */}
+        {/* Search */}
         <div className="flex-1 max-w-sm mx-auto hidden sm:block">
           <Link href="/explore">
             <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted text-muted-foreground text-sm cursor-pointer hover:bg-accent">
-              <Search className="h-4 w-4" />
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               <span>Search</span>
             </div>
           </Link>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          {/* Theme toggle */}
+        <div className="ml-auto flex items-center gap-1">
+          {/* Dark mode */}
           <Button
             variant="ghost"
             size="icon"
@@ -46,9 +49,7 @@ export function Navbar() {
           </Button>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon">
-            <Bell className="h-4 w-4" />
-          </Button>
+          <NotificationPanel />
 
           {/* Profile */}
           {profile && (
