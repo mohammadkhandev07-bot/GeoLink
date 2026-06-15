@@ -1,5 +1,3 @@
-'use client'
-
 import { Message } from '@/lib/types/database.types'
 import { formatTimeAgo } from '@/lib/utils/helpers'
 import { cn } from '@/lib/utils/helpers'
@@ -21,10 +19,7 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
         )}
       >
         <p>{message.content}</p>
-        <p className={cn(
-          'text-[10px] mt-0.5',
-          isOwn ? 'text-white/70' : 'text-muted-foreground'
-        )}>
+        <p className={cn('text-[10px] mt-0.5', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
           {formatTimeAgo(message.created_at)}
           {isOwn && (message.is_read ? ' · Seen' : ' · Sent')}
         </p>
