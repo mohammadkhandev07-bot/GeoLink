@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { ReelCard } from './ReelCard'
 import { PostWithProfile } from '@/lib/types/database.types'
-import { AdsterraBanner } from '@/components/shared/AdsterraBanner'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
 
 interface ReelsFeedProps {
@@ -26,7 +25,7 @@ export function ReelsFeed({ reels, isLoading }: ReelsFeedProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
+      <div className="flex h-full items-center justify-center bg-black">
         <LoadingSpinner className="text-white" />
       </div>
     )
@@ -34,47 +33,28 @@ export function ReelsFeed({ reels, isLoading }: ReelsFeedProps) {
 
   if (reels.length === 0) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
+      <div className="flex h-full items-center justify-center bg-black text-white">
         <p>No reels yet. Be the first to upload!</p>
       </div>
     )
   }
 
-  // Insert ad every 3 reels
-  const reelsWithAds: (PostWithProfile | 'ad')[] = []
-  reels.forEach((reel, i) => {
-    reelsWithAds.push(reel)
-    if ((i + 1) % 3 === 0) reelsWithAds.push('ad')
-  })
-
   return (
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="h-screen overflow-y-scroll snap-y snap-mandatory"
-      style={{ scrollbarWidth: 'none' }}
+      className="h-full overflow-y-scroll snap-y snap-mandatory"
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
-      {reelsWithAds.map((item, index) => {
-        if (item === 'ad') {
-          return (
-            <div
-              key={`ad-${index}`}
-              className="h-screen w-full flex-shrink-0 bg-black snap-start snap-always flex items-center justify-center"
-            >
-              <AdsterraBanner slotKey="reels_slot" width={320} height={480} />
-            </div>
-          )
-        }
-        return (
-          <ReelCard
-            key={item.id}
-            post={item}
-            isActive={index === activeIndex}
-            isMuted={isMuted}
-            onToggleMute={() => setIsMuted((m) => !m)}
-          />
-        )
-      })}
+      {reels.map((reel, index) => (
+        <ReelCard
+          key={reel.id}
+          post={reel}
+          isActive={index === activeIndex}
+          isMuted={isMuted}
+          onToggleMute={() => setIsMuted(m => !m)}
+        />
+      ))}
     </div>
   )
 }
