@@ -52,11 +52,18 @@ export default function ChatRoomPage() {
   }, [messages, chatId, user])
 
   const handleDeleteChat = async () => {
-    if (!confirm('Delete this entire conversation? This cannot be undone.')) return
+    if (!confirm('Delete this conversation? This cannot be undone.')) return
     setDeleting(true)
-    await supabase.from('messages').delete().eq('chat_id', chatId)
-    await supabase.from('chats').delete().eq('id', chatId)
-    router.replace('/chat')
+    try {
+      // Pehle messages delete karo
+      await supabase.from('messages').delete().eq('chat_id', chatId)
+      // Phir chat delete karo
+      await supabase.from('chats').delete().eq('id', chatId)
+      router.replace('/chat')
+    } catch (err) {
+      console.error(err)
+      setDeleting(false)
+    }
   }
 
   if (loading || !chat) return <PageLoader />
@@ -84,7 +91,7 @@ export default function ChatRoomPage() {
           </div>
         </div>
 
-        {/* 3 dot - sirf conversation delete */}
+        {/* 3 dot menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
@@ -104,7 +111,10 @@ export default function ChatRoomPage() {
         </DropdownMenu>
       </div>
 
+      {/* Messages */}
       <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} />
+
+      {/* Input */}
       <MessageInput onSend={sendMessage} onTyping={sendTypingIndicator} />
     </div>
   )
