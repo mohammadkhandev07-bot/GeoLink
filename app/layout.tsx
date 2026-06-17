@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: 'GeoLink - Connect With The World',
   description: 'Share moments, discover stories, and connect with people around you.',
   manifest: '/manifest.json',
+  verification: {
+    google: '-ENIlD_kqEGHjM-dEQlGHEsKY3byai0Oi0vgr0-wgNo',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
