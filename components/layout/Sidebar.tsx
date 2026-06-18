@@ -72,9 +72,9 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Sidebar Ad */}
+      {/* Sidebar Ad - no width/height props */}
       <div className="mt-4">
-        <AdsterraBanner slotKey="sidebar_slot" width={160} height={600} />
+        <AdsterraBanner slotKey="sidebar_slot" />
       </div>
     </aside>
   )
