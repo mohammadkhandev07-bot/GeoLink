@@ -17,9 +17,6 @@ export const metadata: Metadata = {
   title: 'GeoLink - Connect With The World',
   description: 'Share moments, discover stories, and connect with people around you.',
   manifest: '/manifest.json',
-  verification: {
-    google: '-ENIlD_kqEGHjM-dEQlGHEsKY3byai0Oi0vgr0-wgNo',
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -46,6 +43,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GeoLink" />
+        {/* Adsterra Social Bar */}
+        <script
+          src="https://pl29784506.effectivecpmnetwork.com/b6/ed/70/b6ed70d79c700cab5683f9ed3d64bb4a.js"
+          async
+        />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
