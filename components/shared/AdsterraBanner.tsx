@@ -4,73 +4,60 @@ import { useEffect, useRef } from 'react'
 
 interface AdsterraBannerProps {
   slotKey: string
-  width?: number
-  height?: number
   className?: string
 }
 
 /**
- * AdsterraBanner - Uses iframe method for reliable React rendering
- * Script injection via useEffect ensures no SSR conflicts
- * Each instance gets a unique container to prevent atOptions overwrite issues
+ * Adsterra Native Banner - iframe method for React compatibility
+ * Container ID: 5010391da71e8686d6575168cfc3d9fb
  */
-export function AdsterraBanner({ slotKey, width = 728, height = 90, className }: AdsterraBannerProps) {
+export function AdsterraBanner({ slotKey, className }: AdsterraBannerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const publisherId = process.env.NEXT_PUBLIC_ADSTERRA_PUBLISHER_ID
+  const loaded = useRef(false)
 
   useEffect(() => {
-    if (!containerRef.current || !publisherId || !slotKey) return
+    if (!containerRef.current || loaded.current) return
+    loaded.current = true
 
-    // Clear previous content
+    // Clear container
     containerRef.current.innerHTML = ''
 
-    // Create isolated iframe for each ad slot to prevent atOptions conflicts
+    // Create isolated iframe
     const iframe = document.createElement('iframe')
-    iframe.style.width = `${width}px`
-    iframe.style.height = `${height}px`
+    iframe.style.width = '100%'
+    iframe.style.height = '120px'
     iframe.style.border = 'none'
     iframe.style.overflow = 'hidden'
     iframe.setAttribute('scrolling', 'no')
     iframe.setAttribute('frameborder', '0')
-
     containerRef.current.appendChild(iframe)
 
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-    if (!iframeDoc) return
+    const doc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!doc) return
 
-    // Write ad script inside isolated iframe context
-    iframeDoc.open()
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>body { margin: 0; padding: 0; overflow: hidden; }</style>
-        </head>
-        <body>
-          <script type='text/javascript'>
-            var atOptions = {
-              'key': '${slotKey}',
-              'format': 'iframe',
-              'height': ${height},
-              'width': ${width},
-              'params': {}
-            };
-          </scr` + `ipt>
-          <script type='text/javascript' src='//www.highperformanceformat.com/${slotKey}/invoke.js'></scr` + `ipt>
-        </body>
-      </html>
-    `)
-    iframeDoc.close()
-  }, [slotKey, publisherId, width, height])
-
-  if (!publisherId || !slotKey) return null
+    doc.open()
+    doc.write(`<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+  </style>
+</head>
+<body>
+  <scr` + `ipt async="async" data-cfasync="false"
+    src="https://pl29784507.effectivecpmnetwork.com/5010391da71e8686d6575168cfc3d9fb/invoke.js">
+  </scr` + `ipt>
+  <div id="container-5010391da71e8686d6575168cfc3d9fb"></div>
+</body>
+</html>`)
+    doc.close()
+  }, [])
 
   return (
     <div
+      ref={containerRef}
       className={className}
-      style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-    >
-      <div ref={containerRef} style={{ width, height, overflow: 'hidden' }} />
-    </div>
+      style={{ width: '100%', minHeight: '90px', overflow: 'hidden' }}
+    />
   )
 }
