@@ -79,12 +79,12 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-xl mx-auto">
+      {/* Create Post */}
       {profile && (
         <Card className="m-4 mb-2">
           <CardContent className="pt-4 space-y-3">
             <div className="flex gap-3">
               <Avatar className="h-9 w-9 shrink-0">
-                <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
                 <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               <Textarea
@@ -96,11 +96,10 @@ export default function FeedPage() {
             </div>
             {mediaPreview && (
               <div className="relative rounded-lg overflow-hidden">
-                {mediaType === 'image' ? (
-                  <img src={mediaPreview} alt="Preview" className="w-full max-h-64 object-cover" />
-                ) : (
-                  <video src={mediaPreview} controls className="w-full max-h-64" />
-                )}
+                {mediaType === 'image'
+                  ? <img src={mediaPreview} alt="Preview" className="w-full max-h-64 object-cover" />
+                  : <video src={mediaPreview} controls className="w-full max-h-64" />
+                }
                 <button onClick={clearMedia} className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1">
                   <X className="h-4 w-4" />
                 </button>
@@ -110,11 +109,11 @@ export default function FeedPage() {
               <div className="flex gap-1">
                 <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelect} />
                 <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
-                  onClick={() => { if(fileRef.current){ fileRef.current.accept='image/*'; fileRef.current.click() } }}>
+                  onClick={() => { if (fileRef.current) { fileRef.current.accept = 'image/*'; fileRef.current.click() } }}>
                   <ImageIcon className="h-4 w-4" /> Photo
                 </Button>
                 <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
-                  onClick={() => { if(fileRef.current){ fileRef.current.accept='video/*'; fileRef.current.click() } }}>
+                  onClick={() => { if (fileRef.current) { fileRef.current.accept = 'video/*'; fileRef.current.click() } }}>
                   <Film className="h-4 w-4" /> Video
                 </Button>
               </div>
@@ -127,6 +126,8 @@ export default function FeedPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Feed */}
       <div>
         {isLoading
           ? Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)
@@ -140,9 +141,10 @@ export default function FeedPage() {
           : posts.map((post, index) => (
             <div key={post.id}>
               <PostCard post={post} onDelete={handleDeletePost} />
+              {/* Native Banner ad after every 4 posts */}
               {(index + 1) % 4 === 0 && (
-                <div className="flex justify-center py-2 bg-muted/30">
-                  <AdsterraBanner slotKey={`feed_slot_${index}`} width={320} height={50} />
+                <div className="border-y bg-muted/20 py-1">
+                  <AdsterraBanner slotKey={`feed_${index}`} />
                 </div>
               )}
             </div>
