@@ -6,16 +6,18 @@ import { ReelsFeed } from '@/components/reels/ReelsFeed'
 export default function ReelsPage() {
   const { data: reels = [], isLoading } = useReelsPosts()
   return (
-    <div
-      className="fixed bg-black z-30"
-      style={{
-        top: '3.5rem',
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
-    >
-      <ReelsFeed reels={reels} isLoading={isLoading} />
+    <div className="flex justify-center items-start bg-black min-h-[calc(100vh-3.5rem)]">
+      {/* Mobile: full width, Desktop: fixed width like Instagram */}
+      <div
+        className="relative bg-black"
+        style={{
+          width: '100%',
+          maxWidth: '420px',
+          height: 'calc(100vh - 3.5rem)',
+        }}
+      >
+        <ReelsFeed reels={reels} isLoading={isLoading} />
+      </div>
     </div>
   )
 }
