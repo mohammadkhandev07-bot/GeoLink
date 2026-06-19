@@ -4,6 +4,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { PostWithProfile } from '@/lib/types/database.types'
 
+async function fetchPostsWithLikes(posts: PostWithProfile[], userId: string) {
+  const supabase = createClient()
+  if (!posts.length || !userId) return posts
+
+  const postIds = posts.map(p => p.id)
+  const { data: likes } = await supabase
+    .from('likes')
+    .select('post_id')
+    .eq('user_id', userId)
+    .in('post_id', postIds)
+
+  const likedSet = new Set(likes?.map(l => l.post_id) ?? [])
+  return posts.map(p => ({ ...p, is_liked: likedSet.has(p.id) }))
+}
+
 export function useFeedPosts(userId?: string) {
   const supabase = createClient()
 
@@ -12,15 +27,14 @@ export function useFeedPosts(userId?: string) {
     queryFn: async () => {
       if (!userId) return []
 
-      // Get following list
       const { data: following } = await supabase
         .from('follows')
         .select('following_id')
         .eq('follower_id', userId)
         .eq('status', 'accepted')
 
-      const followingIds = following?.map((f) => f.following_id) ?? []
-      followingIds.push(userId) // include own posts
+      const followingIds = following?.map(f => f.following_id) ?? []
+      followingIds.push(userId)
 
       const { data, error } = await supabase
         .from('posts')
@@ -30,17 +44,18 @@ export function useFeedPosts(userId?: string) {
         .limit(50)
 
       if (error) throw error
-      return data as PostWithProfile[]
+      return fetchPostsWithLikes(data as PostWithProfile[], userId)
     },
     enabled: !!userId,
+    staleTime: 30000,
   })
 }
 
-export function useExplorePosts() {
+export function useExplorePosts(userId?: string) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['explore-posts'],
+    queryKey: ['explore-posts', userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('posts')
@@ -49,16 +64,18 @@ export function useExplorePosts() {
         .limit(30)
 
       if (error) throw error
-      return data as PostWithProfile[]
+      if (!userId) return data as PostWithProfile[]
+      return fetchPostsWithLikes(data as PostWithProfile[], userId)
     },
+    staleTime: 30000,
   })
 }
 
-export function useReelsPosts() {
+export function useReelsPosts(userId?: string) {
   const supabase = createClient()
 
   return useQuery({
-    queryKey: ['reels-posts'],
+    queryKey: ['reels-posts', userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('posts')
@@ -68,44 +85,9 @@ export function useReelsPosts() {
         .limit(20)
 
       if (error) throw error
-      return data as PostWithProfile[]
+      if (!userId) return data as PostWithProfile[]
+      return fetchPostsWithLikes(data as PostWithProfile[], userId)
     },
-  })
-}
-
-export function useLikePost() {
-  const supabase = createClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ postId, userId, isLiked }: { postId: string; userId: string; isLiked: boolean }) => {
-      if (isLiked) {
-        await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', userId)
-        await supabase.from('posts').update({ likes_count: supabase.rpc('decrement', { x: 1 }) as unknown as number }).eq('id', postId)
-      } else {
-        await supabase.from('likes').insert({ post_id: postId, user_id: userId })
-        await supabase.rpc('increment_likes', { post_id: postId })
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
-      queryClient.invalidateQueries({ queryKey: ['explore-posts'] })
-    },
-  })
-}
-
-export function useDeletePost() {
-  const supabase = createClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (postId: string) => {
-      const { error } = await supabase.from('posts').delete().eq('id', postId)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
-      queryClient.invalidateQueries({ queryKey: ['explore-posts'] })
-    },
+    staleTime: 30000,
   })
 }
