@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Bookmark } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,8 +34,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     if (!user) return
     const newLiked = !liked
     setLiked(newLiked)
-    setLikesCount((prev) => (newLiked ? prev + 1 : prev - 1))
-
+    setLikesCount(prev => newLiked ? prev + 1 : prev - 1)
     if (newLiked) {
       await supabase.from('likes').insert({ post_id: post.id, user_id: user.id })
       await supabase.rpc('increment_likes', { post_id: post.id })
@@ -50,8 +49,8 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   return (
     <article className="border-b bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 py-3">
+        <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-2.5">
           <Avatar className="h-9 w-9">
             <AvatarImage src={getAvatarUrl(post.profiles.avatar_url)} />
             <AvatarFallback>{post.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
@@ -70,68 +69,71 @@ export function PostCard({ post, onDelete }: PostCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => onDelete?.(post.id)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Post
+              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(post.id)}>
+                <Trash2 className="h-4 w-4 mr-2" /> Delete Post
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </div>
 
-      {/* Media */}
+      {/* Media - Fixed size, not full screen */}
       {post.media_url && post.media_type === 'image' && (
-        <div className="relative aspect-square sm:aspect-video w-full bg-muted">
+        <div className="relative w-full bg-muted" style={{ maxHeight: '480px', aspectRatio: '4/3' }}>
           <Image
             src={post.media_url}
-            alt="Post media"
+            alt="Post"
             fill
-            className="object-cover"
+            className="object-contain"
             sizes="(max-width: 640px) 100vw, 600px"
           />
         </div>
       )}
 
       {post.media_url && post.media_type === 'video' && (
-        <video
-          src={post.media_url}
-          controls
-          className="w-full max-h-96 bg-black"
-          preload="metadata"
-        />
+        <div className="w-full bg-black" style={{ maxHeight: '480px' }}>
+          <video
+            src={post.media_url}
+            controls
+            className="w-full"
+            style={{ maxHeight: '480px', objectFit: 'contain' }}
+            preload="metadata"
+          />
+        </div>
       )}
 
-      {/* Content */}
+      {/* Caption */}
       {post.content && (
-        <p className="px-4 py-2 text-sm leading-relaxed">{post.content}</p>
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-sm leading-relaxed">
+            <span className="font-semibold mr-1">{post.profiles.username}</span>
+            {post.content}
+          </p>
+        </div>
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-1 px-4 pb-2">
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleLike}>
-          <Heart
-            className={`h-5 w-5 transition-colors ${liked ? 'fill-red-500 text-red-500' : ''}`}
-          />
-        </Button>
-        <span className="text-sm text-muted-foreground min-w-[2ch]">{formatCount(likesCount)}</span>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 ml-1"
-          onClick={() => setShowComments(!showComments)}
-        >
-          <MessageCircle className="h-5 w-5" />
-        </Button>
-        <span className="text-sm text-muted-foreground">{formatCount(post.comments_count)}</span>
-
-        <Button variant="ghost" size="icon" className="h-9 w-9 ml-1">
-          <Share2 className="h-5 w-5" />
+      <div className="flex items-center justify-between px-3 py-2">
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleLike}>
+            <Heart className={`h-5 w-5 transition-colors ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowComments(!showComments)}>
+            <MessageCircle className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9">
+            <Share2 className="h-5 w-5" />
+          </Button>
+        </div>
+        <Button variant="ghost" size="icon" className="h-9 w-9">
+          <Bookmark className="h-5 w-5" />
         </Button>
       </div>
+
+      {/* Likes count */}
+      {likesCount > 0 && (
+        <p className="px-4 text-sm font-semibold pb-1">{formatCount(likesCount)} likes</p>
+      )}
 
       {/* Comments */}
       {showComments && <CommentSection postId={post.id} />}
