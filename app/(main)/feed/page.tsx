@@ -79,12 +79,12 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-xl mx-auto">
-      {/* Create Post */}
       {profile && (
         <Card className="m-4 mb-2">
           <CardContent className="pt-4 space-y-3">
             <div className="flex gap-3">
               <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
                 <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               <Textarea
@@ -127,7 +127,6 @@ export default function FeedPage() {
         </Card>
       )}
 
-      {/* Feed */}
       <div>
         {isLoading
           ? Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)
@@ -141,7 +140,6 @@ export default function FeedPage() {
           : posts.map((post, index) => (
             <div key={post.id}>
               <PostCard post={post} onDelete={handleDeletePost} />
-              {/* Native Banner ad after every 4 posts */}
               {(index + 1) % 4 === 0 && (
                 <div className="border-y bg-muted/20 py-1">
                   <AdsterraBanner slotKey={`feed_${index}`} />
