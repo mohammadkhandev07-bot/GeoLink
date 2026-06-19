@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { PostCard } from '@/components/feed/PostCard'
 import { PostSkeleton } from '@/components/feed/PostSkeleton'
 import { useExplorePosts } from '@/lib/hooks/usePosts'
+import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -15,7 +16,8 @@ import { Profile } from '@/lib/types/database.types'
 
 export default function ExplorePage() {
   const [query, setQuery] = useState('')
-  const { data: posts = [], isLoading } = useExplorePosts()
+  const { user } = useUser()
+  const { data: posts = [], isLoading } = useExplorePosts(user?.id)
   const supabase = createClient()
 
   const { data: searchResults = [] } = useQuery({
@@ -49,11 +51,8 @@ export default function ExplorePage() {
       {query.length > 1 && searchResults.length > 0 && (
         <div className="border-b">
           {searchResults.map((profile) => (
-            <Link
-              key={profile.id}
-              href={`/profile/${profile.username}`}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
-            >
+            <Link key={profile.id} href={`/profile/${profile.username}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
                 <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
