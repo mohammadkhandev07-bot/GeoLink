@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Compass, Film, MessageCircle, Settings } from 'lucide-react'
+import { Home, Compass, Film, MessageCircle, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/explore', icon: Compass, label: 'Explore' },
   { href: '/reels', icon: Film, label: 'Reels' },
   { href: '/chat', icon: MessageCircle, label: 'Chat' },
+  { href: '/liked', icon: Heart, label: 'Liked' },
 ]
 
 export function MobileBottomNav() {
@@ -33,13 +34,13 @@ export function MobileBottomNav() {
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className={cn('h-5 w-5', pathname.startsWith(href) && href === '/liked' ? 'fill-pink-500' : '')} />
             <span className="text-[10px]">{label}</span>
           </Link>
         ))}
 
-        {/* Profile with Settings on long press - just show profile */}
-        {profile ? (
+        {/* Profile */}
+        {profile && (
           <Link
             href={`/profile/${profile.username}`}
             className={cn(
@@ -55,21 +56,7 @@ export function MobileBottomNav() {
             </Avatar>
             <span className="text-[10px]">Profile</span>
           </Link>
-        ) : null}
-
-        {/* Settings */}
-        <Link
-          href="/settings"
-          className={cn(
-            'flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors',
-            pathname.startsWith('/settings')
-              ? 'text-pink-500'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <Settings className="h-5 w-5" />
-          <span className="text-[10px]">Settings</span>
-        </Link>
+        )}
       </div>
     </nav>
   )
