@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUser } from '@/lib/hooks/useUser'
@@ -17,7 +17,6 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-4 gap-4">
-        {/* Logo */}
         <Link href="/feed" className="flex items-center gap-2">
           <Image src="/images/geolink-logo.png" alt="GeoLink" width={32} height={32} className="rounded-lg" />
           <span className="font-bold text-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent hidden sm:block">
@@ -25,7 +24,6 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* Search */}
         <div className="flex-1 max-w-sm mx-auto hidden sm:block">
           <Link href="/explore">
             <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted text-muted-foreground text-sm cursor-pointer hover:bg-accent">
@@ -47,6 +45,13 @@ export function Navbar() {
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
+
+          {/* Settings - desktop only */}
+          <Link href="/settings" className="hidden sm:block">
+            <Button variant="ghost" size="icon">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
 
           {/* Notifications */}
           <NotificationPanel />
