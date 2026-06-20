@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Compass, Film, MessageCircle, User, Settings, PlusSquare } from 'lucide-react'
+import { Home, Compass, Film, MessageCircle, User, Settings, PlusSquare, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/explore', icon: Compass, label: 'Explore' },
   { href: '/reels', icon: Film, label: 'Reels' },
   { href: '/chat', icon: MessageCircle, label: 'Messages' },
+  { href: '/liked', icon: Heart, label: 'Liked Videos' },
 ]
 
 export function Sidebar() {
@@ -31,7 +32,7 @@ export function Sidebar() {
             pathname.startsWith(href) && 'bg-accent text-accent-foreground'
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className={cn('h-5 w-5', pathname.startsWith(href) && href === '/liked' ? 'fill-pink-500 text-pink-500' : '')} />
           {label}
         </Link>
       ))}
@@ -72,7 +73,6 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Sidebar Ad - no width/height props */}
       <div className="mt-4">
         <AdsterraBanner slotKey="sidebar_slot" />
       </div>
