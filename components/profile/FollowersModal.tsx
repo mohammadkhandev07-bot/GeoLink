@@ -77,10 +77,10 @@ export function FollowersModal({ profileId, type, onClose }: FollowersModalProps
               <p className="text-sm font-medium">
                 {type === 'followers' ? 'No followers yet' : 'Not following anyone'}
               </p>
-              <p className="text-xs text-center px-6">
+              <p className="text-xs text-center px-6 text-muted-foreground">
                 {type === 'followers'
-                  ? 'When someone follows this account, they\'ll appear here.'
-                  : 'When this account follows someone, they\'ll appear here.'}
+                  ? "When someone follows this account, they'll appear here."
+                  : "When this account follows someone, they'll appear here."}
               </p>
             </div>
           ) : (
@@ -92,7 +92,13 @@ export function FollowersModal({ profileId, type, onClose }: FollowersModalProps
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
               >
                 <Avatar className="h-11 w-11 shrink-0">
-                  <AvatarFallback>{person.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  <AvatarImage
+                    src={getAvatarUrl(person.avatar_url)}
+                    alt={person.username}
+                  />
+                  <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white font-semibold">
+                    {person.username?.[0]?.toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{person.username}</p>
