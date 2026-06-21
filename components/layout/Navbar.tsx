@@ -36,7 +36,7 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          {/* Dark mode */}
+          {/* Dark mode - sabke liye */}
           <Button
             variant="ghost"
             size="icon"
@@ -46,8 +46,8 @@ export function Navbar() {
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
 
-          {/* Settings - desktop only */}
-          <Link href="/settings" className="hidden sm:block">
+          {/* Settings - mobile pe bhi dikhega */}
+          <Link href="/settings">
             <Button variant="ghost" size="icon">
               <Settings className="h-4 w-4" />
             </Button>
