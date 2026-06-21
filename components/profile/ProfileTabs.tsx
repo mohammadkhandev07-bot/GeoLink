@@ -1,5 +1,5 @@
 'use client'
-
+ 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Image from 'next/image'
@@ -9,19 +9,19 @@ import { createClient } from '@/lib/supabase/client'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCount } from '@/lib/utils/helpers'
-
+ 
 interface ProfileTabsProps {
   profileId: string
   isPrivate: boolean
   isFollowing: boolean
   isOwn: boolean
 }
-
+ 
 export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: ProfileTabsProps) {
   const supabase = createClient()
   const canView = !isPrivate || isFollowing || isOwn
   const [selectedPost, setSelectedPost] = useState<PostWithProfile | null>(null)
-
+ 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['profile-posts', profileId],
     queryFn: async () => {
@@ -35,7 +35,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
     },
     enabled: canView,
   })
-
+ 
   if (!canView) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
@@ -45,10 +45,10 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
       </div>
     )
   }
-
+ 
   const imagePosts = posts.filter(p => p.media_type === 'image' || !p.media_url)
   const videoPosts = posts.filter(p => p.media_type === 'video')
-
+ 
   return (
     <>
       <Tabs defaultValue="posts" className="w-full">
@@ -60,7 +60,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             <Film className="h-4 w-4" /> Reels
           </TabsTrigger>
         </TabsList>
-
+ 
         <TabsContent value="posts">
           {isLoading ? (
             <div className="grid grid-cols-3 gap-0.5 p-0.5">
@@ -97,7 +97,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             </div>
           )}
         </TabsContent>
-
+ 
         <TabsContent value="reels">
           {videoPosts.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-muted-foreground">
@@ -132,7 +132,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
           )}
         </TabsContent>
       </Tabs>
-
+ 
       {/* Post/Reel Viewer Modal */}
       {selectedPost && (
         <div
@@ -145,7 +145,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
           >
             <X className="h-5 w-5" />
           </button>
-
+ 
           <div
             className="relative w-full max-w-sm rounded-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}
@@ -173,7 +173,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 <p className="text-sm">{selectedPost.content}</p>
               </div>
             )}
-
+ 
             {/* Info bar */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-2xl">
               <p className="text-white font-semibold text-sm">@{selectedPost.profiles?.username}</p>
