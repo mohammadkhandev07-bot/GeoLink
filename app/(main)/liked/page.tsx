@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Heart, X, Play } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Heart, X, Play, Send, MessageCircle } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useUser } from '@/lib/hooks/useUser'
@@ -10,26 +10,79 @@ import { createClient } from '@/lib/supabase/client'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { getAvatarUrl, formatTimeAgo, formatCount } from '@/lib/utils/helpers'
 
 export default function LikedPage() {
   const { user, loading } = useUser()
   const supabase = createClient()
+  const queryClient = useQueryClient()
   const [selectedPost, setSelectedPost] = useState<PostWithProfile | null>(null)
+  const [liked, setLiked] = useState(false)
+  const [likesCount, setLikesCount] = useState(0)
+  const [comments, setComments] = useState<any[]>([])
+  const [commentsLoaded, setCommentsLoaded] = useState(false)
+  const [newComment, setNewComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const { data: likedPosts = [], isLoading } = useQuery({
     queryKey: ['liked-posts', user?.id],
     queryFn: async () => {
       if (!user) return []
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('likes')
         .select('post_id, posts(*, profiles(*))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-      if (error) throw error
       return (data || []).map((d: any) => d.posts).filter(Boolean) as PostWithProfile[]
     },
     enabled: !!user,
   })
+
+  const openPost = async (post: PostWithProfile) => {
+    setSelectedPost(post)
+    setLikesCount(post.likes_count)
+    setLiked(true) // already liked since it's on liked page
+    setComments([])
+    setCommentsLoaded(false)
+    setNewComment('')
+
+    const { data: cmts } = await supabase
+      .from('comments').select('*, profiles(*)')
+      .eq('post_id', post.id).order('created_at', { ascending: true })
+    setComments(cmts || [])
+    setCommentsLoaded(true)
+  }
+
+  const handleLike = async () => {
+    if (!user || !selectedPost) return
+    const newLiked = !liked
+    setLiked(newLiked)
+    setLikesCount(prev => newLiked ? prev + 1 : prev - 1)
+    if (newLiked) {
+      await supabase.from('likes').insert({ post_id: selectedPost.id, user_id: user.id })
+      await supabase.rpc('increment_likes', { post_id: selectedPost.id })
+    } else {
+      await supabase.from('likes').delete().eq('post_id', selectedPost.id).eq('user_id', user.id)
+      await supabase.rpc('decrement_likes', { post_id: selectedPost.id })
+    }
+    queryClient.invalidateQueries({ queryKey: ['liked-posts', user?.id] })
+  }
+
+  const handleComment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user || !selectedPost || !newComment.trim()) return
+    setSubmitting(true)
+    const { data } = await supabase
+      .from('comments').insert({ post_id: selectedPost.id, user_id: user.id, content: newComment.trim() })
+      .select('*, profiles(*)').single()
+    if (data) {
+      setComments(prev => [...prev, data])
+      await supabase.rpc('increment_comments', { post_id: selectedPost.id })
+    }
+    setNewComment('')
+    setSubmitting(false)
+  }
 
   if (loading) return <PageLoader />
 
@@ -38,25 +91,20 @@ export default function LikedPage() {
 
   return (
     <div className="max-w-xl mx-auto pb-20">
-      {/* Header */}
       <div className="sticky top-14 z-10 bg-background border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Heart className="h-5 w-5 text-pink-500 fill-pink-500" />
           <h1 className="text-xl font-bold">Liked Videos</h1>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {likedPosts.length} liked {likedPosts.length === 1 ? 'post' : 'posts'}
-        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">{likedPosts.length} liked posts</p>
       </div>
 
       {isLoading ? (
         <div className="p-4 space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 w-full rounded-xl" />
-          ))}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)}
         </div>
       ) : likedPosts.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 py-24 text-muted-foreground px-4 text-center">
+        <div className="flex flex-col items-center gap-4 py-24 text-muted-foreground text-center">
           <div className="w-20 h-20 rounded-full bg-pink-500/10 flex items-center justify-center">
             <Heart className="h-10 w-10 text-pink-500/50" />
           </div>
@@ -67,27 +115,15 @@ export default function LikedPage() {
         </div>
       ) : (
         <div className="p-4 space-y-6">
-          {/* Videos */}
           {videos.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Videos ({videos.length})
-              </h2>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Videos ({videos.length})</h2>
               <div className="grid grid-cols-2 gap-2">
                 {videos.map(post => (
-                  <button
-                    key={post.id}
-                    onClick={() => setSelectedPost(post)}
-                    className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] group"
-                  >
-                    <video
-                      src={post.media_url ?? ''}
-                      className="w-full h-full object-cover"
-                      preload="metadata"
-                      muted
-                    />
+                  <button key={post.id} onClick={() => openPost(post)}
+                    className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] group">
+                    <video src={post.media_url ?? ''} className="w-full h-full object-cover" preload="metadata" muted />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    {/* Play icon */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity">
                       <div className="bg-black/40 rounded-full p-3">
                         <Play className="h-6 w-6 text-white fill-white" />
@@ -96,28 +132,20 @@ export default function LikedPage() {
                     <div className="absolute bottom-2 left-2 right-2">
                       <p className="text-white text-xs font-medium truncate">@{post.profiles?.username}</p>
                     </div>
-                    <div className="absolute top-2 right-2">
-                      <Heart className="h-4 w-4 fill-red-500 text-red-500 drop-shadow" />
-                    </div>
+                    <Heart className="absolute top-2 right-2 h-4 w-4 fill-red-500 text-red-500 drop-shadow" />
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Images */}
           {images.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Posts ({images.length})
-              </h2>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Posts ({images.length})</h2>
               <div className="grid grid-cols-3 gap-1">
                 {images.map(post => (
-                  <button
-                    key={post.id}
-                    onClick={() => setSelectedPost(post)}
-                    className="relative aspect-square rounded-lg overflow-hidden bg-muted group"
-                  >
+                  <button key={post.id} onClick={() => openPost(post)}
+                    className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
                     {post.media_url ? (
                       <Image src={post.media_url} alt="" fill className="object-cover" />
                     ) : (
@@ -125,10 +153,8 @@ export default function LikedPage() {
                         <p className="text-xs text-center text-muted-foreground line-clamp-3">{post.content}</p>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute top-1 right-1">
-                      <Heart className="h-3 w-3 fill-red-500 text-red-500 drop-shadow" />
-                    </div>
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all" />
+                    <Heart className="absolute top-1 right-1 h-3 w-3 fill-red-500 text-red-500 drop-shadow" />
                   </button>
                 ))}
               </div>
@@ -137,57 +163,94 @@ export default function LikedPage() {
         </div>
       )}
 
-      {/* Video/Post Viewer Modal */}
+      {/* Viewer Modal with Like + Comment */}
       {selectedPost && (
-        <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedPost(null)}
-        >
-          <button
-            onClick={() => setSelectedPost(null)}
-            className="absolute top-4 right-4 z-10 bg-white/20 rounded-full p-2 text-white hover:bg-white/30"
-          >
+        <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
+          onClick={() => setSelectedPost(null)}>
+          <button onClick={() => setSelectedPost(null)}
+            className="absolute top-4 right-4 z-10 bg-white/20 rounded-full p-2 text-white hover:bg-white/30">
             <X className="h-5 w-5" />
           </button>
 
-          <div
-            className="relative w-full max-w-sm max-h-[85vh] rounded-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            {selectedPost.media_type === 'video' ? (
-              <video
-                src={selectedPost.media_url ?? ''}
-                controls
-                autoPlay
-                className="w-full max-h-[80vh] rounded-2xl"
-                style={{ objectFit: 'contain' }}
-              />
-            ) : selectedPost.media_url ? (
-              <Image
-                src={selectedPost.media_url}
-                alt=""
-                width={400}
-                height={400}
-                className="w-full rounded-2xl object-contain"
-              />
-            ) : (
-              <div className="bg-card rounded-2xl p-6">
-                <p className="text-sm">{selectedPost.content}</p>
-              </div>
-            )}
+          <div className="flex flex-col md:flex-row w-full max-w-3xl max-h-[90vh] bg-card rounded-2xl overflow-hidden"
+            onClick={e => e.stopPropagation()}>
 
-            {/* Post info */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-2xl">
-              <Link
-                href={`/profile/${selectedPost.profiles?.username}`}
-                onClick={() => setSelectedPost(null)}
-                className="text-white font-semibold text-sm hover:underline"
-              >
-                @{selectedPost.profiles?.username}
-              </Link>
-              {selectedPost.content && (
-                <p className="text-white/70 text-xs mt-1 line-clamp-2">{selectedPost.content}</p>
+            {/* Media */}
+            <div className="flex-1 bg-black flex items-center justify-center min-h-[300px]">
+              {selectedPost.media_type === 'video' ? (
+                <video src={selectedPost.media_url ?? ''} controls autoPlay
+                  className="w-full max-h-[60vh] md:max-h-[90vh]" style={{ objectFit: 'contain' }} />
+              ) : selectedPost.media_url ? (
+                <Image src={selectedPost.media_url} alt="" width={500} height={500}
+                  className="w-full object-contain max-h-[60vh] md:max-h-[90vh]" />
+              ) : (
+                <div className="p-6"><p className="text-white text-sm">{selectedPost.content}</p></div>
               )}
+            </div>
+
+            {/* Right panel */}
+            <div className="w-full md:w-80 flex flex-col bg-card">
+              <div className="p-4 border-b flex items-center gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={getAvatarUrl(selectedPost.profiles?.avatar_url)} />
+                  <AvatarFallback>{selectedPost.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <Link href={`/profile/${selectedPost.profiles?.username}`} onClick={() => setSelectedPost(null)}
+                  className="font-semibold text-sm hover:underline">
+                  @{selectedPost.profiles?.username}
+                </Link>
+              </div>
+
+              {selectedPost.content && (
+                <div className="px-4 py-3 border-b">
+                  <p className="text-sm text-muted-foreground">{selectedPost.content}</p>
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[100px]">
+                {!commentsLoaded ? (
+                  <p className="text-xs text-muted-foreground">Loading...</p>
+                ) : comments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">No comments yet!</p>
+                ) : (
+                  comments.map(c => (
+                    <div key={c.id} className="flex gap-2">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                        <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-xs"><span className="font-semibold mr-1">{c.profiles?.username}</span>{c.content}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatTimeAgo(c.created_at)}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="border-t p-3 space-y-3">
+                <div className="flex items-center gap-3">
+                  <button onClick={handleLike} className="flex items-center gap-1.5">
+                    <Heart className={`h-6 w-6 transition-all ${liked ? 'fill-red-500 text-red-500' : ''}`} />
+                  </button>
+                  <span className="text-sm font-semibold">{formatCount(likesCount)} likes</span>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <MessageCircle className="h-4 w-4" />
+                    {comments.length}
+                  </div>
+                </div>
+                {user && (
+                  <form onSubmit={handleComment} className="flex gap-2">
+                    <input value={newComment} onChange={e => setNewComment(e.target.value)}
+                      placeholder="Add a comment..."
+                      className="flex-1 bg-muted rounded-full px-3 py-1.5 text-sm outline-none border border-transparent focus:border-pink-500" />
+                    <button type="submit" disabled={!newComment.trim() || submitting}
+                      className="text-pink-500 disabled:opacity-40">
+                      <Send className="h-5 w-5" />
+                    </button>
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         </div>
