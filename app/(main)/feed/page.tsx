@@ -1,76 +1,24 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { ImageIcon, Film, X, Send } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState } from 'react'
+import { PlusSquare } from 'lucide-react'
 import { PostCard } from '@/components/feed/PostCard'
 import { PostSkeleton } from '@/components/feed/PostSkeleton'
 import { AdsterraBanner } from '@/components/shared/AdsterraBanner'
+import { CreatePostModal } from '@/components/shared/CreatePostModal'
 import { useFeedPosts } from '@/lib/hooks/usePosts'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { useQueryClient } from '@tanstack/react-query'
 
 export default function FeedPage() {
   const { user, profile } = useUser()
   const { data: posts = [], isLoading } = useFeedPosts(user?.id)
-  const [content, setContent] = useState('')
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [mediaType, setMediaType] = useState<'image' | 'video' | 'none'>('none')
-  const [posting, setPosting] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [showCreate, setShowCreate] = useState(false)
   const supabase = createClient()
   const queryClient = useQueryClient()
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setMediaFile(file)
-    setMediaType(file.type.startsWith('video') ? 'video' : 'image')
-    setMediaPreview(URL.createObjectURL(file))
-  }
-
-  const clearMedia = () => {
-    setMediaFile(null)
-    setMediaPreview(null)
-    setMediaType('none')
-    if (fileRef.current) fileRef.current.value = ''
-  }
-
-  const handlePost = async () => {
-    if (!user || (!content.trim() && !mediaFile)) return
-    setPosting(true)
-    try {
-      let media_url: string | null = null
-      if (mediaFile) {
-        const ext = mediaFile.name.split('.').pop()
-        const path = `${user.id}/${Date.now()}.${ext}`
-        const { error } = await supabase.storage.from('posts').upload(path, mediaFile)
-        if (error) throw error
-        const { data: urlData } = supabase.storage.from('posts').getPublicUrl(path)
-        media_url = urlData.publicUrl
-      }
-      await supabase.from('posts').insert({
-        user_id: user.id,
-        content: content.trim() || null,
-        media_url,
-        media_type: mediaType,
-      })
-      await supabase.rpc('increment_posts_count', { profile_id: user.id })
-      setContent('')
-      clearMedia()
-      queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setPosting(false)
-    }
-  }
 
   const handleDeletePost = async (postId: string) => {
     await supabase.from('posts').delete().eq('id', postId)
@@ -79,54 +27,39 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-xl mx-auto">
+      {/* Create Post Box */}
       {profile && (
-        <Card className="m-4 mb-2">
-          <CardContent className="pt-4 space-y-3">
-            <div className="flex gap-3">
-              <Avatar className="h-9 w-9 shrink-0">
-                <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
-                <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <Textarea
-                placeholder={`What's on your mind, ${profile.full_name || profile.username}?`}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="resize-none min-h-[60px]"
-              />
-            </div>
-            {mediaPreview && (
-              <div className="relative rounded-lg overflow-hidden">
-                {mediaType === 'image'
-                  ? <img src={mediaPreview} alt="Preview" className="w-full max-h-64 object-cover" />
-                  : <video src={mediaPreview} controls className="w-full max-h-64" />
-                }
-                <button onClick={clearMedia} className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1">
-                <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelect} />
-                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
-                  onClick={() => { if (fileRef.current) { fileRef.current.accept = 'image/*'; fileRef.current.click() } }}>
-                  <ImageIcon className="h-4 w-4" /> Photo
-                </Button>
-                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
-                  onClick={() => { if (fileRef.current) { fileRef.current.accept = 'video/*'; fileRef.current.click() } }}>
-                  <Film className="h-4 w-4" /> Video
-                </Button>
-              </div>
-              <Button size="sm" variant="gradient" onClick={handlePost}
-                disabled={posting || (!content.trim() && !mediaFile)} className="gap-1.5">
-                <Send className="h-3.5 w-3.5" />
-                {posting ? 'Posting...' : 'Post'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="m-4 mb-2 border rounded-xl bg-card p-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9 shrink-0">
+              <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
+              <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex-1 text-left bg-muted rounded-full px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted/80 transition-colors"
+            >
+              What's on your mind, {profile.full_name || profile.username}?
+            </button>
+          </div>
+          <div className="flex gap-1 mt-3 pt-3 border-t">
+            <button onClick={() => setShowCreate(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg hover:bg-accent transition-colors text-sm text-muted-foreground font-medium">
+              <span>📸</span> Photo
+            </button>
+            <button onClick={() => setShowCreate(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg hover:bg-accent transition-colors text-sm text-muted-foreground font-medium">
+              <span>🎬</span> Reel
+            </button>
+            <button onClick={() => setShowCreate(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg hover:bg-accent transition-colors text-sm text-muted-foreground font-medium">
+              <span>✍️</span> Text
+            </button>
+          </div>
+        </div>
       )}
 
+      {/* Feed */}
       <div>
         {isLoading
           ? Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />)
@@ -149,6 +82,9 @@ export default function FeedPage() {
           ))
         }
       </div>
+
+      {/* Create Post Modal */}
+      {showCreate && <CreatePostModal onClose={() => setShowCreate(false)} />}
     </div>
   )
 }
