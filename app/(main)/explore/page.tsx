@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Users, Grid3x3, Hash, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { PostCard } from '@/components/feed/PostCard'
 import { PostSkeleton } from '@/components/feed/PostSkeleton'
@@ -10,69 +10,214 @@ import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getAvatarUrl } from '@/lib/utils/helpers'
+import { getAvatarUrl, formatCount } from '@/lib/utils/helpers'
 import Link from 'next/link'
-import { Profile } from '@/lib/types/database.types'
+import { Profile, PostWithProfile } from '@/lib/types/database.types'
+import { cn } from '@/lib/utils/helpers'
+
+type Tab = 'all' | 'profiles' | 'posts' | 'hashtags'
+
+function extractHashtags(content: string): string[] {
+  return content.match(/#[\w\u0600-\u06FF]+/g) || []
+}
 
 export default function ExplorePage() {
   const [query, setQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<Tab>('all')
+  const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null)
   const { user } = useUser()
-  const { data: posts = [], isLoading } = useExplorePosts(user?.id)
+  const { data: posts = [], isLoading: postsLoading } = useExplorePosts(user?.id)
   const supabase = createClient()
 
-  const { data: searchResults = [] } = useQuery({
-    queryKey: ['search', query],
+  const { data: searchProfiles = [] } = useQuery({
+    queryKey: ['search-profiles', query],
     queryFn: async () => {
       if (!query.trim()) return []
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('username', `%${query}%`)
-        .limit(10)
+      const { data } = await supabase.from('profiles').select('*').ilike('username', `%${query}%`).limit(10)
       return data as Profile[]
     },
     enabled: query.length > 1,
   })
 
+  const { data: searchPosts = [] } = useQuery({
+    queryKey: ['search-posts', query],
+    queryFn: async () => {
+      if (!query.trim()) return []
+      const { data } = await supabase.from('posts').select('*, profiles(*)').ilike('content', `%${query}%`).order('created_at', { ascending: false }).limit(20)
+      return data as PostWithProfile[]
+    },
+    enabled: query.length > 1,
+  })
+
+  const { data: searchHashtags = [] } = useQuery({
+    queryKey: ['search-hashtags', query],
+    queryFn: async () => {
+      if (!query.trim()) return []
+      const tag = query.startsWith('#') ? query : `#${query}`
+      const { data } = await supabase.from('posts').select('content').ilike('content', `%${tag}%`)
+      const counts: Record<string, number> = {}
+      ;(data || []).forEach(p => {
+        extractHashtags(p.content || '').forEach(t => {
+          if (t.toLowerCase().includes(query.toLowerCase().replace('#', ''))) counts[t] = (counts[t] || 0) + 1
+        })
+      })
+      return Object.entries(counts).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 20)
+    },
+    enabled: query.length > 1,
+  })
+
+  const { data: hashtagPosts = [], isLoading: hashtagLoading } = useQuery({
+    queryKey: ['hashtag-posts', selectedHashtag],
+    queryFn: async () => {
+      if (!selectedHashtag) return []
+      const { data } = await supabase.from('posts').select('*, profiles(*)').ilike('content', `%${selectedHashtag}%`).order('likes_count', { ascending: false })
+      return data as PostWithProfile[]
+    },
+    enabled: !!selectedHashtag,
+  })
+
+  const { data: popularHashtags = [] } = useQuery({
+    queryKey: ['popular-hashtags'],
+    queryFn: async () => {
+      const { data } = await supabase.from('posts').select('content').limit(200)
+      const counts: Record<string, number> = {}
+      ;(data || []).forEach(p => extractHashtags(p.content || '').forEach(t => { counts[t] = (counts[t] || 0) + 1 }))
+      return Object.entries(counts).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 15)
+    },
+  })
+
+  const { data: newProfiles = [] } = useQuery({
+    queryKey: ['new-profiles'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(8)
+      return data as Profile[]
+    },
+  })
+
+  const isSearching = query.length > 1
+
+  if (selectedHashtag) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <div className="sticky top-14 z-10 bg-background border-b px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setSelectedHashtag(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+          <div>
+            <h2 className="font-bold text-lg text-pink-500">{selectedHashtag}</h2>
+            <p className="text-xs text-muted-foreground">{hashtagPosts.length} posts</p>
+          </div>
+        </div>
+        {hashtagLoading ? Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />) :
+          hashtagPosts.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground"><Hash className="h-12 w-12 mx-auto mb-3 opacity-30" /><p>No posts with {selectedHashtag}</p></div>
+          ) : hashtagPosts.map(post => <PostCard key={post.id} post={post} />)
+        }
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-xl mx-auto">
-      <div className="sticky top-14 z-10 bg-background p-4 border-b">
+      <div className="sticky top-14 z-10 bg-background px-4 py-3 border-b">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search users..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Search profiles, posts, #hashtags..." value={query} onChange={e => setQuery(e.target.value)} className="pl-9 pr-9" />
+          {query && <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="h-4 w-4" /></button>}
         </div>
+        {isSearching && (
+          <div className="flex gap-1 mt-3">
+            {[{ id: 'all', label: 'All' }, { id: 'profiles', label: `People (${searchProfiles.length})` }, { id: 'posts', label: `Posts (${searchPosts.length})` }, { id: 'hashtags', label: `Tags (${searchHashtags.length})` }].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as Tab)}
+                className={cn('flex-1 py-1.5 px-1 rounded-lg text-xs font-semibold transition-all', activeTab === tab.id ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white' : 'bg-muted text-muted-foreground')}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {query.length > 1 && searchResults.length > 0 && (
-        <div className="border-b">
-          {searchResults.map((profile) => (
-            <Link key={profile.id} href={`/profile/${profile.username}`}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
-                <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-semibold text-sm">{profile.username}</p>
-                {profile.full_name && <p className="text-xs text-muted-foreground">{profile.full_name}</p>}
-              </div>
-            </Link>
-          ))}
+      {isSearching ? (
+        <div className="pb-20">
+          {(activeTab === 'all' || activeTab === 'profiles') && searchProfiles.length > 0 && (
+            <div className="p-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> People</h3>
+              {searchProfiles.map(profile => (
+                <Link key={profile.id} href={`/profile/${profile.username}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent transition-colors">
+                  <Avatar className="h-11 w-11">
+                    <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
+                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white font-bold">{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">{profile.username}</p>
+                    {profile.full_name && <p className="text-xs text-muted-foreground">{profile.full_name}</p>}
+                  </div>
+                  <p className="text-xs text-muted-foreground shrink-0">{formatCount(profile.followers_count)} followers</p>
+                </Link>
+              ))}
+            </div>
+          )}
+          {(activeTab === 'all' || activeTab === 'hashtags') && searchHashtags.length > 0 && (
+            <div className="px-4 pb-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> Hashtags</h3>
+              {searchHashtags.map(({ tag, count }) => (
+                <button key={tag} onClick={() => setSelectedHashtag(tag)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-accent transition-colors text-left">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center shrink-0">
+                    <Hash className="h-5 w-5 text-pink-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm text-pink-500">{tag}</p>
+                    <p className="text-xs text-muted-foreground">{count} posts</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">→</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {(activeTab === 'all' || activeTab === 'posts') && searchPosts.length > 0 && (
+            <div>
+              <div className="px-4 pb-2"><h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Grid3x3 className="h-3.5 w-3.5" /> Posts</h3></div>
+              {searchPosts.map(post => <PostCard key={post.id} post={post} />)}
+            </div>
+          )}
+          {!searchProfiles.length && !searchPosts.length && !searchHashtags.length && (
+            <div className="text-center py-16 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="font-semibold">No results for "{query}"</p>
+              <p className="text-sm mt-1">Try different keywords</p>
+            </div>
+          )}
         </div>
-      )}
-
-      {!query && (
-        <div>
-          <p className="text-xs text-muted-foreground font-semibold px-4 py-3 uppercase tracking-wide">Trending Posts</p>
-          {isLoading
-            ? Array.from({ length: 4 }).map((_, i) => <PostSkeleton key={i} />)
-            : posts.map((post) => <PostCard key={post.id} post={post} />)
-          }
+      ) : (
+        <div className="pb-20">
+          <div className="px-4 pt-4 pb-2">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> New People</h3>
+            <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+              {newProfiles.map(profile => (
+                <Link key={profile.id} href={`/profile/${profile.username}`} className="flex flex-col items-center gap-2 shrink-0 w-20 group">
+                  <Avatar className="h-14 w-14 ring-2 ring-offset-2 ring-pink-500/20 group-hover:ring-pink-500 transition-all">
+                    <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
+                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white font-bold text-lg">{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <p className="text-xs text-center truncate w-full font-medium">{profile.username}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+          {popularHashtags.length > 0 && (
+            <div className="px-4 pb-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> Trending Hashtags</h3>
+              <div className="flex flex-wrap gap-2">
+                {popularHashtags.map(({ tag, count }) => (
+                  <button key={tag} onClick={() => setSelectedHashtag(tag)}
+                    className="flex items-center gap-1.5 bg-muted hover:bg-pink-500/10 hover:text-pink-500 border hover:border-pink-500/30 rounded-full px-3 py-1.5 text-sm transition-all">
+                    <span className="text-pink-500 font-medium">{tag}</span>
+                    <span className="text-xs text-muted-foreground bg-background/50 rounded-full px-1.5">{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="px-4 pb-2"><h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Grid3x3 className="h-3.5 w-3.5" /> Trending Posts</h3></div>
+          {postsLoading ? Array.from({ length: 3 }).map((_, i) => <PostSkeleton key={i} />) : posts.map(post => <PostCard key={post.id} post={post} />)}
         </div>
       )}
     </div>
