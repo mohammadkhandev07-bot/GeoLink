@@ -4,14 +4,12 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { MessageCircle, Users, Film, Zap, Download, Smartphone, Check } from 'lucide-react'
+import { MessageCircle, Users, Film, Zap, Download, Check } from 'lucide-react'
 
 export default function LandingPage() {
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
-  const [installMsg, setInstallMsg] = useState('')
-  const [showSteps, setShowSteps] = useState(false)
-  const [activeTab, setActiveTab] = useState('android')
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -19,33 +17,47 @@ export default function LandingPage() {
       setInstallPrompt(e)
     }
     window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', () => setIsInstalled(true))
-
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true)
+      setInstalling(false)
+    })
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
     }
-
-    // Auto detect device for tab
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    const isDesktop = window.innerWidth > 900
-    if (isIOS) setActiveTab('ios')
-    else if (isDesktop) setActiveTab('desktop')
-    else setActiveTab('android')
-
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
   const handleInstall = async () => {
-    if (isInstalled) { setShowSteps(true); return }
+    if (isInstalled) {
+      window.location.href = '/feed'
+      return
+    }
 
+    // Android/Desktop - native prompt directly
     if (installPrompt) {
-      installPrompt.prompt()
-      const { outcome } = await installPrompt.userChoice
-      if (outcome === 'accepted') setInstallMsg('Installing GeoLink...')
+      setInstalling(true)
+      try {
+        await installPrompt.prompt()
+        const { outcome } = await installPrompt.userChoice
+        if (outcome === 'accepted') {
+          setIsInstalled(true)
+        }
+      } catch {}
+      setInstalling(false)
       setInstallPrompt(null)
       return
     }
-    setShowSteps(true)
+
+    // iOS - directly open in Safari instruction (no popup, just redirect)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (isIOS) {
+      // Show native iOS share sheet hint via alert (simplest)
+      window.open('https://geo-link-one.vercel.app', '_blank')
+      return
+    }
+
+    // Fallback - just open the app
+    window.location.href = '/feed'
   }
 
   return (
@@ -82,7 +94,7 @@ export default function LandingPage() {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
           <Link href="/signup">
             <Button size="lg" variant="gradient" className="px-8 w-full sm:w-auto">
               Get Started Free
@@ -95,118 +107,30 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* INSTALL BUTTON - Big & prominent */}
-        <div className="mt-6">
-          <button
-            onClick={handleInstall}
-            disabled={isInstalled}
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl text-white font-semibold text-lg transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl"
-            style={{
-              background: isInstalled
-                ? 'linear-gradient(135deg, #10b981, #059669)'
-                : 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)',
-              boxShadow: '0 8px 32px rgba(168,85,247,0.4)'
-            }}
-          >
-            {isInstalled
-              ? <><Check className="h-5 w-5" /> GeoLink Installed ✓</>
-              : <><Download className="h-5 w-5" /> Install GeoLink App</>
-            }
-          </button>
-          {installMsg && <p className="text-sm text-muted-foreground mt-2">{installMsg}</p>}
-          <p className="text-xs text-muted-foreground mt-2">
-            📱 Android, iPhone & Desktop — Free
-          </p>
-        </div>
-      </section>
-
-      {/* Install Steps Modal */}
-      {showSteps && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
-          onClick={() => setShowSteps(false)}
+        {/* Install Button - No popup, direct install */}
+        <button
+          onClick={handleInstall}
+          disabled={installing}
+          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl text-white font-semibold text-lg transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl disabled:opacity-70"
+          style={{
+            background: isInstalled
+              ? 'linear-gradient(135deg, #10b981, #059669)'
+              : 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)',
+            boxShadow: '0 8px 32px rgba(168,85,247,0.4)'
+          }}
         >
-          <div
-            className="bg-card border rounded-2xl w-full max-w-sm p-6 space-y-5"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500">
-                <Smartphone className="h-5 w-5 text-white" />
-              </div>
-              <h2 className="text-lg font-bold">Install GeoLink</h2>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2">
-              {['android', 'ios', 'desktop'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeTab === tab
-                      ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {tab === 'android' ? '🤖 Android' : tab === 'ios' ? '🍎 iPhone' : '💻 Desktop'}
-                </button>
-              ))}
-            </div>
-
-            {/* Steps */}
-            <div className="space-y-3">
-              {activeTab === 'android' && [
-                ['Chrome mein kholo', 'geo-link-one.vercel.app'],
-                ['3 dot menu ⋮ click karo', 'Browser ke top right corner mein'],
-                ['"Add to Home Screen" select karo', 'List mein scroll karke dhundo'],
-                ['"Add" tap karo ✅', 'GeoLink home screen pe aa jayega!'],
-              ].map(([title, sub], i) => (
-                <div key={i} className="flex gap-3 items-start">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">{i+1}</div>
-                  <div>
-                    <p className="text-sm font-semibold">{title}</p>
-                    <p className="text-xs text-muted-foreground">{sub}</p>
-                  </div>
-                </div>
-              ))}
-
-              {activeTab === 'ios' && [
-                ['Safari mein kholo', 'geo-link-one.vercel.app'],
-                ['Share button tap karo 📤', 'Bottom bar mein square + arrow icon'],
-                ['"Add to Home Screen" tap karo', 'Neeche scroll karke dhundo'],
-                ['"Add" tap karo ✅', 'GeoLink home screen pe aa jayega!'],
-              ].map(([title, sub], i) => (
-                <div key={i} className="flex gap-3 items-start">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">{i+1}</div>
-                  <div>
-                    <p className="text-sm font-semibold">{title}</p>
-                    <p className="text-xs text-muted-foreground">{sub}</p>
-                  </div>
-                </div>
-              ))}
-
-              {activeTab === 'desktop' && [
-                ['Chrome mein kholo', 'geo-link-one.vercel.app'],
-                ['Address bar mein ⊕ icon dhundo', 'Right side mein install icon hoga'],
-                ['"Install" click karo ✅', 'GeoLink desktop app ki tarah khulega!'],
-              ].map(([title, sub], i) => (
-                <div key={i} className="flex gap-3 items-start">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">{i+1}</div>
-                  <div>
-                    <p className="text-sm font-semibold">{title}</p>
-                    <p className="text-xs text-muted-foreground">{sub}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Button className="w-full" onClick={() => setShowSteps(false)}>
-              Got it ✓
-            </Button>
-          </div>
-        </div>
-      )}
+          {isInstalled ? (
+            <><Check className="h-5 w-5" /> GeoLink Installed ✓</>
+          ) : installing ? (
+            <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Installing...</>
+          ) : (
+            <><Download className="h-5 w-5" /> Install GeoLink App</>
+          )}
+        </button>
+        <p className="text-xs text-muted-foreground mt-2">
+          📱 Android, iPhone & Desktop — Free
+        </p>
+      </section>
 
       {/* Features */}
       <section className="max-w-6xl mx-auto px-4 py-12">
@@ -229,7 +153,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t py-6 text-center text-sm text-muted-foreground">
         <p>© 2025 GeoLink. Made with ❤️</p>
       </footer>
