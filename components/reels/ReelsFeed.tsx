@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { ReelCard } from './ReelCard'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
@@ -11,35 +11,25 @@ interface ReelsFeedProps {
 }
 
 function SponsoredCard() {
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const iframe = document.createElement('iframe')
-    iframe.style.cssText = 'width:100%;height:100%;border:none;background:transparent;'
-    iframe.setAttribute('scrolling', 'no')
-    iframe.setAttribute('frameborder', '0')
-    ref.current.appendChild(iframe)
-    const doc = iframe.contentDocument || iframe.contentWindow?.document
-    if (!doc) return
-    doc.open()
-    doc.write(`<!DOCTYPE html><html><head>
-      <style>body{margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;height:100vh;}</style>
-      </head><body>
-      <scr` + `ipt async data-cfasync="false" src="https://pl29784507.effectivecpmnetwork.com/5010391da71e8686d6575168cfc3d9fb/invoke.js"></scr` + `ipt>
-      <div id="container-5010391da71e8686d6575168cfc3d9fb"></div>
-      </body></html>`)
-    doc.close()
-  }, [])
-
   return (
-    <div className="relative w-full h-full flex-shrink-0 bg-black snap-start snap-always overflow-hidden flex items-center justify-center">
-      <div className="absolute top-4 left-4 z-10">
+    <div className="relative w-full h-full flex-shrink-0 bg-gradient-to-b from-gray-900 to-black snap-start snap-always overflow-hidden flex flex-col items-center justify-center">
+      <div className="absolute top-16 left-4 z-20">
         <span className="bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/30">
           Sponsored
         </span>
       </div>
-      <div ref={ref} className="w-full h-full" />
+
+      <div className="absolute top-16 right-4 z-20">
+        <span className="text-white/50 text-xs">Scroll to skip ↓</span>
+      </div>
+
+      <div className="flex flex-col items-center gap-4 text-center px-6">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+          <span className="text-2xl">📢</span>
+        </div>
+        <p className="text-white/60 text-sm">Advertisement</p>
+        <p className="text-white/40 text-xs">Powered by Monetag</p>
+      </div>
     </div>
   )
 }
@@ -75,7 +65,6 @@ export function ReelsFeed({ reels, isLoading }: ReelsFeedProps) {
     )
   }
 
-  // Insert ad every 5 reels
   const items: (PostWithProfile | 'ad')[] = []
   reels.forEach((reel, i) => {
     items.push(reel)
