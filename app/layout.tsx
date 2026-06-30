@@ -43,11 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GeoLink" />
-        {/* Adsterra Social Bar */}
-        <script
-          src="https://pl29784506.effectivecpmnetwork.com/b6/ed/70/b6ed70d79c700cab5683f9ed3d64bb4a.js"
-          async
-        />
+        {/* Adsterra removed - Monetag codes will go here */}
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
