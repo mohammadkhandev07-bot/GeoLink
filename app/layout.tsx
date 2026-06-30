@@ -43,12 +43,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GeoLink" />
-        {/* Adsterra removed - Monetag codes will go here */}
+
+        {/* Monetag - Push Notifications */}
+        <script src="https://5gvci.com/act/files/tag.min.js?z=11221568" data-cfasync="false" async></script>
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
+
+        {/* Monetag - In-Page Push (Banner) */}
+        <script dangerouslySetInnerHTML={{
+          __html: `(function(s){s.dataset.zone='11221526',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`
+        }} />
+
+        {/* Monetag - Vignette Banner */}
+        <script dangerouslySetInnerHTML={{
+          __html: `(function(s){s.dataset.zone='11221564',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`
+        }} />
+
         <script dangerouslySetInnerHTML={{
           __html: `
             if ('serviceWorker' in navigator) {
