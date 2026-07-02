@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GeoLink" />
 
-        {/* Monetag - Push Notifications */}
+        {/* Monetag - Push Notifications only */}
         <script src="https://5gvci.com/act/files/tag.min.js?z=11221568" data-cfasync="false" async></script>
       </head>
       <body className={inter.className}>
@@ -52,15 +52,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
 
-        {/* Monetag - In-Page Push (Banner) */}
+        {/* Monetag - In-Page Push Banner only (non-intrusive) */}
         <script dangerouslySetInnerHTML={{
           __html: `(function(s){s.dataset.zone='11221526',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`
         }} />
 
-        {/* Monetag - Vignette Banner */}
-        <script dangerouslySetInnerHTML={{
-          __html: `(function(s){s.dataset.zone='11221564',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`
-        }} />
+        {/* Vignette Banner REMOVED - too intrusive */}
 
         <script dangerouslySetInnerHTML={{
           __html: `
