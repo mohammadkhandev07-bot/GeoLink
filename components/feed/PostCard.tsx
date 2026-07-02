@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Bookmark, Send, X, ChevronDown } from 'lucide-react'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Bookmark, Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ShareModal } from '@/components/shared/ShareModal'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatTimeAgo, formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -29,30 +28,21 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   const [commentsLoaded, setCommentsLoaded] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const supabase = createClient()
   const queryClient = useQueryClient()
 
-  // Fetch like status
   useEffect(() => {
     if (!user) return
-    if (post.is_liked !== undefined) {
-      setLiked(post.is_liked)
-      return
-    }
-    supabase.from('likes').select('id')
-      .eq('post_id', post.id).eq('user_id', user.id)
-      .maybeSingle()
+    if (post.is_liked !== undefined) { setLiked(post.is_liked); return }
+    supabase.from('likes').select('id').eq('post_id', post.id).eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setLiked(!!data))
   }, [post.id, user?.id])
 
-  // Load comments when opened
   const loadComments = async () => {
     if (commentsLoaded) return
-    const { data } = await supabase
-      .from('comments')
-      .select('*, profiles(*)')
-      .eq('post_id', post.id)
-      .order('created_at', { ascending: true })
+    const { data } = await supabase.from('comments').select('*, profiles(*)')
+      .eq('post_id', post.id).order('created_at', { ascending: true })
     setComments(data || [])
     setCommentsLoaded(true)
   }
@@ -76,33 +66,27 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     }
     queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
     queryClient.invalidateQueries({ queryKey: ['explore-posts'] })
-    queryClient.invalidateQueries({ queryKey: ['reels-posts'] })
-    queryClient.invalidateQueries({ queryKey: ['liked-posts'] })
   }
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user || !newComment.trim()) return
     setSubmitting(true)
-    const { data } = await supabase
-      .from('comments')
+    const { data } = await supabase.from('comments')
       .insert({ post_id: post.id, user_id: user.id, content: newComment.trim() })
-      .select('*, profiles(*)')
-      .single()
+      .select('*, profiles(*)').single()
     if (data) {
       setComments(prev => [...prev, data])
       await supabase.rpc('increment_comments', { post_id: post.id })
     }
     setNewComment('')
     setSubmitting(false)
-    if (!showComments) setShowComments(true)
   }
 
   const isOwner = user?.id === post.user_id
 
   return (
     <article className="border-b bg-card">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-2.5">
           <Avatar className="h-9 w-9">
@@ -117,9 +101,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
         {isOwner && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(post.id)}>
@@ -130,21 +112,17 @@ export function PostCard({ post, onDelete }: PostCardProps) {
         )}
       </div>
 
-      {/* Media */}
       {post.media_url && post.media_type === 'image' && (
         <div className="relative w-full bg-muted" style={{ maxHeight: '480px', aspectRatio: '4/3' }}>
-          <Image src={post.media_url} alt="Post" fill className="object-contain"
-            sizes="(max-width: 640px) 100vw, 600px" />
+          <Image src={post.media_url} alt="Post" fill className="object-contain" sizes="(max-width: 640px) 100vw, 600px" />
         </div>
       )}
       {post.media_url && post.media_type === 'video' && (
         <div className="w-full bg-black" style={{ maxHeight: '480px' }}>
-          <video src={post.media_url} controls className="w-full"
-            style={{ maxHeight: '480px', objectFit: 'contain' }} preload="metadata" />
+          <video src={post.media_url} controls className="w-full" style={{ maxHeight: '480px', objectFit: 'contain' }} preload="metadata" />
         </div>
       )}
 
-      {/* Caption */}
       {post.content && (
         <div className="px-4 pt-2 pb-1">
           <p className="text-sm leading-relaxed">
@@ -154,7 +132,6 @@ export function PostCard({ post, onDelete }: PostCardProps) {
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleLike}>
@@ -163,7 +140,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleComments}>
             <MessageCircle className={`h-5 w-5 ${showComments ? 'fill-foreground' : ''}`} />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9">
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowShare(true)}>
             <Share2 className="h-5 w-5" />
           </Button>
         </div>
@@ -172,59 +149,41 @@ export function PostCard({ post, onDelete }: PostCardProps) {
         </Button>
       </div>
 
-      {/* Likes count */}
-      {likesCount > 0 && (
-        <p className="px-4 text-sm font-semibold pb-1">{formatCount(likesCount)} likes</p>
-      )}
+      {likesCount > 0 && <p className="px-4 text-sm font-semibold pb-1">{formatCount(likesCount)} likes</p>}
 
-      {/* Comments section */}
       {showComments && (
         <div className="border-t px-4 pt-3 pb-3">
-          {/* Comments list */}
           <div className="space-y-3 max-h-48 overflow-y-auto mb-3">
             {comments.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-2">No comments yet. Be the first!</p>
-            ) : (
-              comments.map(c => (
-                <div key={c.id} className="flex gap-2">
-                  <Avatar className="h-7 w-7 shrink-0">
-                    <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                    <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">
-                      <span className="font-semibold mr-1">{c.profiles?.username}</span>
-                      {c.content}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{formatTimeAgo(c.created_at)}</p>
-                  </div>
+              <p className="text-xs text-muted-foreground text-center py-2">No comments yet!</p>
+            ) : comments.map(c => (
+              <div key={c.id} className="flex gap-2">
+                <Avatar className="h-7 w-7 shrink-0">
+                  <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                  <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm"><span className="font-semibold mr-1">{c.profiles?.username}</span>{c.content}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatTimeAgo(c.created_at)}</p>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
-
-          {/* Comment count */}
-          {comments.length > 0 && (
-            <p className="text-xs text-muted-foreground mb-2">{comments.length} comment{comments.length !== 1 ? 's' : ''}</p>
-          )}
-
-          {/* Add comment */}
+          {comments.length > 0 && <p className="text-xs text-muted-foreground mb-2">{comments.length} comment{comments.length !== 1 ? 's' : ''}</p>}
           {user && (
             <form onSubmit={handleComment} className="flex gap-2">
-              <input
-                value={newComment}
-                onChange={e => setNewComment(e.target.value)}
+              <input value={newComment} onChange={e => setNewComment(e.target.value)}
                 placeholder="Add a comment..."
-                className="flex-1 bg-muted rounded-full px-3 py-1.5 text-sm outline-none border border-transparent focus:border-pink-500 transition-colors"
-              />
-              <button type="submit" disabled={!newComment.trim() || submitting}
-                className="text-pink-500 disabled:opacity-40 transition-opacity shrink-0">
+                className="flex-1 bg-muted rounded-full px-3 py-1.5 text-sm outline-none border border-transparent focus:border-pink-500" />
+              <button type="submit" disabled={!newComment.trim() || submitting} className="text-pink-500 disabled:opacity-40">
                 <Send className="h-5 w-5" />
               </button>
             </form>
           )}
         </div>
       )}
+
+      {showShare && <ShareModal post={post} onClose={() => setShowShare(false)} />}
     </article>
   )
 }
