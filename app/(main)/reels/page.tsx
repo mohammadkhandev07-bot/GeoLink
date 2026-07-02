@@ -12,9 +12,26 @@ export default function ReelsPage() {
     <div className="flex justify-center items-start bg-black min-h-[calc(100vh-3.5rem)]">
       <div
         className="relative bg-black"
-        style={{ width: '100%', maxWidth: '420px', height: 'calc(100vh - 3.5rem)' }}
+        style={{
+          width: '100%',
+          maxWidth: '420px',
+          height: 'calc(100vh - 3.5rem)',
+        }}
       >
-        <ReelsFeed reels={reels} isLoading={isLoading} />
+        {/* Mobile pe 80% height - 20% chota */}
+        <style>{`
+          @media (max-width: 768px) {
+            .reels-container {
+              height: 80vh !important;
+              margin: auto;
+              border-radius: 12px;
+              overflow: hidden;
+            }
+          }
+        `}</style>
+        <div className="reels-container w-full h-full">
+          <ReelsFeed reels={reels} isLoading={isLoading} />
+        </div>
       </div>
     </div>
   )
