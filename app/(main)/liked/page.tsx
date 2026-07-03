@@ -19,13 +19,13 @@ export default function LikedPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const [selectedPost, setSelectedPost] = useState<PostWithProfile | null>(null)
+  const [sharePost, setSharePost] = useState<PostWithProfile | null>(null)
   const [liked, setLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(0)
   const [comments, setComments] = useState<any[]>([])
   const [commentsLoaded, setCommentsLoaded] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [showShare, setShowShare] = useState(false)
 
   const { data: likedPosts = [], isLoading } = useQuery({
     queryKey: ['liked-posts', user?.id],
@@ -80,6 +80,13 @@ export default function LikedPage() {
     }
     setNewComment('')
     setSubmitting(false)
+  }
+
+  // Share button - video band nahi hogi
+  const handleShare = () => {
+    if (!selectedPost) return
+    setSharePost(selectedPost) // alag state mein save karo
+    // selectedPost null mat karo!
   }
 
   if (loading) return <PageLoader />
@@ -157,7 +164,7 @@ export default function LikedPage() {
         </div>
       )}
 
-      {/* Viewer Modal with Like + Comment + Share */}
+      {/* Viewer Modal */}
       {selectedPost && (
         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
           onClick={() => setSelectedPost(null)}>
@@ -220,9 +227,11 @@ export default function LikedPage() {
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MessageCircle className="h-4 w-4" />{comments.length}
                   </div>
-                  {/* SHARE BUTTON */}
-                  <button onClick={() => { setSelectedPost(null); setShowShare(true) }}
-                    className="ml-auto text-muted-foreground hover:text-foreground transition-colors">
+                  {/* Share — video band nahi hogi */}
+                  <button
+                    onClick={handleShare}
+                    className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     <Share2 className="h-5 w-5" />
                   </button>
                 </div>
@@ -242,7 +251,13 @@ export default function LikedPage() {
         </div>
       )}
 
-      {showShare && selectedPost && <ShareModal post={selectedPost} onClose={() => setShowShare(false)} />}
+      {/* Share Modal — alag z-index pe, viewer ke upar */}
+      {sharePost && (
+        <ShareModal
+          post={sharePost}
+          onClose={() => setSharePost(null)}
+        />
+      )}
     </div>
   )
 }
