@@ -8,10 +8,10 @@ import { cn } from '@/lib/utils/helpers'
 interface ChatMessageProps {
   message: Message
   isOwn: boolean
+  onDelete?: (messageId: string) => void
 }
 
-export function ChatMessage({ message, isOwn }: ChatMessageProps) {
-  // Agar message mein post_id hai — SharedPostMessage dikhao
+export function ChatMessage({ message, isOwn, onDelete }: ChatMessageProps) {
   if ((message as any).post_id) {
     return (
       <div className={cn('flex gap-2 mb-3', isOwn && 'flex-row-reverse')}>
@@ -26,7 +26,6 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
     )
   }
 
-  // Normal text message
   return (
     <div className={cn('flex gap-2 mb-2', isOwn && 'flex-row-reverse')}>
       <div className={cn(
