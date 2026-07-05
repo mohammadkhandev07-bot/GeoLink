@@ -1,65 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { MessageCircle, Users, Film, Zap, Download, Check } from 'lucide-react'
+import { MessageCircle, Users, Film, Zap } from 'lucide-react'
 
 export default function LandingPage() {
-  const [installPrompt, setInstallPrompt] = useState<any>(null)
-  const [isInstalled, setIsInstalled] = useState(false)
-  const [installing, setInstalling] = useState(false)
-
-  useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault()
-      setInstallPrompt(e)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', () => {
-      setIsInstalled(true)
-      setInstalling(false)
-    })
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true)
-    }
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  const handleInstall = async () => {
-    if (isInstalled) {
-      window.location.href = '/feed'
-      return
-    }
-
-    // Android/Desktop - native prompt directly
-    if (installPrompt) {
-      setInstalling(true)
-      try {
-        await installPrompt.prompt()
-        const { outcome } = await installPrompt.userChoice
-        if (outcome === 'accepted') {
-          setIsInstalled(true)
-        }
-      } catch {}
-      setInstalling(false)
-      setInstallPrompt(null)
-      return
-    }
-
-    // iOS - directly open in Safari instruction (no popup, just redirect)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    if (isIOS) {
-      // Show native iOS share sheet hint via alert (simplest)
-      window.open('https://geo-link-one.vercel.app', '_blank')
-      return
-    }
-
-    // Fallback - just open the app
-    window.location.href = '/feed'
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
@@ -73,7 +19,7 @@ export default function LandingPage() {
           </div>
           <div className="flex gap-2">
             <Link href="/login"><Button variant="outline">Log In</Button></Link>
-            <Link href="/signup"><Button variant="gradient">Sign Up</Button></Link>
+            <Link href="/signup"><Button className="bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0">Sign Up</Button></Link>
           </div>
         </div>
       </header>
@@ -92,44 +38,16 @@ export default function LandingPage() {
         <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto">
           Share moments, discover stories, and connect with people around you.
         </p>
-
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/signup">
-            <Button size="lg" variant="gradient" className="px-8 w-full sm:w-auto">
+            <Button size="lg" className="px-8 w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 text-white border-0">
               Get Started Free
             </Button>
           </Link>
           <Link href="/login">
-            <Button size="lg" variant="outline" className="w-full sm:w-auto">
-              Log In
-            </Button>
+            <Button size="lg" variant="outline" className="w-full sm:w-auto">Log In</Button>
           </Link>
         </div>
-
-        {/* Install Button - No popup, direct install */}
-        <button
-          onClick={handleInstall}
-          disabled={installing}
-          className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl text-white font-semibold text-lg transition-all duration-200 hover:scale-105 active:scale-95 shadow-xl disabled:opacity-70"
-          style={{
-            background: isInstalled
-              ? 'linear-gradient(135deg, #10b981, #059669)'
-              : 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)',
-            boxShadow: '0 8px 32px rgba(168,85,247,0.4)'
-          }}
-        >
-          {isInstalled ? (
-            <><Check className="h-5 w-5" /> GeoLink Installed ✓</>
-          ) : installing ? (
-            <><div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Installing...</>
-          ) : (
-            <><Download className="h-5 w-5" /> Install GeoLink App</>
-          )}
-        </button>
-        <p className="text-xs text-muted-foreground mt-2">
-          📱 Android, iPhone & Desktop — Free
-        </p>
       </section>
 
       {/* Features */}
@@ -137,7 +55,7 @@ export default function LandingPage() {
         <h2 className="text-3xl font-bold text-center mb-10">Everything you need</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[
-            { icon: MessageCircle, title: 'Real-time Chat', desc: 'Instant messaging with typing indicators and online status.' },
+            { icon: MessageCircle, title: 'Real-time Chat', desc: 'Instant messaging with typing indicators.' },
             { icon: Users, title: 'Follow System', desc: 'Follow friends or keep your account private.' },
             { icon: Film, title: 'Reels', desc: 'Short videos in a TikTok-style vertical feed.' },
             { icon: Zap, title: 'Instant Feed', desc: 'Posts from people you follow, always fresh.' },
