@@ -65,6 +65,7 @@ export type Chat = {
   participant2_id: string
   last_message: string | null
   last_message_time: string | null
+  last_message_type: 'text' | 'post' | 'reel' | null
   created_at: string
 }
 
@@ -73,6 +74,7 @@ export type Message = {
   chat_id: string
   sender_id: string
   content: string
+  post_id: string | null
   is_read: boolean
   created_at: string
 }
@@ -82,6 +84,17 @@ export type Share = {
   post_id: string
   shared_by_id: string
   shared_to_chat_id: string | null
+  created_at: string
+}
+
+export type Notification = {
+  id: string
+  user_id: string
+  actor_id: string
+  type: 'like' | 'comment' | 'follow' | 'unfollow' | 'message'
+  message: string | null
+  post_id: string | null
+  is_read: boolean
   created_at: string
 }
 
@@ -111,6 +124,7 @@ export type Database = {
       chats: { Row: Chat; Insert: Omit<Chat, 'id' | 'created_at'>; Update: Partial<Chat> }
       messages: { Row: Message; Insert: Omit<Message, 'id' | 'created_at'>; Update: Partial<Message> }
       shares: { Row: Share; Insert: Omit<Share, 'id' | 'created_at'>; Update: Partial<Share> }
+      notifications: { Row: Notification; Insert: Omit<Notification, 'id' | 'created_at' | 'is_read'> & { is_read?: boolean }; Update: Partial<Notification> }
     }
   }
 }
