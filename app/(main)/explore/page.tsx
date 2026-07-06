@@ -82,7 +82,7 @@ export default function ExplorePage() {
       const { data } = await supabase.from('posts').select('content').limit(200)
       const counts: Record<string, number> = {}
       ;(data || []).forEach(p => extractHashtags(p.content || '').forEach(t => { counts[t] = (counts[t] || 0) + 1 }))
-      return Object.entries(counts).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 15)
+      return Object.entries(counts).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 3)
     },
   })
 
