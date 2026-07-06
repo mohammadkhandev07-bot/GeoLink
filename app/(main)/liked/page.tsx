@@ -60,6 +60,11 @@ export default function LikedPage() {
     if (newLiked) {
       await supabase.from('likes').insert({ post_id: selectedPost.id, user_id: user.id })
       await supabase.rpc('increment_likes', { post_id: selectedPost.id })
+      if (user.id !== selectedPost.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: selectedPost.user_id, actor_id: user.id, type: 'like', post_id: selectedPost.id,
+        })
+      }
     } else {
       await supabase.from('likes').delete().eq('post_id', selectedPost.id).eq('user_id', user.id)
       await supabase.rpc('decrement_likes', { post_id: selectedPost.id })
@@ -77,6 +82,11 @@ export default function LikedPage() {
     if (data) {
       setComments(prev => [...prev, data])
       await supabase.rpc('increment_comments', { post_id: selectedPost.id })
+      if (user.id !== selectedPost.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: selectedPost.user_id, actor_id: user.id, type: 'comment', message: newComment.trim(), post_id: selectedPost.id,
+        })
+      }
     }
     setNewComment('')
     setSubmitting(false)
