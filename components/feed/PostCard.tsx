@@ -60,6 +60,11 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     if (newLiked) {
       await supabase.from('likes').insert({ post_id: post.id, user_id: user.id })
       await supabase.rpc('increment_likes', { post_id: post.id })
+      if (user.id !== post.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: post.user_id, actor_id: user.id, type: 'like', post_id: post.id,
+        })
+      }
     } else {
       await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', user.id)
       await supabase.rpc('decrement_likes', { post_id: post.id })
@@ -78,6 +83,11 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     if (data) {
       setComments(prev => [...prev, data])
       await supabase.rpc('increment_comments', { post_id: post.id })
+      if (user.id !== post.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: post.user_id, actor_id: user.id, type: 'comment', message: newComment.trim(), post_id: post.id,
+        })
+      }
     }
     setNewComment('')
     setSubmitting(false)
