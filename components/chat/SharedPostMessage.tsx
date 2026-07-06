@@ -60,6 +60,11 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
     if (newLiked) {
       await supabase.from('likes').insert({ post_id: postId, user_id: user.id })
       await supabase.rpc('increment_likes', { post_id: postId })
+      if (post && user.id !== post.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: post.user_id, actor_id: user.id, type: 'like', post_id: postId,
+        })
+      }
     } else {
       await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', user.id)
       await supabase.rpc('decrement_likes', { post_id: postId })
@@ -76,6 +81,11 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
     if (data) {
       setComments(prev => [...prev, data])
       await supabase.rpc('increment_comments', { post_id: postId })
+      if (post && user.id !== post.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: post.user_id, actor_id: user.id, type: 'comment', message: newComment.trim(), post_id: postId,
+        })
+      }
     }
     setNewComment('')
     setSubmitting(false)
