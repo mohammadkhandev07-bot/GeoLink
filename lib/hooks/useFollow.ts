@@ -46,6 +46,11 @@ export function useFollowUser() {
       if (!isPrivate) {
         await supabase.rpc('increment_followers', { profile_id: followingId })
         await supabase.rpc('increment_following', { profile_id: followerId })
+        await supabase.from('notifications').insert({
+          user_id: followingId,
+          actor_id: followerId,
+          type: 'follow',
+        })
       }
     },
     onSuccess: (_, variables) => {
@@ -60,12 +65,31 @@ export function useUnfollowUser() {
 
   return useMutation({
     mutationFn: async ({ followerId, followingId }: { followerId: string; followingId: string }) => {
+      // Check current status first - counts were only incremented when the
+      // follow was 'accepted', so we should only decrement in that case.
+      const { data: existing } = await supabase
+        .from('follows')
+        .select('status')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .single()
+
       const { error } = await supabase
         .from('follows')
         .delete()
         .eq('follower_id', followerId)
         .eq('following_id', followingId)
       if (error) throw error
+
+      if (existing?.status === 'accepted') {
+        await supabase.rpc('decrement_followers', { profile_id: followingId })
+        await supabase.rpc('decrement_following', { profile_id: followerId })
+        await supabase.from('notifications').insert({
+          user_id: followingId,
+          actor_id: followerId,
+          type: 'unfollow',
+        })
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['follow-status', variables.followerId, variables.followingId] })
@@ -113,6 +137,11 @@ export function useRespondToFollowRequest() {
         await supabase.from('follows').update({ status: 'accepted' }).eq('id', followId)
         await supabase.rpc('increment_followers', { profile_id: followingId })
         await supabase.rpc('increment_following', { profile_id: followerId })
+        await supabase.from('notifications').insert({
+          user_id: followingId,
+          actor_id: followerId,
+          type: 'follow',
+        })
       } else {
         await supabase.from('follows').delete().eq('id', followId)
       }
