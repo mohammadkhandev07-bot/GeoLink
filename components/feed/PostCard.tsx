@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ShareModal } from '@/components/shared/ShareModal'
+import { PostCaption } from '@/components/shared/PostCaption'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatTimeAgo, formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -135,10 +136,10 @@ export function PostCard({ post, onDelete }: PostCardProps) {
 
       {post.content && (
         <div className="px-4 pt-2 pb-1">
-          <p className="text-sm leading-relaxed">
-            <span className="font-semibold mr-1">{post.profiles.username}</span>
-            {post.content}
-          </p>
+          <PostCaption
+            content={post.content}
+            prefix={<span className="font-semibold mr-1">{post.profiles.username} </span>}
+          />
         </div>
       )}
 
