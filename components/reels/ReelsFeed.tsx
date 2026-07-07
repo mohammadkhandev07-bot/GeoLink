@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { ReelCard } from './ReelCard'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner'
@@ -10,7 +10,20 @@ interface ReelsFeedProps {
   isLoading: boolean
 }
 
+// Guards against injecting the ad script more than once - several
+// SponsoredCards can be mounted at the same time as reels load in.
+let monetagScriptInjected = false
+
 function SponsoredCard() {
+  useEffect(() => {
+    if (monetagScriptInjected) return
+    monetagScriptInjected = true
+    const script = document.createElement('script')
+    script.dataset.zone = '11221526'
+    script.src = 'https://nap5k.com/tag.min.js'
+    document.body.appendChild(script)
+  }, [])
+
   return (
     <div className="relative w-full h-full flex-shrink-0 bg-gradient-to-b from-gray-900 to-black snap-start snap-always overflow-hidden flex flex-col items-center justify-center">
       <div className="absolute top-16 left-4 z-20">
@@ -23,14 +36,6 @@ function SponsoredCard() {
         <span className="text-white/50 text-xs">Scroll to skip ↓</span>
       </div>
 
-      {/*
-        MONETAG AD GOES HERE
-        --------------------
-        This card sits between every 5th reel (see the `items` loop below) and is
-        naturally skippable by scrolling, exactly like the other reels.
-        Paste your Monetag "Native Banner" ad unit's embed code inside this div
-        (it's the ad format meant to sit inline inside a content feed like this one).
-      */}
       <div id="monetag-native-ad-slot" className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
           <span className="text-2xl">📢</span>
