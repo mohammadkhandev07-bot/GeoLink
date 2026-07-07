@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
+import { PostCaption } from '@/components/shared/PostCaption'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatCount, getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -173,7 +174,13 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
           <span className="text-white font-semibold text-sm drop-shadow">@{post.profiles.username}</span>
         </Link>
         {post.content && (
-          <p className="text-white text-sm drop-shadow leading-relaxed line-clamp-2 max-w-xs">{post.content}</p>
+          <PostCaption
+            content={post.content}
+            className="max-w-xs"
+            titleClassName="text-white text-sm drop-shadow leading-relaxed"
+            captionClassName="text-white/90 text-sm drop-shadow leading-relaxed"
+            buttonClassName="text-white/70 text-xs hover:underline font-medium drop-shadow"
+          />
         )}
         <div className="flex items-center gap-2 mt-2">
           <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
