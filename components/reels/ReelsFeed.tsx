@@ -23,12 +23,19 @@ function SponsoredCard() {
         <span className="text-white/50 text-xs">Scroll to skip ↓</span>
       </div>
 
-      <div className="flex flex-col items-center gap-4 text-center px-6">
+      {/*
+        MONETAG AD GOES HERE
+        --------------------
+        This card sits between every 5th reel (see the `items` loop below) and is
+        naturally skippable by scrolling, exactly like the other reels.
+        Paste your Monetag "Native Banner" ad unit's embed code inside this div
+        (it's the ad format meant to sit inline inside a content feed like this one).
+      */}
+      <div id="monetag-native-ad-slot" className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
           <span className="text-2xl">📢</span>
         </div>
         <p className="text-white/60 text-sm">Advertisement</p>
-        <p className="text-white/40 text-xs">Powered by Monetag</p>
       </div>
     </div>
   )
