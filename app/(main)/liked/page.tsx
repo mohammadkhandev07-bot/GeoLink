@@ -12,6 +12,7 @@ import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
+import { PostCaption } from '@/components/shared/PostCaption'
 import { getAvatarUrl, formatTimeAgo, formatCount } from '@/lib/utils/helpers'
 
 export default function LikedPage() {
@@ -162,7 +163,7 @@ export default function LikedPage() {
                       <Image src={post.media_url} alt="" fill className="object-cover" />
                     ) : (
                       <div className="flex items-center justify-center h-full p-2 bg-gradient-to-br from-pink-500/10 to-purple-500/10">
-                        <p className="text-xs text-center text-muted-foreground line-clamp-3">{post.content}</p>
+                        <PostCaption content={post.content ?? ''} variant="titleOnly" titleClassName="text-xs text-center text-muted-foreground line-clamp-3" />
                       </div>
                     )}
                     <Heart className="absolute top-1 right-1 h-3 w-3 fill-red-500 text-red-500 drop-shadow" />
@@ -188,7 +189,11 @@ export default function LikedPage() {
                 <Image src={selectedPost.media_url} alt="" width={500} height={500}
                   className="w-full object-contain max-h-[60vh] md:max-h-[90vh]" />
               ) : (
-                <div className="p-6"><p className="text-white text-sm">{selectedPost.content}</p></div>
+                <div className="p-6 w-full">
+                  {selectedPost.content && (
+                    <PostCaption content={selectedPost.content} titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
+                  )}
+                </div>
               )}
             </div>
             <div className="w-full md:w-80 flex flex-col bg-card">
@@ -207,7 +212,7 @@ export default function LikedPage() {
               </div>
               {selectedPost.content && (
                 <div className="px-4 py-3 border-b">
-                  <p className="text-sm text-muted-foreground">{selectedPost.content}</p>
+                  <PostCaption content={selectedPost.content} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[100px]">
