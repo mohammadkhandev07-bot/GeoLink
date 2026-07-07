@@ -10,6 +10,7 @@ import { PostWithProfile } from '@/lib/types/database.types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCount } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
+import { PostCaption } from '@/components/shared/PostCaption'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 
@@ -156,7 +157,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                     <Image src={post.media_url} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-200" />
                   ) : (
                     <div className="flex items-center justify-center h-full p-2 bg-gradient-to-br from-pink-500/10 to-purple-500/10">
-                      <p className="text-xs text-center text-muted-foreground line-clamp-4">{post.content}</p>
+                      <PostCaption content={post.content ?? ''} variant="titleOnly" titleClassName="text-xs text-center text-muted-foreground line-clamp-4" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -220,7 +221,11 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 <Image src={selectedPost.media_url} alt="" width={500} height={500}
                   className="w-full object-contain max-h-[60vh] md:max-h-[90vh]" />
               ) : (
-                <div className="p-6"><p className="text-white text-sm">{selectedPost.content}</p></div>
+                <div className="p-6 w-full">
+                  {selectedPost.content && (
+                    <PostCaption content={selectedPost.content} titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
+                  )}
+                </div>
               )}
             </div>
 
@@ -237,7 +242,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
               {/* Caption */}
               {selectedPost.content && (
                 <div className="px-4 py-3 border-b">
-                  <p className="text-sm text-muted-foreground">{selectedPost.content}</p>
+                  <PostCaption content={selectedPost.content} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
                 </div>
               )}
 
