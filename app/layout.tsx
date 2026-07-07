@@ -100,19 +100,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="GeoLink" />
         <meta name="application-name" content="GeoLink" />
         <meta name="msapplication-TileColor" content="#ec4899" />
-
-        {/* Monetag Push Notifications */}
-        <script src="https://5gvci.com/act/files/tag.min.js?z=11221568" data-cfasync="false" async />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <QueryProvider>{children}</QueryProvider>
         </ThemeProvider>
-
-        {/* Monetag In-Page Push */}
-        <script dangerouslySetInnerHTML={{
-          __html: `(function(s){s.dataset.zone='11221526',s.src='https://nap5k.com/tag.min.js'})([document.documentElement,document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`
-        }} />
 
         {/* Service Worker */}
         <script dangerouslySetInnerHTML={{
