@@ -109,6 +109,18 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="text-left bg-muted/60 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to do next</p>
+            <ol className="text-sm space-y-1.5 list-decimal list-inside">
+              <li>Open your email inbox (check the <span className="font-medium">Spam/Junk</span> folder too).</li>
+              <li>
+                Look for an email from <span className="font-medium">&quot;Supabase Auth&quot;</span> or an address like{' '}
+                <span className="font-medium">noreply@mail.app.supabase.io</span> — this is expected, GeoLink uses Supabase to send verification emails.
+              </li>
+              <li>Open that email and click the verification link inside it.</li>
+              <li>Come back here and log in to GeoLink.</li>
+            </ol>
+          </div>
           <Button
             variant="gradient"
             className="w-full"
