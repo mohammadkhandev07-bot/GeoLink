@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Heart, MessageCircle, Share2, Play, X, Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
+import { PostCaption } from '@/components/shared/PostCaption'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl, formatCount, formatTimeAgo } from '@/lib/utils/helpers'
@@ -126,7 +127,7 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
             <span className="text-xs font-semibold truncate">@{post.profiles?.username}</span>
           </div>
           {post.content && (
-            <p className="text-xs text-muted-foreground line-clamp-2">{post.content}</p>
+            <PostCaption content={post.content} variant="titleOnly" titleClassName="text-xs text-muted-foreground line-clamp-2" />
           )}
           <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
             <span className="flex items-center gap-0.5"><Heart className="h-3 w-3" />{formatCount(likesCount)}</span>
@@ -151,7 +152,11 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
                 <Image src={post.media_url} alt="" width={500} height={500}
                   className="w-full object-contain max-h-[60vh] md:max-h-[90vh]" />
               ) : (
-                <div className="p-6 text-white">{post.content}</div>
+                <div className="p-6 text-white w-full">
+                  {post.content && (
+                    <PostCaption content={post.content} titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
+                  )}
+                </div>
               )}
             </div>
 
@@ -174,7 +179,7 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
               {/* Caption */}
               {post.content && (
                 <div className="px-3 py-2 border-b">
-                  <p className="text-sm text-muted-foreground">{post.content}</p>
+                  <PostCaption content={post.content} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
                 </div>
               )}
 
