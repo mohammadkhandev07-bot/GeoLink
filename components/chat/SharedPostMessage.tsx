@@ -154,7 +154,7 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
               ) : (
                 <div className="p-6 text-white w-full">
                   {post.content && (
-                    <PostCaption content={post.content} titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
+                    <PostCaption content={post.content} forceExpanded titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
                   )}
                 </div>
               )}
@@ -179,7 +179,7 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
               {/* Caption */}
               {post.content && (
                 <div className="px-3 py-2 border-b">
-                  <PostCaption content={post.content} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
+                  <PostCaption content={post.content} forceExpanded={!post.media_url} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
                 </div>
               )}
 
