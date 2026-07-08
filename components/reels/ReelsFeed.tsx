@@ -10,19 +10,31 @@ interface ReelsFeedProps {
   isLoading: boolean
 }
 
-// Guards against injecting the ad script more than once - several
-// SponsoredCards can be mounted at the same time as reels load in.
-let monetagScriptInjected = false
+// Only one ad instance actually loads the real Adsterra script + container at a
+// time (its container id is fixed by Adsterra, so two copies in the DOM at once
+// would collide). Whichever Sponsored card mounts first "claims" it; if the user
+// leaves Reels the claim is released so the next visit loads a fresh ad again.
+let adSlotClaimed = false
 
 function SponsoredCard() {
+  const [isAdSlot] = useState(() => {
+    if (adSlotClaimed) return false
+    adSlotClaimed = true
+    return true
+  })
+
   useEffect(() => {
-    if (monetagScriptInjected) return
-    monetagScriptInjected = true
+    if (!isAdSlot) return
     const script = document.createElement('script')
-    script.dataset.zone = '11221526'
-    script.src = 'https://nap5k.com/tag.min.js'
+    script.async = true
+    script.dataset.cfasync = 'false'
+    script.src = 'https://pl29784507.effectivecpmnetwork.com/5010391da71e8686d6575168cfc3d9fb/invoke.js'
     document.body.appendChild(script)
-  }, [])
+    return () => {
+      document.body.removeChild(script)
+      adSlotClaimed = false
+    }
+  }, [isAdSlot])
 
   return (
     <div className="relative w-full h-full flex-shrink-0 bg-gradient-to-b from-gray-900 to-black snap-start snap-always overflow-hidden flex flex-col items-center justify-center">
@@ -36,12 +48,16 @@ function SponsoredCard() {
         <span className="text-white/50 text-xs">Scroll to skip ↓</span>
       </div>
 
-      <div id="monetag-native-ad-slot" className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
-          <span className="text-2xl">📢</span>
+      {isAdSlot ? (
+        <div id="container-5010391da71e8686d6575168cfc3d9fb" className="w-full h-full flex items-center justify-center" />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center px-6">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+            <span className="text-2xl">📢</span>
+          </div>
+          <p className="text-white/60 text-sm">Advertisement</p>
         </div>
-        <p className="text-white/60 text-sm">Advertisement</p>
-      </div>
+      )}
     </div>
   )
 }
