@@ -191,7 +191,7 @@ export default function LikedPage() {
               ) : (
                 <div className="p-6 w-full">
                   {selectedPost.content && (
-                    <PostCaption content={selectedPost.content} titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
+                    <PostCaption content={selectedPost.content} forceExpanded titleClassName="text-white text-base" captionClassName="text-white/90 text-sm" buttonClassName="text-white/70 text-xs hover:underline font-medium" />
                   )}
                 </div>
               )}
@@ -212,7 +212,7 @@ export default function LikedPage() {
               </div>
               {selectedPost.content && (
                 <div className="px-4 py-3 border-b">
-                  <PostCaption content={selectedPost.content} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
+                  <PostCaption content={selectedPost.content} forceExpanded={!selectedPost.media_url} titleClassName="text-sm" captionClassName="text-sm text-muted-foreground" />
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[100px]">
