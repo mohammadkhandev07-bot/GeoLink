@@ -125,7 +125,16 @@ CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH 
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- POSTS policies
-CREATE POLICY "Posts are viewable by everyone" ON public.posts FOR SELECT USING (true);
+CREATE POLICY "Posts respect author privacy" ON public.posts FOR SELECT USING (
+    auth.uid() = user_id
+    OR NOT EXISTS (
+        SELECT 1 FROM public.profiles WHERE id = user_id AND is_private = true
+    )
+    OR EXISTS (
+        SELECT 1 FROM public.follows
+        WHERE follower_id = auth.uid() AND following_id = user_id AND status = 'accepted'
+    )
+);
 CREATE POLICY "Users can insert own posts" ON public.posts FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own posts" ON public.posts FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own posts" ON public.posts FOR DELETE USING (auth.uid() = user_id);
