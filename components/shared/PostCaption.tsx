@@ -19,6 +19,12 @@ interface PostCaptionProps {
    * no toggle - use this inside thumbnails/cards that already open a full view on click.
    */
   variant?: 'full' | 'titleOnly'
+  /**
+   * When true, always shows the full title + description + hashtags with no
+   * "See more" toggle at all - used for text-only posts (no photo/video), so
+   * the text itself is the whole post and shouldn't be collapsed.
+   */
+  forceExpanded?: boolean
   className?: string
   titleClassName?: string
   captionClassName?: string
@@ -30,18 +36,20 @@ interface PostCaptionProps {
 export function PostCaption({
   content,
   variant = 'full',
+  forceExpanded = false,
   className = '',
   titleClassName = 'text-sm leading-relaxed',
   captionClassName = 'text-sm text-muted-foreground leading-relaxed',
   buttonClassName = 'text-xs text-muted-foreground/70 hover:underline font-medium',
   prefix,
 }: PostCaptionProps) {
-  const [expanded, setExpanded] = useState(false)
+  const [expandedState, setExpanded] = useState(false)
+  const expanded = forceExpanded || expandedState
   if (!content?.trim()) return null
 
   const { title, rest } = parseCaption(content)
   const truncatedRest = rest.length > 60 ? rest.slice(0, 60).trimEnd() + '\u2026' : rest
-  const hasMore = title ? rest.length > 0 : rest.length > truncatedRest.length
+  const hasMore = !forceExpanded && (title ? rest.length > 0 : rest.length > truncatedRest.length)
 
   if (variant === 'titleOnly') {
     return (
