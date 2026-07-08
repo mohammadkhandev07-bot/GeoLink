@@ -138,6 +138,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
         <div className="px-4 pt-2 pb-1">
           <PostCaption
             content={post.content}
+            forceExpanded={!post.media_url}
             prefix={<span className="font-semibold mr-1">{post.profiles.username} </span>}
           />
         </div>
