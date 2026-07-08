@@ -176,6 +176,7 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
         {post.content && (
           <PostCaption
             content={post.content}
+            forceExpanded={!post.media_url}
             className="max-w-xs"
             titleClassName="text-white text-sm drop-shadow leading-relaxed"
             captionClassName="text-white/90 text-sm drop-shadow leading-relaxed"
