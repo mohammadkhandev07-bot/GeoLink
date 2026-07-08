@@ -89,7 +89,7 @@ export default function ExplorePage() {
   const { data: newProfiles = [] } = useQuery({
     queryKey: ['new-profiles'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(8)
+      const { data } = await supabase.from('profiles').select('*').eq('is_private', false).order('created_at', { ascending: false }).limit(8)
       return data as Profile[]
     },
   })
