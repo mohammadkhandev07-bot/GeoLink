@@ -98,6 +98,21 @@ export type Notification = {
   created_at: string
 }
 
+export type SavedFolder = {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
+export type SavedPost = {
+  id: string
+  user_id: string
+  post_id: string
+  folder_id: string
+  created_at: string
+}
+
 export type PostWithProfile = Post & {
   profiles: Profile
   is_liked?: boolean
@@ -125,6 +140,8 @@ export type Database = {
       messages: { Row: Message; Insert: Omit<Message, 'id' | 'created_at'>; Update: Partial<Message> }
       shares: { Row: Share; Insert: Omit<Share, 'id' | 'created_at'>; Update: Partial<Share> }
       notifications: { Row: Notification; Insert: Omit<Notification, 'id' | 'created_at' | 'is_read'> & { is_read?: boolean }; Update: Partial<Notification> }
+      saved_folders: { Row: SavedFolder; Insert: Omit<SavedFolder, 'id' | 'created_at'>; Update: Partial<SavedFolder> }
+      saved_posts: { Row: SavedPost; Insert: Omit<SavedPost, 'id' | 'created_at'>; Update: Partial<SavedPost> }
     }
   }
 }
