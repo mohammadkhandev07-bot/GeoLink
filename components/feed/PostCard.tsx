@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Bookmark, Send } from 'lucide-react'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
+import { SaveButton } from '@/components/shared/SaveButton'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatTimeAgo, formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -156,9 +157,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
             <Share2 className="h-5 w-5" />
           </Button>
         </div>
-        <Button variant="ghost" size="icon" className="h-9 w-9">
-          <Bookmark className="h-5 w-5" />
-        </Button>
+        <SaveButton postId={post.id} className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-accent transition-colors" />
       </div>
 
       {likesCount > 0 && <p className="px-4 text-sm font-semibold pb-1">{formatCount(likesCount)} likes</p>}
