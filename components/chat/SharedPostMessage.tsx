@@ -6,6 +6,7 @@ import { Heart, MessageCircle, Share2, Play, X, Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
+import { SaveButton } from '@/components/shared/SaveButton'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl, formatCount, formatTimeAgo } from '@/lib/utils/helpers'
@@ -212,6 +213,7 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
                     className="ml-auto text-muted-foreground hover:text-foreground">
                     <Share2 className="h-5 w-5" />
                   </button>
+                  <SaveButton postId={post.id} className="text-muted-foreground hover:text-foreground transition-colors" iconClassName="h-5 w-5" />
                 </div>
                 {user && (
                   <form onSubmit={handleComment} className="flex gap-2">
