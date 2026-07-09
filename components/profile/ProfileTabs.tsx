@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCount } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
 import { PostCaption } from '@/components/shared/PostCaption'
+import { SaveButton } from '@/components/shared/SaveButton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 
@@ -276,6 +277,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                     <Heart className={`h-6 w-6 transition-all ${liked ? 'fill-red-500 text-red-500 scale-110' : 'text-foreground'}`} />
                   </button>
                   <span className="text-sm font-semibold">{formatCount(likesCount)} likes</span>
+                  <SaveButton postId={selectedPost.id} className="ml-auto text-muted-foreground hover:text-foreground transition-colors" iconClassName="h-5 w-5" />
                 </div>
 
                 {/* Comment input */}
