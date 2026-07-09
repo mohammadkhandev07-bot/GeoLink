@@ -100,11 +100,28 @@ CREATE TABLE public.notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE public.saved_folders (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE public.saved_posts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE NOT NULL,
+    folder_id UUID REFERENCES public.saved_folders(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, post_id)
+);
+
 -- ============================================================
 -- REALTIME
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE saved_posts;
 
 -- ============================================================
 -- RLS (Row Level Security)
@@ -118,6 +135,8 @@ ALTER TABLE public.chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shares ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_folders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_posts ENABLE ROW LEVEL SECURITY;
 
 -- PROFILES policies
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
@@ -202,6 +221,25 @@ CREATE POLICY "Users can view own notifications" ON public.notifications FOR SEL
 CREATE POLICY "Users can insert notifications for others" ON public.notifications FOR INSERT WITH CHECK (auth.uid() = actor_id);
 CREATE POLICY "Users can update own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own notifications" ON public.notifications FOR DELETE USING (auth.uid() = user_id);
+
+-- SAVED FOLDERS / SAVED POSTS policies
+CREATE POLICY "Users manage own folders" ON public.saved_folders FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users manage own saved posts" ON public.saved_posts FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Hard limit of 10 folders per user
+CREATE OR REPLACE FUNCTION check_folder_limit()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (SELECT COUNT(*) FROM public.saved_folders WHERE user_id = NEW.user_id) >= 10 THEN
+    RAISE EXCEPTION 'Folder limit of 10 reached';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_folder_limit
+  BEFORE INSERT ON public.saved_folders
+  FOR EACH ROW EXECUTE FUNCTION check_folder_limit();
 
 -- ============================================================
 -- HELPER FUNCTIONS (for counter increments)
