@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  const protectedRoutes = ['/feed', '/explore', '/reels', '/chat', '/profile', '/settings']
+  const protectedRoutes = ['/feed', '/explore', '/reels', '/chat', '/profile', '/settings', '/saved']
   const authRoutes = ['/login', '/signup', '/verify-email']
 
   const isProtected = protectedRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))
