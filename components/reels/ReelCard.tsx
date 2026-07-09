@@ -6,6 +6,7 @@ import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send } from 'lucide-
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
+import { SaveButton } from '@/components/shared/SaveButton'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatCount, getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -153,6 +154,13 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
           </div>
           <span className="text-white text-xs font-semibold drop-shadow">Share</span>
         </button>
+
+        {/* Save */}
+        <SaveButton
+          postId={post.id}
+          className="p-2 rounded-full bg-black/30 backdrop-blur-sm"
+          iconClassName="h-6 w-6 text-white"
+        />
 
         {/* Mute */}
         <button onClick={onToggleMute}>
