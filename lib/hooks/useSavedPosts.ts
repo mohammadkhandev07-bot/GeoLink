@@ -2,7 +2,23 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { SavedFolder } from '@/lib/types/database.types'
+
+// Defined locally (instead of imported from database.types.ts) so this file
+// builds correctly on its own regardless of whether that file was updated.
+export type SavedFolder = {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+
+export type SavedPost = {
+  id: string
+  user_id: string
+  post_id: string
+  folder_id: string
+  created_at: string
+}
 
 export const MAX_SAVED_FOLDERS = 10
 
