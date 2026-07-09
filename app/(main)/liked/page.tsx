@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
+import { SaveButton } from '@/components/shared/SaveButton'
 import { getAvatarUrl, formatTimeAgo, formatCount } from '@/lib/utils/helpers'
 
 export default function LikedPage() {
@@ -245,10 +246,11 @@ export default function LikedPage() {
                   {/* Share — video band nahi hogi */}
                   <button
                     onClick={handleShare}
-                    className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Share2 className="h-5 w-5" />
                   </button>
+                  <SaveButton postId={selectedPost.id} className="ml-auto text-muted-foreground hover:text-foreground transition-colors" iconClassName="h-5 w-5" />
                 </div>
                 {user && (
                   <form onSubmit={handleComment} className="flex gap-2">
