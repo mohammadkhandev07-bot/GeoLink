@@ -46,6 +46,14 @@ export function Navbar() {
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
 
+          {/* Aperonix AI */}
+          <Link href="/aperonix">
+            <Button variant="ghost" size="icon" className="gap-1 px-2 w-auto" title="Aperonix AI">
+              <Image src="/images/aperonix-logo.png" alt="Aperonix" width={16} height={16} className="rounded-full" />
+              <span className="text-xs font-medium hidden sm:inline">Aperonix</span>
+            </Button>
+          </Link>
+
           {/* Settings - mobile pe bhi dikhega */}
           <Link href="/settings">
             <Button variant="ghost" size="icon">
