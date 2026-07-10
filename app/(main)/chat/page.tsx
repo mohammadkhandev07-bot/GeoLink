@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
 import { Edit } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
@@ -81,6 +83,18 @@ export default function ChatPage() {
           <Edit className="h-5 w-5" />
         </button>
       </div>
+
+      {/* Aperonix AI - always pinned at the top */}
+      <Link
+        href="/aperonix"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors border-b text-left"
+      >
+        <Image src="/images/aperonix-logo.png" alt="Aperonix" width={48} height={48} className="rounded-full shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">Aperonix AI</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">Ask me anything about GeoLink</p>
+        </div>
+      </Link>
 
       {chats.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
