@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ImageIcon, Film, ArrowLeft, Hash, FileText } from 'lucide-react'
+import { X, ImageIcon, Film, ArrowLeft, Hash, FileText, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,20 @@ function getActiveHashtagWord(value: string, cursorPos: number) {
   return { word: value.slice(hashIndex, end), start: hashIndex, end }
 }
 
+// Converts a File into a raw base64 string (no "data:mime;base64," prefix) for
+// sending to the Gemini API.
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.split(',')[1] ?? '')
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export function CreatePostModal({ onClose }: CreatePostModalProps) {
   const { user, profile } = useUser()
   const supabase = createClient()
@@ -58,6 +72,15 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   const [hashtagSuggestions, setHashtagSuggestions] = useState<string[]>([])
   const [showHashtagSuggestions, setShowHashtagSuggestions] = useState(false)
 
+  // Aperonix "watch the media and generate" state - one loading/generated flag per field
+  const [generating, setGenerating] = useState<Record<'title' | 'description' | 'hashtags', boolean>>({
+    title: false, description: false, hashtags: false,
+  })
+  const [generated, setGenerated] = useState<Record<'title' | 'description' | 'hashtags', boolean>>({
+    title: false, description: false, hashtags: false,
+  })
+  const [generateError, setGenerateError] = useState('')
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -72,6 +95,40 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
     setMediaPreview(null)
     setMediaFile(null)
     setStep('details')
+  }
+
+  const generateField = async (field: 'title' | 'description' | 'hashtags') => {
+    if (!mediaFile) return
+    setGenerateError('')
+    setGenerating(prev => ({ ...prev, [field]: true }))
+    try {
+      const mediaBase64 = await fileToBase64(mediaFile)
+      const previousResult = field === 'title' ? title : field === 'description' ? description : hashtags
+
+      const res = await fetch('/api/aperonix/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mediaBase64,
+          mimeType: mediaFile.type,
+          field,
+          regenerate: generated[field],
+          previousResult: generated[field] ? previousResult : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Aperonix could not generate that right now.')
+
+      if (field === 'title') setTitle(data.result.slice(0, 100))
+      else if (field === 'description') setDescription(data.result.slice(0, 2200))
+      else setHashtags(data.result)
+
+      setGenerated(prev => ({ ...prev, [field]: true }))
+    } catch (err: any) {
+      setGenerateError(err.message || 'Something went wrong while generating.')
+    } finally {
+      setGenerating(prev => ({ ...prev, [field]: false }))
+    }
   }
 
   const handleHashtagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,9 +337,22 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
               {/* Title */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Title {mediaType === 'video' ? '(Reel Title)' : '(Optional)'}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Title {mediaType === 'video' ? '(Reel Title)' : '(Optional)'}
+                  </label>
+                  {mediaFile && (
+                    <button
+                      type="button"
+                      onClick={() => generateField('title')}
+                      disabled={generating.title}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-pink-500 hover:text-pink-600 disabled:opacity-50"
+                    >
+                      {generating.title ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {generating.title ? 'Aperonix is thinking...' : generated.title ? 'Regenerate' : 'Generate with Aperonix'}
+                    </button>
+                  )}
+                </div>
                 <Input
                   value={title}
                   onChange={e => setTitle(e.target.value)}
@@ -295,9 +365,22 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
               {/* Description */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Description / Caption
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Description / Caption
+                  </label>
+                  {mediaFile && (
+                    <button
+                      type="button"
+                      onClick={() => generateField('description')}
+                      disabled={generating.description}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-pink-500 hover:text-pink-600 disabled:opacity-50"
+                    >
+                      {generating.description ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {generating.description ? 'Aperonix is thinking...' : generated.description ? 'Regenerate' : 'Generate with Aperonix'}
+                    </button>
+                  )}
+                </div>
                 <Textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -311,9 +394,22 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
               {/* Hashtags */}
               <div className="relative">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <Hash className="h-3 w-3" /> Hashtags
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> Hashtags
+                  </label>
+                  {mediaFile && (
+                    <button
+                      type="button"
+                      onClick={() => generateField('hashtags')}
+                      disabled={generating.hashtags}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-pink-500 hover:text-pink-600 disabled:opacity-50"
+                    >
+                      {generating.hashtags ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {generating.hashtags ? 'Aperonix is thinking...' : generated.hashtags ? 'Regenerate' : 'Generate with Aperonix'}
+                    </button>
+                  )}
+                </div>
                 <Input
                   ref={hashtagInputRef}
                   value={hashtags}
@@ -342,6 +438,10 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                 )}
                 <p className="text-[10px] text-muted-foreground mt-1">Add hashtags separated by spaces</p>
               </div>
+
+              {generateError && (
+                <p className="text-xs text-red-500 -mt-2">{generateError}</p>
+              )}
 
               {/* Preview */}
               {(title || description || hashtags) && (
