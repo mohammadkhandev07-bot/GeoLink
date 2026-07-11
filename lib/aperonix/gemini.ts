@@ -1,5 +1,5 @@
 // Shared helper for calling the Gemini API. Used by both the Aperonix
-// chatbot and the "Generate" buttons in Create Post.
+// Chatbot and the "Generate" buttons in Create Post.
 //
 // Uses separate API keys per feature so load is spread out and one feature
 // running hot doesn't affect the others:
