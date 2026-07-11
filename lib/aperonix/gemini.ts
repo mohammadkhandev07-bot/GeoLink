@@ -43,7 +43,7 @@ export interface GeminiFunctionResponsePart {
 export type GeminiPart = GeminiTextPart | GeminiInlineDataPart | GeminiFunctionCallPart | GeminiFunctionResponsePart
 
 export interface GeminiMessage {
-  role: 'user' | 'model' | 'function'
+  role: 'user' | 'model'
   parts: GeminiPart[]
 }
 
