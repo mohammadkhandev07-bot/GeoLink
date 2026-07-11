@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     const followUpContents: GeminiMessage[] = [
       ...contents,
       { role: 'model', parts: [{ functionCall }] },
-      { role: 'function', parts: [{ functionResponse: { name: functionCall.name, response: toolResult } }] },
+      { role: 'user', parts: [{ functionResponse: { name: functionCall.name, response: toolResult } }] },
     ]
 
     const secondContent = await callGemini('search', APERONIX_SYSTEM_PROMPT, followUpContents, [SEARCH_TOOL])
