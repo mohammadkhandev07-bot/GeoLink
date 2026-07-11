@@ -1,166 +1,112 @@
-// Shared helper for calling the Gemini API. Used by both the Aperonix
-// chatbot and the "Generate" buttons in Create Post.
-//
-// Uses 4 separate API keys so load is spread out and one feature running hot
-// doesn't affect the others:
-//   GEMINI_API_KEY_CHAT     - the Aperonix chatbot conversation
-//   GEMINI_API_KEY_GENERATE - title/description/hashtag generation in Create Post
-//   GEMINI_API_KEY_SEARCH   - the "search GeoLink" tool the chatbot can call
-//   GEMINI_API_KEY_BACKUP   - automatically used if any of the 3 above fails
-//
-// Any failure that reaches the caller is a plain "Try again later." message -
-// no internal details (status codes, which key, etc.) are ever exposed to the
-// person using the app.
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { callGemini, extractText, extractFunctionCall, GeminiMessage, GeminiTool } from '@/lib/aperonix/gemini'
+import { APERONIX_SYSTEM_PROMPT } from '@/lib/aperonix/systemPrompt'
 
-const GEMINI_MODEL = 'gemini-flash-latest'
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
-
-export interface GeminiTextPart {
-  text: string
-}
-
-export interface GeminiInlineDataPart {
-  inlineData: {
-    mimeType: string
-    data: string // base64, no data: prefix
-  }
-}
-
-export interface GeminiFunctionCallPart {
-  functionCall: {
-    name: string
-    args: Record<string, any>
-  }
-}
-
-export interface GeminiFunctionResponsePart {
-  functionResponse: {
-    name: string
-    response: Record<string, any>
-  }
-}
-
-export type GeminiPart = GeminiTextPart | GeminiInlineDataPart | GeminiFunctionCallPart | GeminiFunctionResponsePart
-
-export interface GeminiMessage {
+interface ChatHistoryItem {
   role: 'user' | 'model'
-  parts: GeminiPart[]
+  content: string
 }
 
-export interface GeminiFunctionDeclaration {
-  name: string
-  description: string
-  parameters: {
-    type: 'OBJECT'
-    properties: Record<string, { type: string; description?: string }>
-    required?: string[]
-  }
-}
-
-export interface GeminiTool {
-  functionDeclarations: GeminiFunctionDeclaration[]
-}
-
-export type GeminiRole = 'chat' | 'generate' | 'search'
-
-function getPrimaryKey(role: GeminiRole): string | undefined {
-  if (role === 'chat') return process.env.GEMINI_API_KEY_CHAT
-  if (role === 'generate') return process.env.GEMINI_API_KEY_GENERATE
-  return process.env.GEMINI_API_KEY_SEARCH
-}
-
-function getBackupKey(): string | undefined {
-  return process.env.GEMINI_API_KEY_BACKUP
-}
-
-async function requestGemini(apiKey: string, systemPrompt: string, contents: GeminiMessage[], tools?: GeminiTool[]) {
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    contents,
-    ...(tools ? { tools } : {}),
-    generationConfig: {
-      temperature: 0.9,
-      maxOutputTokens: 1024,
+const SEARCH_TOOL: GeminiTool = {
+  functionDeclarations: [
+    {
+      name: 'search_geolink_profiles',
+      description: 'Searches GeoLink\'s user profiles by username or full name. Use this whenever the user asks you to check, find, or search for a specific person/profile on GeoLink (e.g. "is there a profile named Uzair on GeoLink?").',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          query: { type: 'STRING', description: 'The username or name to search for' },
+        },
+        required: ['query'],
+      },
     },
+  ],
+}
+
+async function searchProfiles(query: string) {
+  if (!query?.trim()) return { matches: [] }
+
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('username, full_name, bio, is_private')
+    .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
+    .limit(5)
+
+  if (error || !data || data.length === 0) return { matches: [] }
+
+  // Privacy rule: for private accounts, we never even hand the model their
+  // username, name, or a link - only a flag saying a private match exists.
+  const matches = data.map(p => {
+    if (p.is_private) {
+      return {
+        private: true,
+        note: 'A private account matched this search. Do NOT reveal its username, name, bio, or any link to it - just tell the user a private account matched but you can\'t share details about private accounts.',
+      }
+    }
+    return {
+      private: false,
+      username: p.username,
+      full_name: p.full_name || undefined,
+      bio: p.bio || undefined,
+      how_to_find: `Tell the user they can find this person by searching "@${p.username}" in GeoLink's search bar.`,
+    }
   })
 
-  // Retry the same key a couple of times for transient 503 (overloaded) / 429
-  // (rate limited) errors before giving up on it and trying the backup key.
-  const maxAttempts = 2
-  let lastStatus = 0
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    })
-
-    if (response.ok) return response.json()
-
-    lastStatus = response.status
-    const isRetryable = response.status === 503 || response.status === 429
-    if (!isRetryable || attempt === maxAttempts) break
-    await new Promise(resolve => setTimeout(resolve, attempt * 700))
-  }
-
-  const err: any = new Error(`Gemini request failed (status ${lastStatus})`)
-  err.status = lastStatus
-  throw err
+  return { matches }
 }
 
-/**
- * Calls Gemini using the key assigned to `role`, automatically falling back
- * to the backup key if that fails. Returns the raw `content` object of the
- * first candidate (so the caller can check for a functionCall or plain text).
- * Throws a generic "Try again later." error on total failure - never leaks
- * internal details to the caller.
- */
-export async function callGemini(
-  role: GeminiRole,
-  systemPrompt: string,
-  contents: GeminiMessage[],
-  tools?: GeminiTool[]
-) {
-  const primary = getPrimaryKey(role)
-  const backup = getBackupKey()
-
-  if (!primary && !backup) {
-    console.error(`Aperonix: no Gemini API key configured for role "${role}" and no backup key either.`)
-    throw new Error('Try again later.')
-  }
-
-  let data: any = null
-
-  if (primary) {
-    try {
-      data = await requestGemini(primary, systemPrompt, contents, tools)
-    } catch (err) {
-      console.error(`Aperonix: Gemini call failed on the "${role}" key, falling back to backup key if available.`, err)
+export async function POST(request: NextRequest) {
+  try {
+    const { messages, newMessage } = (await request.json()) as {
+      messages: ChatHistoryItem[]
+      newMessage: string
     }
-  }
 
-  if (!data && backup) {
-    try {
-      data = await requestGemini(backup, systemPrompt, contents, tools)
-    } catch (err) {
-      console.error('Aperonix: Gemini call failed on the backup key too.', err)
+    if (!newMessage?.trim()) {
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
+
+    // Keep only the last 20 turns of history so the request doesn't grow unbounded.
+    const trimmedHistory = (messages || []).slice(-20)
+
+    const contents: GeminiMessage[] = [
+      ...trimmedHistory.map(m => ({ role: m.role, parts: [{ text: m.content }] })),
+      { role: 'user' as const, parts: [{ text: newMessage }] },
+    ]
+
+    // Step 1: ask Gemini (chat key) with the GeoLink search tool available.
+    const firstContent = await callGemini('chat', APERONIX_SYSTEM_PROMPT, contents, [SEARCH_TOOL])
+    const functionCall = extractFunctionCall(firstContent)
+
+    if (!functionCall) {
+      const reply = extractText(firstContent) || "Sorry, I couldn't come up with a reply. Try again?"
+      return NextResponse.json({ reply })
+    }
+
+    // Step 2: actually run the search (privacy-filtered), then ask Gemini
+    // again (search key this time) to turn the result into a natural reply.
+    const toolResult = functionCall.name === 'search_geolink_profiles'
+      ? await searchProfiles(functionCall.args?.query || '')
+      : { matches: [] }
+
+    const followUpContents: GeminiMessage[] = [
+      ...contents,
+      { role: 'model', parts: [{ functionCall }] },
+      { role: 'user', parts: [{ functionResponse: { name: functionCall.name, response: toolResult } }] },
+    ]
+
+    const secondContent = await callGemini('search', APERONIX_SYSTEM_PROMPT, followUpContents, [SEARCH_TOOL])
+    const reply = extractText(secondContent) || "Sorry, I couldn't finish that search. Try again?"
+
+    return NextResponse.json({ reply })
+  } catch (error: any) {
+    console.error('Aperonix chat error:', error)
+    return NextResponse.json({ error: 'Try again later.' }, { status: 500 })
   }
-
-  if (!data) {
-    throw new Error('Try again later.')
-  }
-
-  return data.candidates?.[0]?.content ?? null
-}
-
-export function extractText(content: any): string {
-  if (!content?.parts) return ''
-  return content.parts.map((p: any) => p.text || '').join('').trim()
-}
-
-export function extractFunctionCall(content: any): { name: string; args: Record<string, any> } | null {
-  const part = content?.parts?.find((p: any) => p.functionCall)
-  return part?.functionCall ?? null
 }
