@@ -80,6 +80,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
     title: false, description: false, hashtags: false,
   })
   const [generateError, setGenerateError] = useState('')
+  const [aiContext, setAiContext] = useState('')
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -98,26 +99,33 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   }
 
   const generateField = async (field: 'title' | 'description' | 'hashtags') => {
-    if (!mediaFile) return
+    const hasMedia = !!mediaFile
+    const hasContext = mediaType === 'none' && aiContext.trim().length > 0
+    if (!hasMedia && !hasContext) {
+      setGenerateError('Type a quick note above about what this post is about first, so Aperonix knows what to write.')
+      return
+    }
+
     setGenerateError('')
     setGenerating(prev => ({ ...prev, [field]: true }))
     try {
-      const mediaBase64 = await fileToBase64(mediaFile)
       const previousResult = field === 'title' ? title : field === 'description' ? description : hashtags
+      const mediaBase64 = hasMedia ? await fileToBase64(mediaFile!) : undefined
 
       const res = await fetch('/api/aperonix/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mediaBase64,
-          mimeType: mediaFile.type,
+          mimeType: hasMedia ? mediaFile!.type : undefined,
+          context: hasMedia ? undefined : aiContext.trim(),
           field,
           regenerate: generated[field],
           previousResult: generated[field] ? previousResult : undefined,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Aperonix could not generate that right now.')
+      if (!res.ok) throw new Error(data.error || 'Try again later.')
 
       if (field === 'title') setTitle(data.result.slice(0, 100))
       else if (field === 'description') setDescription(data.result.slice(0, 2200))
@@ -125,7 +133,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
       setGenerated(prev => ({ ...prev, [field]: true }))
     } catch (err: any) {
-      setGenerateError(err.message || 'Something went wrong while generating.')
+      setGenerateError(err.message || 'Try again later.')
     } finally {
       setGenerating(prev => ({ ...prev, [field]: false }))
     }
@@ -335,13 +343,31 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                 <p className="font-semibold text-sm">{profile?.username}</p>
               </div>
 
+              {/* Aperonix context - only for text-only posts, since there's no media to "watch" */}
+              {mediaType === 'none' && (
+                <div className="bg-gradient-to-br from-pink-500/5 to-purple-500/5 border border-pink-500/20 rounded-xl p-3">
+                  <label className="text-xs font-semibold text-pink-500 uppercase tracking-wide flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Tell Aperonix what this post is about
+                  </label>
+                  <Textarea
+                    value={aiContext}
+                    onChange={e => setAiContext(e.target.value)}
+                    placeholder="e.g. a motivational post about starting fresh on Monday..."
+                    className="mt-1.5 resize-none bg-background"
+                    rows={2}
+                    maxLength={300}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Used only to help Aperonix generate a title, caption, or hashtags below - it's not part of your post.</p>
+                </div>
+              )}
+
               {/* Title */}
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Title {mediaType === 'video' ? '(Reel Title)' : '(Optional)'}
                   </label>
-                  {mediaFile && (
+                  {(mediaFile || mediaType === 'none') && (
                     <button
                       type="button"
                       onClick={() => generateField('title')}
@@ -369,7 +395,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Description / Caption
                   </label>
-                  {mediaFile && (
+                  {(mediaFile || mediaType === 'none') && (
                     <button
                       type="button"
                       onClick={() => generateField('description')}
@@ -398,7 +424,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                     <Hash className="h-3 w-3" /> Hashtags
                   </label>
-                  {mediaFile && (
+                  {(mediaFile || mediaType === 'none') && (
                     <button
                       type="button"
                       onClick={() => generateField('hashtags')}
