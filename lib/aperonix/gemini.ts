@@ -1,12 +1,14 @@
 // Shared helper for calling the Gemini API. Used by both the Aperonix
 // chatbot and the "Generate" buttons in Create Post.
 //
-// Uses 4 separate API keys so load is spread out and one feature running hot
-// doesn't affect the others:
+// Uses separate API keys per feature so load is spread out and one feature
+// running hot doesn't affect the others:
 //   GEMINI_API_KEY_CHAT     - the Aperonix chatbot conversation
 //   GEMINI_API_KEY_GENERATE - title/description/hashtag generation in Create Post
-//   GEMINI_API_KEY_SEARCH   - the "search GeoLink" tool the chatbot can call
-//   GEMINI_API_KEY_BACKUP   - automatically used if any of the 3 above fails
+//   GEMINI_API_KEY_BACKUP   - automatically used if the primary key above fails
+//   GEMINI_API_KEY_SEARCH   - no longer tied to a feature (search was removed),
+//                             but if it's set it's automatically used as an
+//                             extra backup key too, so nothing goes to waste.
 //
 // Any failure that reaches the caller is a plain "Try again later." message -
 // no internal details (status codes, which key, etc.) are ever exposed to the
@@ -61,16 +63,17 @@ export interface GeminiTool {
   functionDeclarations: GeminiFunctionDeclaration[]
 }
 
-export type GeminiRole = 'chat' | 'generate' | 'search'
+export type GeminiRole = 'chat' | 'generate'
 
 function getPrimaryKey(role: GeminiRole): string | undefined {
   if (role === 'chat') return process.env.GEMINI_API_KEY_CHAT
-  if (role === 'generate') return process.env.GEMINI_API_KEY_GENERATE
-  return process.env.GEMINI_API_KEY_SEARCH
+  return process.env.GEMINI_API_KEY_GENERATE
 }
 
-function getBackupKey(): string | undefined {
-  return process.env.GEMINI_API_KEY_BACKUP
+// The dedicated "search" key isn't tied to a live feature anymore, so it's
+// folded into the backup pool instead of going unused - one extra safety net.
+function getBackupKeys(): string[] {
+  return [process.env.GEMINI_API_KEY_BACKUP, process.env.GEMINI_API_KEY_SEARCH].filter(Boolean) as string[]
 }
 
 async function requestGemini(apiKey: string, systemPrompt: string, contents: GeminiMessage[], tools?: GeminiTool[]) {
@@ -111,10 +114,9 @@ async function requestGemini(apiKey: string, systemPrompt: string, contents: Gem
 
 /**
  * Calls Gemini using the key assigned to `role`, automatically falling back
- * to the backup key if that fails. Returns the raw `content` object of the
- * first candidate (so the caller can check for a functionCall or plain text).
- * Throws a generic "Try again later." error on total failure - never leaks
- * internal details to the caller.
+ * through the backup keys (in order) if that fails. Returns the raw `content`
+ * object of the first candidate. Throws a generic "Try again later." error on
+ * total failure - never leaks internal details to the caller.
  */
 export async function callGemini(
   role: GeminiRole,
@@ -122,29 +124,21 @@ export async function callGemini(
   contents: GeminiMessage[],
   tools?: GeminiTool[]
 ) {
-  const primary = getPrimaryKey(role)
-  const backup = getBackupKey()
+  const keysToTry = [getPrimaryKey(role), ...getBackupKeys()].filter(Boolean) as string[]
 
-  if (!primary && !backup) {
-    console.error(`Aperonix: no Gemini API key configured for role "${role}" and no backup key either.`)
+  if (keysToTry.length === 0) {
+    console.error(`Aperonix: no Gemini API key configured for role "${role}" and no backup keys either.`)
     throw new Error('Try again later.')
   }
 
   let data: any = null
 
-  if (primary) {
+  for (const key of keysToTry) {
     try {
-      data = await requestGemini(primary, systemPrompt, contents, tools)
+      data = await requestGemini(key, systemPrompt, contents, tools)
+      break
     } catch (err) {
-      console.error(`Aperonix: Gemini call failed on the "${role}" key, falling back to backup key if available.`, err)
-    }
-  }
-
-  if (!data && backup) {
-    try {
-      data = await requestGemini(backup, systemPrompt, contents, tools)
-    } catch (err) {
-      console.error('Aperonix: Gemini call failed on the backup key too.', err)
+      console.error(`Aperonix: Gemini call failed on a "${role}"-role key, trying the next one if available.`, err)
     }
   }
 
