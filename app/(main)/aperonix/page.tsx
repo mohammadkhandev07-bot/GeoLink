@@ -62,7 +62,7 @@ export default function AperonixPage() {
     } catch (err: any) {
       addMessage(conversationId, {
         role: 'model',
-        content: `Sorry, I ran into an error: ${err.message || 'please try again.'}`,
+        content: 'Try again later.',
         timestamp: Date.now(),
       })
     } finally {
