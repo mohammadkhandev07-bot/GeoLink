@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 // Authorizes direct browser -> Vercel Blob uploads for the "Generate with
 // Aperonix" feature, bypassing Vercel's ~4.5MB serverless function body
 // limit entirely (the video bytes never pass through our own function here -
-// they go straight from the user's browser to Blob storage).
+// They go straight from the user's browser to Blob storage).
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody
 
