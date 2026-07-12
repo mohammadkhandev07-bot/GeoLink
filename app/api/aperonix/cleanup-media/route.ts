@@ -5,7 +5,7 @@ import { deleteUploadedFile } from '@/lib/aperonix/geminiFile'
 // Best-effort cleanup - called when the Create Post modal closes or after a
 // successful post, so nothing lingers in Gemini's or Vercel Blob's storage.
 // Always returns success even if something inside fails, since this is
-// just tidying up and should never block or error out the user's flow.
+// Just tidying up and should never block or error out the user's flow.
 export async function POST(request: NextRequest) {
   try {
     const { geminiFileName, keyIndex, blobUrl } = (await request.json()) as {
