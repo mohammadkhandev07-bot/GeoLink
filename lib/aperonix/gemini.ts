@@ -1,6 +1,18 @@
 // Shared helper for calling the Gemini API. Used by both the Aperonix
 // chatbot and the "Generate" buttons in Create Post.
-// Requires the GEMINI_API_KEY environment variable to be set (server-side only).
+//
+// Uses separate API keys per feature so load is spread out and one feature
+// running hot doesn't affect the others:
+//   GEMINI_API_KEY_CHAT     - the Aperonix chatbot conversation
+//   GEMINI_API_KEY_GENERATE - title/description/hashtag generation in Create Post
+//   GEMINI_API_KEY_BACKUP   - automatically used if the primary key above fails
+//   GEMINI_API_KEY_SEARCH   - no longer tied to a feature (search was removed),
+//                             but if it's set it's automatically used as an
+//                             extra backup key too, so nothing goes to waste.
+//
+// Any failure that reaches the caller is a plain "Try again later." message -
+// no internal details (status codes, which key, etc.) are ever exposed to the
+// person using the app.
 
 const GEMINI_MODEL = 'gemini-flash-latest'
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
@@ -16,39 +28,138 @@ export interface GeminiInlineDataPart {
   }
 }
 
-export type GeminiPart = GeminiTextPart | GeminiInlineDataPart
+export interface GeminiFunctionCallPart {
+  functionCall: {
+    name: string
+    args: Record<string, any>
+  }
+}
+
+export interface GeminiFunctionResponsePart {
+  functionResponse: {
+    name: string
+    response: Record<string, any>
+  }
+}
+
+export type GeminiPart = GeminiTextPart | GeminiInlineDataPart | GeminiFunctionCallPart | GeminiFunctionResponsePart
 
 export interface GeminiMessage {
   role: 'user' | 'model'
   parts: GeminiPart[]
 }
 
-export async function callGemini(systemPrompt: string, contents: GeminiMessage[]) {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set on the server. Add it in your hosting provider\'s Environment Variables.')
+export interface GeminiFunctionDeclaration {
+  name: string
+  description: string
+  parameters: {
+    type: 'OBJECT'
+    properties: Record<string, { type: string; description?: string }>
+    required?: string[]
   }
+}
 
-  const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents,
-      generationConfig: {
-        temperature: 0.9,
-        maxOutputTokens: 1024,
-      },
-    }),
+export interface GeminiTool {
+  functionDeclarations: GeminiFunctionDeclaration[]
+}
+
+export type GeminiRole = 'chat' | 'generate'
+
+export function getPrimaryKey(role: GeminiRole): string | undefined {
+  if (role === 'chat') return process.env.GEMINI_API_KEY_CHAT
+  return process.env.GEMINI_API_KEY_GENERATE
+}
+
+// The dedicated "search" key isn't tied to a live feature anymore, so it's
+// folded into the backup pool instead of going unused - one extra safety net.
+export function getBackupKeys(): string[] {
+  return [process.env.GEMINI_API_KEY_BACKUP, process.env.GEMINI_API_KEY_SEARCH].filter(Boolean) as string[]
+}
+
+/** All keys to try, in order, for a given role - primary first, then backups. */
+export function getKeysForRole(role: GeminiRole): string[] {
+  return [getPrimaryKey(role), ...getBackupKeys()].filter(Boolean) as string[]
+}
+
+async function requestGemini(apiKey: string, systemPrompt: string, contents: GeminiMessage[], tools?: GeminiTool[]) {
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents,
+    ...(tools ? { tools } : {}),
+    generationConfig: {
+      temperature: 0.9,
+      maxOutputTokens: 1024,
+    },
   })
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '')
-    throw new Error(`Gemini API error (${response.status}): ${errText || response.statusText}`)
+  // Retry the same key a couple of times for transient 503 (overloaded) / 429
+  // (rate limited) errors before giving up on it and trying the backup key.
+  const maxAttempts = 2
+  let lastStatus = 0
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
+
+    if (response.ok) return response.json()
+
+    lastStatus = response.status
+    const isRetryable = response.status === 503 || response.status === 429
+    if (!isRetryable || attempt === maxAttempts) break
+    await new Promise(resolve => setTimeout(resolve, attempt * 700))
   }
 
-  const data = await response.json()
-  const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') ?? ''
-  if (!text) throw new Error('Gemini returned an empty response.')
-  return text.trim()
+  const err: any = new Error(`Gemini request failed (status ${lastStatus})`)
+  err.status = lastStatus
+  throw err
+}
+
+/**
+ * Calls Gemini using the key assigned to `role`, automatically falling back
+ * through the backup keys (in order) if that fails. Returns the raw `content`
+ * object of the first candidate. Throws a generic "Try again later." error on
+ * total failure - never leaks internal details to the caller.
+ */
+export async function callGemini(
+  role: GeminiRole,
+  systemPrompt: string,
+  contents: GeminiMessage[],
+  tools?: GeminiTool[]
+) {
+  const keysToTry = getKeysForRole(role)
+
+  if (keysToTry.length === 0) {
+    console.error(`Aperonix: no Gemini API key configured for role "${role}" and no backup keys either.`)
+    throw new Error('Try again later.')
+  }
+
+  let data: any = null
+
+  for (const key of keysToTry) {
+    try {
+      data = await requestGemini(key, systemPrompt, contents, tools)
+      break
+    } catch (err) {
+      console.error(`Aperonix: Gemini call failed on a "${role}"-role key, trying the next one if available.`, err)
+    }
+  }
+
+  if (!data) {
+    throw new Error('Try again later.')
+  }
+
+  return data.candidates?.[0]?.content ?? null
+}
+
+export function extractText(content: any): string {
+  if (!content?.parts) return ''
+  return content.parts.map((p: any) => p.text || '').join('').trim()
+}
+
+export function extractFunctionCall(content: any): { name: string; args: Record<string, any> } | null {
+  const part = content?.parts?.find((p: any) => p.functionCall)
+  return part?.functionCall ?? null
 }
