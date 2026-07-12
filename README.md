@@ -6,7 +6,7 @@ A full-stack social media app built with **Next.js 15**, **TypeScript**, **Tailw
 
 ## 🚀 Features
 
-- ✅ Email/Password auth + Google OAuth + Email verification
+- ✅ Email/Password auth + Google OAuth + Email Verification
 - ✅ User profiles with avatar & cover photo
 - ✅ Follow system (public & private accounts)
 - ✅ Follow requests & approval
