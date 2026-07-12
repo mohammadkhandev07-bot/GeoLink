@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { uploadMediaToGemini } from '@/lib/aperonix/geminiFile'
 
 // Uploading + waiting for Gemini to process a video can take a little while,
-// so this route gets extra time to run (60s is the max on Vercel's Hobby plan).
+// So this route gets extra time to run (60s is the max on Vercel's Hobby plan).
 export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
