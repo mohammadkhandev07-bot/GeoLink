@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { upload } from '@vercel/blob/client'
 import { X, ImageIcon, Film, ArrowLeft, Hash, FileText, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,20 +40,6 @@ function getActiveHashtagWord(value: string, cursorPos: number) {
   return { word: value.slice(hashIndex, end), start: hashIndex, end }
 }
 
-// Converts a File into a raw base64 string (no "data:mime;base64," prefix) for
-// sending to the Gemini API.
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.split(',')[1] ?? '')
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
 export function CreatePostModal({ onClose }: CreatePostModalProps) {
   const { user, profile } = useUser()
   const supabase = createClient()
@@ -81,6 +68,13 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   })
   const [generateError, setGenerateError] = useState('')
   const [aiContext, setAiContext] = useState('')
+  const [uploadingMedia, setUploadingMedia] = useState(false)
+  const [uploadedMedia, setUploadedMedia] = useState<{
+    fileUri: string
+    geminiFileName: string
+    keyIndex: number
+    blobUrl: string
+  } | null>(null)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -98,6 +92,54 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
     setStep('details')
   }
 
+  // Uploads the selected media to Vercel Blob (bypassing Vercel's ~4.5MB
+  // function body limit), then hands it to Gemini's File API once. Reused
+  // for every "Generate"/"Regenerate" click within this session so the media
+  // is only uploaded a single time no matter how many fields get generated.
+  const ensureMediaUploaded = async () => {
+    if (uploadedMedia) return uploadedMedia
+    if (!mediaFile) return null
+
+    setUploadingMedia(true)
+    try {
+      const blob = await upload(mediaFile.name, mediaFile, {
+        access: 'public',
+        handleUploadUrl: '/api/aperonix/blob-upload',
+      })
+
+      const res = await fetch('/api/aperonix/upload-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blobUrl: blob.url, mimeType: mediaFile.type }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Try again later.')
+
+      const result = { fileUri: data.fileUri, geminiFileName: data.geminiFileName, keyIndex: data.keyIndex, blobUrl: blob.url }
+      setUploadedMedia(result)
+      return result
+    } finally {
+      setUploadingMedia(false)
+    }
+  }
+
+  // Best-effort cleanup of the temporary Gemini file + Blob - called when the
+  // modal closes or after a successful post, so nothing lingers in storage.
+  const cleanupMedia = () => {
+    if (!uploadedMedia) return
+    fetch('/api/aperonix/cleanup-media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(uploadedMedia),
+    }).catch(() => {})
+    setUploadedMedia(null)
+  }
+
+  const handleClose = () => {
+    cleanupMedia()
+    onClose()
+  }
+
   const generateField = async (field: 'title' | 'description' | 'hashtags') => {
     const hasMedia = !!mediaFile
     const hasContext = mediaType === 'none' && aiContext.trim().length > 0
@@ -110,14 +152,21 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
     setGenerating(prev => ({ ...prev, [field]: true }))
     try {
       const previousResult = field === 'title' ? title : field === 'description' ? description : hashtags
-      const mediaBase64 = hasMedia ? await fileToBase64(mediaFile!) : undefined
+
+      let mediaInfo: { fileUri: string; mimeType: string; keyIndex: number } | undefined
+      if (hasMedia) {
+        const uploaded = await ensureMediaUploaded()
+        if (!uploaded) throw new Error('Try again later.')
+        mediaInfo = { fileUri: uploaded.fileUri, mimeType: mediaFile!.type, keyIndex: uploaded.keyIndex }
+      }
 
       const res = await fetch('/api/aperonix/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mediaBase64,
-          mimeType: hasMedia ? mediaFile!.type : undefined,
+          fileUri: mediaInfo?.fileUri,
+          mimeType: mediaInfo?.mimeType,
+          keyIndex: mediaInfo?.keyIndex,
           context: hasMedia ? undefined : aiContext.trim(),
           field,
           regenerate: generated[field],
@@ -228,7 +277,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
       queryClient.invalidateQueries({ queryKey: ['explore-posts'] })
       queryClient.invalidateQueries({ queryKey: ['profile-posts'] })
 
-      onClose()
+      handleClose()
     } catch (err) {
       console.error(err)
       alert('Upload failed. Please try again.')
@@ -249,7 +298,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-      onClick={onClose}>
+      onClick={handleClose}>
       <div className="bg-card border rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}>
 
@@ -266,7 +315,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
           <h2 className="font-bold text-base">
             {step === 'select' ? 'Create Post' : 'Add Details'}
           </h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -375,7 +424,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                       className="flex items-center gap-1 text-[11px] font-semibold text-pink-500 hover:text-pink-600 disabled:opacity-50"
                     >
                       {generating.title ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      {generating.title ? 'Aperonix is thinking...' : generated.title ? 'Regenerate' : 'Generate with Aperonix'}
+                      {generating.title ? (uploadingMedia ? 'Preparing media...' : 'Aperonix is thinking...') : generated.title ? 'Regenerate' : 'Generate with Aperonix'}
                     </button>
                   )}
                 </div>
@@ -403,7 +452,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                       className="flex items-center gap-1 text-[11px] font-semibold text-pink-500 hover:text-pink-600 disabled:opacity-50"
                     >
                       {generating.description ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      {generating.description ? 'Aperonix is thinking...' : generated.description ? 'Regenerate' : 'Generate with Aperonix'}
+                      {generating.description ? (uploadingMedia ? 'Preparing media...' : 'Aperonix is thinking...') : generated.description ? 'Regenerate' : 'Generate with Aperonix'}
                     </button>
                   )}
                 </div>
@@ -432,7 +481,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                       className="flex items-center gap-1 text-[11px] font-semibold text-pink-500 hover:text-pink-600 disabled:opacity-50"
                     >
                       {generating.hashtags ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      {generating.hashtags ? 'Aperonix is thinking...' : generated.hashtags ? 'Regenerate' : 'Generate with Aperonix'}
+                      {generating.hashtags ? (uploadingMedia ? 'Preparing media...' : 'Aperonix is thinking...') : generated.hashtags ? 'Regenerate' : 'Generate with Aperonix'}
                     </button>
                   )}
                 </div>
