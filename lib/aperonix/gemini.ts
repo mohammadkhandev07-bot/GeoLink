@@ -1,5 +1,5 @@
 // Shared helper for calling the Gemini API. Used by both the Aperonix
-// Chatbot and the "Generate" buttons in Create Post.
+// chatbot and the "Generate" buttons in Create Post.
 //
 // Uses separate API keys per feature so load is spread out and one feature
 // running hot doesn't affect the others:
@@ -65,15 +65,20 @@ export interface GeminiTool {
 
 export type GeminiRole = 'chat' | 'generate'
 
-function getPrimaryKey(role: GeminiRole): string | undefined {
+export function getPrimaryKey(role: GeminiRole): string | undefined {
   if (role === 'chat') return process.env.GEMINI_API_KEY_CHAT
   return process.env.GEMINI_API_KEY_GENERATE
 }
 
 // The dedicated "search" key isn't tied to a live feature anymore, so it's
 // folded into the backup pool instead of going unused - one extra safety net.
-function getBackupKeys(): string[] {
+export function getBackupKeys(): string[] {
   return [process.env.GEMINI_API_KEY_BACKUP, process.env.GEMINI_API_KEY_SEARCH].filter(Boolean) as string[]
+}
+
+/** All keys to try, in order, for a given role - primary first, then backups. */
+export function getKeysForRole(role: GeminiRole): string[] {
+  return [getPrimaryKey(role), ...getBackupKeys()].filter(Boolean) as string[]
 }
 
 async function requestGemini(apiKey: string, systemPrompt: string, contents: GeminiMessage[], tools?: GeminiTool[]) {
@@ -124,7 +129,7 @@ export async function callGemini(
   contents: GeminiMessage[],
   tools?: GeminiTool[]
 ) {
-  const keysToTry = [getPrimaryKey(role), ...getBackupKeys()].filter(Boolean) as string[]
+  const keysToTry = getKeysForRole(role)
 
   if (keysToTry.length === 0) {
     console.error(`Aperonix: no Gemini API key configured for role "${role}" and no backup keys either.`)
