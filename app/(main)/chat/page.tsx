@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Edit } from 'lucide-react'
+import { Edit, X, Search } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
@@ -23,12 +23,25 @@ interface Chat {
   unread_count?: number
 }
 
+interface SearchProfile {
+  id: string
+  username: string
+  full_name: string | null
+  avatar_url: string | null
+}
+
 export default function ChatPage() {
   const { user, loading } = useUser()
   const [chats, setChats] = useState<Chat[]>([])
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({})
   const router = useRouter()
   const supabase = createClient()
+
+  const [showNewChat, setShowNewChat] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchProfile[]>([])
+  const [searching, setSearching] = useState(false)
+  const [startingChatWith, setStartingChatWith] = useState<string | null>(null)
 
   const fetchChats = async () => {
     if (!user) return
@@ -63,6 +76,60 @@ export default function ChatPage() {
     return () => { supabase.removeChannel(channel) }
   }, [user])
 
+  // Search profiles by username/name while the "New conversation" panel is open
+  useEffect(() => {
+    if (!showNewChat) return
+    const query = searchQuery.trim()
+    if (!query) { setSearchResults([]); return }
+
+    setSearching(true)
+    const timeout = setTimeout(async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
+        .neq('id', user?.id ?? '')
+        .limit(15)
+      setSearchResults((data as SearchProfile[]) || [])
+      setSearching(false)
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [searchQuery, showNewChat, user])
+
+  const startChat = async (otherUserId: string) => {
+    if (!user || startingChatWith) return
+    setStartingChatWith(otherUserId)
+    try {
+      // Reuse an existing conversation if one already exists between these two users
+      const { data: existing } = await supabase
+        .from('chats')
+        .select('id')
+        .or(
+          `and(participant1_id.eq.${user.id},participant2_id.eq.${otherUserId}),` +
+          `and(participant1_id.eq.${otherUserId},participant2_id.eq.${user.id})`
+        )
+        .maybeSingle()
+
+      if (existing) {
+        router.push(`/chat/${existing.id}`)
+        return
+      }
+
+      const { data: created, error } = await supabase
+        .from('chats')
+        .insert({ participant1_id: user.id, participant2_id: otherUserId })
+        .select('id')
+        .single()
+
+      if (error || !created) throw error
+
+      router.push(`/chat/${created.id}`)
+    } catch {
+      setStartingChatWith(null)
+    }
+  }
+
   if (loading) return <PageLoader />
 
   const getLastMessagePreview = (chat: Chat) => {
@@ -79,7 +146,7 @@ export default function ChatPage() {
     <div className="max-w-xl mx-auto">
       <div className="sticky top-14 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold">Messages</h1>
-        <button className="text-muted-foreground hover:text-foreground">
+        <button onClick={() => setShowNewChat(true)} className="text-muted-foreground hover:text-foreground">
           <Edit className="h-5 w-5" />
         </button>
       </div>
@@ -140,6 +207,69 @@ export default function ChatPage() {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* New conversation modal */}
+      {showNewChat && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center p-4"
+          onClick={() => { setShowNewChat(false); setSearchQuery(''); setSearchResults([]) }}
+        >
+          <div
+            className="bg-card rounded-2xl w-full max-w-sm max-h-[70vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b">
+              <p className="font-semibold">New Conversation</p>
+              <button
+                onClick={() => { setShowNewChat(false); setSearchQuery(''); setSearchResults([]) }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-3 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by username..."
+                  className="w-full bg-muted rounded-xl pl-9 pr-3 py-2 text-sm outline-none border border-transparent focus:border-pink-500"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {searching ? (
+                <p className="text-xs text-muted-foreground text-center py-6">Searching...</p>
+              ) : searchQuery.trim() === '' ? (
+                <p className="text-xs text-muted-foreground text-center py-6">Type a username to find someone to message.</p>
+              ) : searchResults.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No one found.</p>
+              ) : (
+                searchResults.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => startChat(p.id)}
+                    disabled={startingChatWith === p.id}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-accent transition-colors text-left disabled:opacity-60"
+                  >
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarImage src={getAvatarUrl(p.avatar_url)} />
+                      <AvatarFallback>{p.username?.[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{p.username}</p>
+                      {p.full_name && <p className="text-xs text-muted-foreground truncate">{p.full_name}</p>}
+                    </div>
+                    {startingChatWith === p.id && <span className="text-xs text-muted-foreground">Starting...</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
