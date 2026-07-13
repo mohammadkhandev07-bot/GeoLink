@@ -63,4 +63,4 @@ export async function POST(request: NextRequest) {
     console.error('Aperonix generate error:', error)
     return NextResponse.json({ error: 'Try again later.' }, { status: 500 })
   }
-}
+} 
