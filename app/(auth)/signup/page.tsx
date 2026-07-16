@@ -23,12 +23,18 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const { register, handleSubmit, formState: { errors } } = useForm<SignupForm>()
 
   const onSubmit = async (data: SignupForm) => {
+    if (!agreedToTerms) {
+      setError('Please accept the Terms & Conditions and Privacy Policy to continue.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -70,6 +76,7 @@ export default function SignupPage() {
           cover_photo_url: null,
           is_private: false,
           is_verified: false,
+          accepted_terms_at: new Date().toISOString(),
           posts_count: 0,
           followers_count: 0,
           following_count: 0,
@@ -220,11 +227,26 @@ export default function SignupPage() {
             </div>
           )}
 
+          <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={e => setAgreedToTerms(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0"
+            />
+            <span>
+              I agree to GeoLink's{' '}
+              <Link href="/terms" target="_blank" className="text-pink-500 hover:underline">Terms &amp; Conditions</Link>
+              {' '}and{' '}
+              <Link href="/privacy-policy" target="_blank" className="text-pink-500 hover:underline">Privacy Policy</Link>.
+            </span>
+          </label>
+
           <Button
             type="submit"
             className="w-full"
             variant="gradient"
-            disabled={loading}
+            disabled={loading || !agreedToTerms}
           >
             {loading ? 'Creating account...' : 'Sign Up'}
           </Button>
