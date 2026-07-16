@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useTheme } from 'next-themes'
-import { Moon, Sun, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUser } from '@/lib/hooks/useUser'
@@ -11,7 +10,6 @@ import { getAvatarUrl } from '@/lib/utils/helpers'
 import { NotificationPanel } from '@/components/shared/NotificationPanel'
 
 export function Navbar() {
-  const { theme, setTheme } = useTheme()
   const { profile } = useUser()
 
   return (
@@ -36,16 +34,6 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          {/* Dark mode - sabke liye */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          </Button>
-
           {/* Aperonix AI */}
           <Link href="/aperonix">
             <Button variant="ghost" size="icon" className="gap-1 px-2 w-auto" title="Aperonix AI">
