@@ -14,6 +14,9 @@ export type Profile = {
   avatar_url: string | null
   cover_photo_url: string | null
   is_private: boolean
+  post_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  message_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  search_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   is_verified: boolean
   posts_count: number
   followers_count: number
