@@ -6,7 +6,7 @@
 //   GEMINI_API_KEY_CHAT     - the Aperonix chatbot conversation
 //   GEMINI_API_KEY_GENERATE - title/description/hashtag generation in Create Post
 //   GEMINI_API_KEY_BACKUP   - automatically used if the primary key above fails
-//   GEMINI_API_KEY_SEARCH   - no longer tied to a feature (search was removed),
+//   GEMINI_API_KEY_SEARCH   - no longer tied to a Feature (search was removed),
 //                             but if it's set it's automatically used as an
 //                             extra backup key too, so nothing goes to waste.
 //
