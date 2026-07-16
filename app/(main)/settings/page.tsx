@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import { LogOut, Moon, Sun, Bell, User, ChevronRight, Smartphone, Trash2, Bookmark, ShieldCheck } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
+import { LogOut, Moon, Sun, Bell, ChevronRight, Smartphone, User, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,7 +16,7 @@ import { PageLoader } from '@/components/shared/LoadingSpinner'
 import Link from 'next/link'
 
 export default function SettingsPage() {
-  const { user, profile, loading } = useUser()
+  const { profile, loading } = useUser()
   const { theme, setTheme } = useTheme()
   const router = useRouter()
   const supabase = createClient()
@@ -80,24 +83,16 @@ export default function SettingsPage() {
       <Card>
         <CardContent className="pt-4 divide-y">
           <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide pb-2">Account</p>
-          <Link href="/profile/edit" className="flex items-center justify-between py-3 hover:text-pink-500 transition-colors">
+          <Link href="/settings/general" className="flex items-center justify-between py-3 hover:text-pink-500 transition-colors">
             <div className="flex items-center gap-3">
               <User className="h-5 w-5" />
-              <span className="text-sm font-medium">Edit Profile</span>
+              <div>
+                <span className="text-sm font-medium block">General Settings</span>
+                <span className="text-xs text-muted-foreground">Edit profile, accounts, saved posts</span>
+              </div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-          <Link href="/saved" className="flex items-center justify-between py-3 hover:text-pink-500 transition-colors">
-            <div className="flex items-center gap-3">
-              <Bookmark className="h-5 w-5" />
-              <span className="text-sm font-medium">Saved Posts</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
-          <div className="flex items-center justify-between py-3">
-            <span className="text-sm font-medium">Email</span>
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-          </div>
         </CardContent>
       </Card>
 
@@ -110,9 +105,7 @@ export default function SettingsPage() {
               <ShieldCheck className="h-5 w-5" />
               <div>
                 <span className="text-sm font-medium block">Privacy Settings</span>
-                <span className="text-xs text-muted-foreground">
-                  {profile.is_private ? 'Private account' : 'Public account'}
-                </span>
+                <span className="text-xs text-muted-foreground">Account privacy, policy & terms</span>
               </div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -180,16 +173,6 @@ export default function SettingsPage() {
         <LogOut className="h-4 w-4" />
         Log Out
       </Button>
-
-      {/* Delete Account - subtle, only visible in settings */}
-      <div className="pt-4 border-t">
-        <Link href="/delete-account">
-          <button className="w-full flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:text-red-500 transition-colors">
-            <Trash2 className="h-4 w-4" />
-            Delete Account
-          </button>
-        </Link>
-      </div>
 
       <p className="text-center text-xs text-muted-foreground pb-4">GeoLink v1.0.0</p>
     </div>
