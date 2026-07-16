@@ -30,11 +30,35 @@ export default function ExplorePage() {
   const supabase = createClient()
 
   const { data: searchProfiles = [] } = useQuery({
-    queryKey: ['search-profiles', query],
+    queryKey: ['search-profiles', query, user?.id],
     queryFn: async () => {
       if (!query.trim()) return []
-      const { data } = await supabase.from('profiles').select('*').ilike('username', `%${query}%`).limit(10)
-      return data as Profile[]
+      const { data } = await supabase.from('profiles').select('*').ilike('username', `%${query}%`).limit(20)
+      const candidates = (data as Profile[]) || []
+      if (!user) return candidates.filter(p => p.search_privacy === 'everyone').slice(0, 10)
+
+      const ids = candidates.map(p => p.id)
+      const [{ data: iFollow }, { data: followMe }, { data: selectedMe }] = await Promise.all([
+        supabase.from('follows').select('following_id').eq('follower_id', user.id).eq('status', 'accepted').in('following_id', ids),
+        supabase.from('follows').select('follower_id').eq('following_id', user.id).eq('status', 'accepted').in('follower_id', ids),
+        supabase.from('privacy_selected_users').select('owner_id').eq('category', 'search').eq('selected_user_id', user.id).in('owner_id', ids),
+      ])
+      const iFollowSet = new Set((iFollow || []).map((r: any) => r.following_id))
+      const followsMeSet = new Set((followMe || []).map((r: any) => r.follower_id))
+      const selectedMeSet = new Set((selectedMe || []).map((r: any) => r.owner_id))
+
+      const visible = candidates.filter(p => {
+        if (p.id === user.id) return true
+        switch (p.search_privacy) {
+          case 'everyone': return true
+          case 'followers': return followsMeSet.has(p.id) // people who follow p can find p
+          case 'following': return iFollowSet.has(p.id) // people p follows can find p
+          case 'selected': return selectedMeSet.has(p.id)
+          case 'none': return false
+          default: return true
+        }
+      })
+      return visible.slice(0, 10)
     },
     enabled: query.length > 1,
   })
@@ -89,7 +113,7 @@ export default function ExplorePage() {
   const { data: newProfiles = [] } = useQuery({
     queryKey: ['new-profiles'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('is_private', false).order('created_at', { ascending: false }).limit(8)
+      const { data } = await supabase.from('profiles').select('*').eq('is_private', false).eq('search_privacy', 'everyone').order('created_at', { ascending: false }).limit(8)
       return data as Profile[]
     },
   })
