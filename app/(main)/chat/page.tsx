@@ -28,6 +28,7 @@ interface SearchProfile {
   username: string
   full_name: string | null
   avatar_url: string | null
+  message_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
 }
 
 export default function ChatPage() {
@@ -42,6 +43,7 @@ export default function ChatPage() {
   const [searchResults, setSearchResults] = useState<SearchProfile[]>([])
   const [searching, setSearching] = useState(false)
   const [startingChatWith, setStartingChatWith] = useState<string | null>(null)
+  const [startChatError, setStartChatError] = useState('')
 
   const fetchChats = async () => {
     if (!user) return
@@ -86,7 +88,7 @@ export default function ChatPage() {
     const timeout = setTimeout(async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, full_name, avatar_url')
+        .select('id, username, full_name, avatar_url, message_privacy')
         .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
         .neq('id', user?.id ?? '')
         .limit(15)
@@ -97,17 +99,67 @@ export default function ChatPage() {
     return () => clearTimeout(timeout)
   }, [searchQuery, showNewChat, user])
 
-  const startChat = async (otherUserId: string) => {
+  const startChat = async (target: SearchProfile) => {
     if (!user || startingChatWith) return
-    setStartingChatWith(otherUserId)
+    setStartChatError('')
+
+    // Check the recipient's message privacy up front so we can show a clear,
+    // friendly explanation instead of a raw database error.
+    if (target.message_privacy && target.message_privacy !== 'everyone') {
+      if (target.message_privacy === 'none') {
+        setStartChatError('Message is not available.')
+        return
+      }
+      if (target.message_privacy === 'followers') {
+        const { data: follow } = await supabase
+          .from('follows')
+          .select('id')
+          .eq('follower_id', user.id)
+          .eq('following_id', target.id)
+          .eq('status', 'accepted')
+          .maybeSingle()
+        if (!follow) {
+          setStartChatError('Message is unavailable. Please follow and start conversation.')
+          return
+        }
+      }
+      if (target.message_privacy === 'following') {
+        const { data: follow } = await supabase
+          .from('follows')
+          .select('id')
+          .eq('follower_id', target.id)
+          .eq('following_id', user.id)
+          .eq('status', 'accepted')
+          .maybeSingle()
+        if (!follow) {
+          setStartChatError('Message is only available to people this user follows.')
+          return
+        }
+      }
+      if (target.message_privacy === 'selected') {
+        const { data: sel } = await supabase
+          .from('privacy_selected_users')
+          .select('id')
+          .eq('owner_id', target.id)
+          .eq('category', 'message')
+          .eq('selected_user_id', user.id)
+          .maybeSingle()
+        if (!sel) {
+          setStartChatError('Message is a selected person are available.')
+          return
+        }
+      }
+    }
+
+    setStartingChatWith(target.id)
     try {
       // Reuse an existing conversation if one already exists between these two users
       const { data: existing } = await supabase
         .from('chats')
         .select('id')
         .or(
-          `and(participant1_id.eq.${user.id},participant2_id.eq.${otherUserId}),` +
-          `and(participant1_id.eq.${otherUserId},participant2_id.eq.${user.id})`
+          `and(participant1_id.eq.${user.id},participant2_id.eq.${target.id}),` +
+          `and(participant1_id.eq.${target.id},participant2_id.eq.${user.id})`
         )
         .maybeSingle()
 
@@ -118,14 +170,17 @@ export default function ChatPage() {
 
       const { data: created, error } = await supabase
         .from('chats')
-        .insert({ participant1_id: user.id, participant2_id: otherUserId })
+        .insert({ participant1_id: user.id, participant2_id: target.id })
         .select('id')
         .single()
 
-      if (error || !created) throw error
+      if (error || !created) {
+        setStartChatError('Message is not available.')
+        return
+      }
 
       router.push(`/chat/${created.id}`)
-    } catch {
+    } finally {
       setStartingChatWith(null)
     }
   }
@@ -252,7 +307,7 @@ export default function ChatPage() {
                 searchResults.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => startChat(p.id)}
+                    onClick={() => startChat(p)}
                     disabled={startingChatWith === p.id}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-accent transition-colors text-left disabled:opacity-60"
                   >
@@ -269,6 +324,9 @@ export default function ChatPage() {
                 ))
               )}
             </div>
+            {startChatError && (
+              <p className="text-xs text-red-500 text-center p-3 border-t">{startChatError}</p>
+            )}
           </div>
         </div>
       )}
