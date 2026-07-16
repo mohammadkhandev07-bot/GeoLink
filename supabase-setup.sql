@@ -14,6 +14,10 @@ CREATE TABLE public.profiles (
     avatar_url TEXT,
     cover_photo_url TEXT,
     is_private BOOLEAN DEFAULT false,
+    post_privacy TEXT DEFAULT 'everyone' CHECK (post_privacy IN ('everyone', 'followers', 'following', 'selected', 'none')),
+    message_privacy TEXT DEFAULT 'everyone' CHECK (message_privacy IN ('everyone', 'followers', 'following', 'selected', 'none')),
+    search_privacy TEXT DEFAULT 'everyone' CHECK (search_privacy IN ('everyone', 'followers', 'following', 'selected', 'none')),
+    accepted_terms_at TIMESTAMPTZ,
     is_verified BOOLEAN DEFAULT false,
     posts_count INT DEFAULT 0,
     followers_count INT DEFAULT 0,
@@ -116,6 +120,15 @@ CREATE TABLE public.saved_posts (
     UNIQUE(user_id, post_id)
 );
 
+CREATE TABLE public.privacy_selected_users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('post', 'message', 'search')),
+    selected_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(owner_id, category, selected_user_id)
+);
+
 -- ============================================================
 -- REALTIME
 -- ============================================================
@@ -137,6 +150,7 @@ ALTER TABLE public.shares ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_folders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.privacy_selected_users ENABLE ROW LEVEL SECURITY;
 
 -- PROFILES policies
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
@@ -146,12 +160,29 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING
 -- POSTS policies
 CREATE POLICY "Posts respect author privacy" ON public.posts FOR SELECT USING (
     auth.uid() = user_id
-    OR NOT EXISTS (
-        SELECT 1 FROM public.profiles WHERE id = user_id AND is_private = true
-    )
-    OR EXISTS (
-        SELECT 1 FROM public.follows
-        WHERE follower_id = auth.uid() AND following_id = user_id AND status = 'accepted'
+    OR (
+        (
+            NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = user_id AND is_private = true)
+            OR EXISTS (
+                SELECT 1 FROM public.follows
+                WHERE follower_id = auth.uid() AND following_id = user_id AND status = 'accepted'
+            )
+        )
+        AND (
+            COALESCE((SELECT post_privacy FROM public.profiles WHERE id = user_id), 'everyone') = 'everyone'
+            OR (
+                (SELECT post_privacy FROM public.profiles WHERE id = user_id) = 'followers'
+                AND EXISTS (SELECT 1 FROM public.follows WHERE follower_id = auth.uid() AND following_id = user_id AND status = 'accepted')
+            )
+            OR (
+                (SELECT post_privacy FROM public.profiles WHERE id = user_id) = 'following'
+                AND EXISTS (SELECT 1 FROM public.follows WHERE follower_id = user_id AND following_id = auth.uid() AND status = 'accepted')
+            )
+            OR (
+                (SELECT post_privacy FROM public.profiles WHERE id = user_id) = 'selected'
+                AND EXISTS (SELECT 1 FROM public.privacy_selected_users WHERE owner_id = user_id AND category = 'post' AND selected_user_id = auth.uid())
+            )
+        )
     )
 );
 CREATE POLICY "Users can insert own posts" ON public.posts FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -176,8 +207,32 @@ CREATE POLICY "Users can update follow status" ON public.follows FOR UPDATE USIN
 CREATE POLICY "Users can unfollow" ON public.follows FOR DELETE USING (auth.uid() = follower_id OR auth.uid() = following_id);
 
 -- CHATS policies
+CREATE OR REPLACE FUNCTION can_message(sender UUID, recipient UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  privacy TEXT;
+BEGIN
+  SELECT message_privacy INTO privacy FROM public.profiles WHERE id = recipient;
+  IF privacy IS NULL OR privacy = 'everyone' THEN RETURN true; END IF;
+  IF privacy = 'none' THEN RETURN false; END IF;
+  IF privacy = 'followers' THEN
+    RETURN EXISTS (SELECT 1 FROM public.follows WHERE follower_id = sender AND following_id = recipient AND status = 'accepted');
+  END IF;
+  IF privacy = 'following' THEN
+    RETURN EXISTS (SELECT 1 FROM public.follows WHERE follower_id = recipient AND following_id = sender AND status = 'accepted');
+  END IF;
+  IF privacy = 'selected' THEN
+    RETURN EXISTS (SELECT 1 FROM public.privacy_selected_users WHERE owner_id = recipient AND category = 'message' AND selected_user_id = sender);
+  END IF;
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 CREATE POLICY "Users can view own chats" ON public.chats FOR SELECT USING (auth.uid() = participant1_id OR auth.uid() = participant2_id);
-CREATE POLICY "Users can create chats" ON public.chats FOR INSERT WITH CHECK (auth.uid() = participant1_id OR auth.uid() = participant2_id);
+CREATE POLICY "Users can create chats" ON public.chats FOR INSERT WITH CHECK (
+    (auth.uid() = participant1_id OR auth.uid() = participant2_id)
+    AND can_message(auth.uid(), CASE WHEN participant1_id = auth.uid() THEN participant2_id ELSE participant1_id END)
+);
 CREATE POLICY "Users can update own chats" ON public.chats FOR UPDATE USING (auth.uid() = participant1_id OR auth.uid() = participant2_id);
 CREATE POLICY "Users can delete own chats" ON public.chats FOR DELETE USING (auth.uid() = participant1_id OR auth.uid() = participant2_id);
 
@@ -240,6 +295,12 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER enforce_folder_limit
   BEFORE INSERT ON public.saved_folders
   FOR EACH ROW EXECUTE FUNCTION check_folder_limit();
+
+-- PRIVACY SELECTED USERS policies
+CREATE POLICY "Users manage own selected-people lists" ON public.privacy_selected_users
+    FOR ALL USING (auth.uid() = owner_id) WITH CHECK (auth.uid() = owner_id);
+CREATE POLICY "Anyone can check their own membership on a list" ON public.privacy_selected_users
+    FOR SELECT USING (auth.uid() = selected_user_id OR auth.uid() = owner_id);
 
 -- ============================================================
 -- HELPER FUNCTIONS (for counter increments)
