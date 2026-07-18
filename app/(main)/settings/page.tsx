@@ -2,10 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTheme } from 'next-themes'
-import { LogOut, Moon, Sun, Bell, ChevronRight, Smartphone, User, ShieldCheck } from 'lucide-react'
+import { LogOut, ChevronRight, Smartphone, User, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
@@ -14,7 +12,6 @@ import Link from 'next/link'
 
 export default function SettingsPage() {
   const { profile, loading } = useUser()
-  const { theme, setTheme } = useTheme()
   const router = useRouter()
   const supabase = createClient()
 
@@ -110,20 +107,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Appearance */}
-      <Card>
-        <CardContent className="pt-4 divide-y">
-          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide pb-2">Appearance</p>
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-              <span className="text-sm font-medium">Dark Mode</span>
-            </div>
-            <Switch checked={theme === 'dark'} onCheckedChange={checked => setTheme(checked ? 'dark' : 'light')} />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* App - only show if not already installed */}
       {!installed && (
         <Card>
@@ -150,20 +133,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Notifications */}
-      <Card>
-        <CardContent className="pt-4 divide-y">
-          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide pb-2">Notifications</p>
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5" />
-              <span className="text-sm font-medium">Push Notifications</span>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Logout */}
       <Button variant="destructive" className="w-full gap-2" onClick={handleLogout}>
