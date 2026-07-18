@@ -17,6 +17,8 @@ export type Profile = {
   post_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   message_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   search_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  notify_messages: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  notify_posts: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   is_verified: boolean
   posts_count: number
   followers_count: number
