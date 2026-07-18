@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, User, Bookmark, Trash2, Plus, Users, X, Check } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { ChevronLeft, ChevronRight, User, Bookmark, Trash2, Plus, Users, X, Check, Moon, Sun } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl } from '@/lib/utils/helpers'
@@ -12,6 +14,7 @@ import { useAccountSwitcher } from '@/lib/hooks/useAccountSwitcher'
 
 export default function GeneralSettingsPage() {
   const { user, profile, loading } = useUser()
+  const { theme, setTheme } = useTheme()
   const { accounts, addAccount, switchToAccount, removeAccount } = useAccountSwitcher()
 
   const [showAddAccount, setShowAddAccount] = useState(false)
@@ -81,6 +84,20 @@ export default function GeneralSettingsPage() {
           <div className="flex items-center justify-between py-3">
             <span className="text-sm font-medium">Email</span>
             <span className="text-sm text-muted-foreground">{user?.email}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Appearance */}
+      <Card>
+        <CardContent className="pt-4 divide-y">
+          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide pb-2">Appearance</p>
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              <span className="text-sm font-medium">Dark Mode</span>
+            </div>
+            <Switch checked={theme === 'dark'} onCheckedChange={checked => setTheme(checked ? 'dark' : 'light')} />
           </div>
         </CardContent>
       </Card>
