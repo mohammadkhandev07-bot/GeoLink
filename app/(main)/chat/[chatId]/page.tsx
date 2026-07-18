@@ -25,6 +25,8 @@ export default function ChatRoomPage() {
   const { user, loading } = useUser()
   const [chat, setChat] = useState<ChatWithProfiles | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [canSend, setCanSend] = useState(true)
+  const [restrictionMessage, setRestrictionMessage] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -40,6 +42,43 @@ export default function ChatRoomPage() {
       .single()
       .then(({ data }) => setChat(data as ChatWithProfiles))
   }, [chatId])
+
+  // Live-check the other person's Message Privacy setting every time this
+  // conversation is opened - it may have changed since the chat was created.
+  useEffect(() => {
+    if (!chat || !user) return
+    const other = chat.participant1_id === user.id ? chat.participant2 : chat.participant1
+    const privacy = (other as any).message_privacy || 'everyone'
+
+    const check = async () => {
+      if (privacy === 'everyone') { setCanSend(true); return }
+      if (privacy === 'none') { setCanSend(false); setRestrictionMessage('Message is not available.'); return }
+
+      if (privacy === 'followers') {
+        const { data } = await supabase.from('follows').select('id')
+          .eq('follower_id', user.id).eq('following_id', other.id).eq('status', 'accepted').maybeSingle()
+        setCanSend(!!data)
+        if (!data) setRestrictionMessage('Message is unavailable. Please follow and start conversation.')
+        return
+      }
+      if (privacy === 'following') {
+        const { data } = await supabase.from('follows').select('id')
+          .eq('follower_id', other.id).eq('following_id', user.id).eq('status', 'accepted').maybeSingle()
+        setCanSend(!!data)
+        if (!data) setRestrictionMessage('Message is only available to people this user follows.')
+        return
+      }
+      if (privacy === 'selected') {
+        const { data } = await supabase.from('privacy_selected_users').select('id')
+          .eq('owner_id', other.id).eq('category', 'message').eq('selected_user_id', user.id).maybeSingle()
+        setCanSend(!!data)
+        if (!data) setRestrictionMessage('Message is a selected person are available.')
+        return
+      }
+      setCanSend(true)
+    }
+    check()
+  }, [chat, user])
 
   useEffect(() => {
     if (!user || !chatId) return
@@ -115,7 +154,13 @@ export default function ChatRoomPage() {
       <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} />
 
       {/* Input */}
-      <MessageInput onSend={sendMessage} onTyping={sendTypingIndicator} />
+      {canSend ? (
+        <MessageInput onSend={sendMessage} onTyping={sendTypingIndicator} />
+      ) : (
+        <div className="px-4 py-4 border-t text-center">
+          <p className="text-sm text-muted-foreground">{restrictionMessage}</p>
+        </div>
+      )}
     </div>
   )
 }
