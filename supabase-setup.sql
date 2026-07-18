@@ -17,6 +17,8 @@ CREATE TABLE public.profiles (
     post_privacy TEXT DEFAULT 'everyone' CHECK (post_privacy IN ('everyone', 'followers', 'following', 'selected', 'none')),
     message_privacy TEXT DEFAULT 'everyone' CHECK (message_privacy IN ('everyone', 'followers', 'following', 'selected', 'none')),
     search_privacy TEXT DEFAULT 'everyone' CHECK (search_privacy IN ('everyone', 'followers', 'following', 'selected', 'none')),
+    notify_messages TEXT DEFAULT 'everyone' CHECK (notify_messages IN ('everyone', 'followers', 'following', 'selected', 'none')),
+    notify_posts TEXT DEFAULT 'everyone' CHECK (notify_posts IN ('everyone', 'followers', 'following', 'selected', 'none')),
     accepted_terms_at TIMESTAMPTZ,
     is_verified BOOLEAN DEFAULT false,
     posts_count INT DEFAULT 0,
@@ -97,7 +99,7 @@ CREATE TABLE public.notifications (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     actor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'unfollow', 'message')),
+    type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'unfollow', 'message', 'new_post')),
     message TEXT,
     post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
     is_read BOOLEAN DEFAULT false,
@@ -123,7 +125,7 @@ CREATE TABLE public.saved_posts (
 CREATE TABLE public.privacy_selected_users (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-    category TEXT NOT NULL CHECK (category IN ('post', 'message', 'search')),
+    category TEXT NOT NULL CHECK (category IN ('post', 'message', 'search', 'notify_message', 'notify_post')),
     selected_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(owner_id, category, selected_user_id)
@@ -244,6 +246,18 @@ CREATE POLICY "Chat participants can view messages" ON public.messages FOR SELEC
         SELECT participant2_id FROM public.chats WHERE id = chat_id
     )
 );
+CREATE OR REPLACE FUNCTION get_chat_recipient(chat_id_param UUID, sender UUID)
+RETURNS UUID AS $$
+DECLARE
+  recipient UUID;
+BEGIN
+  SELECT CASE WHEN participant1_id = sender THEN participant2_id ELSE participant1_id END
+  INTO recipient
+  FROM public.chats WHERE id = chat_id_param;
+  RETURN recipient;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 CREATE POLICY "Chat participants can send messages" ON public.messages FOR INSERT WITH CHECK (
     auth.uid() = sender_id AND
     auth.uid() IN (
@@ -251,6 +265,7 @@ CREATE POLICY "Chat participants can send messages" ON public.messages FOR INSER
         UNION
         SELECT participant2_id FROM public.chats WHERE id = chat_id
     )
+    AND can_message(auth.uid(), get_chat_recipient(chat_id, auth.uid()))
 );
 CREATE POLICY "Users can mark own messages as read" ON public.messages FOR UPDATE USING (
     auth.uid() IN (
@@ -301,6 +316,86 @@ CREATE POLICY "Users manage own selected-people lists" ON public.privacy_selecte
     FOR ALL USING (auth.uid() = owner_id) WITH CHECK (auth.uid() = owner_id);
 CREATE POLICY "Anyone can check their own membership on a list" ON public.privacy_selected_users
     FOR SELECT USING (auth.uid() = selected_user_id OR auth.uid() = owner_id);
+
+-- ============================================================
+-- NOTIFICATION PREFERENCE FUNCTIONS + TRIGGERS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION should_notify_message(recipient UUID, sender UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  pref TEXT;
+BEGIN
+  SELECT notify_messages INTO pref FROM public.profiles WHERE id = recipient;
+  IF pref IS NULL OR pref = 'everyone' THEN RETURN true; END IF;
+  IF pref = 'none' THEN RETURN false; END IF;
+  IF pref = 'followers' THEN
+    RETURN EXISTS (SELECT 1 FROM public.follows WHERE follower_id = sender AND following_id = recipient AND status = 'accepted');
+  END IF;
+  IF pref = 'following' THEN
+    RETURN EXISTS (SELECT 1 FROM public.follows WHERE follower_id = recipient AND following_id = sender AND status = 'accepted');
+  END IF;
+  IF pref = 'selected' THEN
+    RETURN EXISTS (SELECT 1 FROM public.privacy_selected_users WHERE owner_id = recipient AND category = 'notify_message' AND selected_user_id = sender);
+  END IF;
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION should_notify_post(recipient UUID, poster UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  pref TEXT;
+BEGIN
+  SELECT notify_posts INTO pref FROM public.profiles WHERE id = recipient;
+  IF pref IS NULL OR pref = 'everyone' THEN RETURN true; END IF;
+  IF pref = 'none' THEN RETURN false; END IF;
+  IF pref = 'followers' THEN
+    RETURN EXISTS (SELECT 1 FROM public.follows WHERE follower_id = poster AND following_id = recipient AND status = 'accepted');
+  END IF;
+  IF pref = 'following' THEN
+    RETURN EXISTS (SELECT 1 FROM public.follows WHERE follower_id = recipient AND following_id = poster AND status = 'accepted');
+  END IF;
+  IF pref = 'selected' THEN
+    RETURN EXISTS (SELECT 1 FROM public.privacy_selected_users WHERE owner_id = recipient AND category = 'notify_post' AND selected_user_id = poster);
+  END IF;
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION notify_on_new_message()
+RETURNS TRIGGER AS $$
+DECLARE
+  recipient UUID;
+BEGIN
+  recipient := get_chat_recipient(NEW.chat_id, NEW.sender_id);
+  IF recipient IS NOT NULL AND recipient != NEW.sender_id AND should_notify_message(recipient, NEW.sender_id) THEN
+    INSERT INTO public.notifications (user_id, actor_id, type, message)
+    VALUES (recipient, NEW.sender_id, 'message', LEFT(NEW.content, 100));
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_notify_new_message
+  AFTER INSERT ON public.messages
+  FOR EACH ROW EXECUTE FUNCTION notify_on_new_message();
+
+CREATE OR REPLACE FUNCTION notify_followers_of_new_post()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.notifications (user_id, actor_id, type, post_id)
+  SELECT follower_id, NEW.user_id, 'new_post', NEW.id
+  FROM public.follows
+  WHERE following_id = NEW.user_id AND status = 'accepted'
+  AND should_notify_post(follower_id, NEW.user_id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_notify_followers_new_post
+  AFTER INSERT ON public.posts
+  FOR EACH ROW EXECUTE FUNCTION notify_followers_of_new_post();
 
 -- ============================================================
 -- HELPER FUNCTIONS (for counter increments)
