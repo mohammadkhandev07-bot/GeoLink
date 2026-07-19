@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { useFollowStatus, useFollowUser, useUnfollowUser } from '@/lib/hooks/useFollow'
 
@@ -14,14 +15,25 @@ export function FollowButton({ targetUserId, isPrivate, currentUserId }: FollowB
   const { data: followStatus } = useFollowStatus(currentUserId, targetUserId)
   const followUser = useFollowUser()
   const unfollowUser = useUnfollowUser()
+  // React state updates aren't synchronous - a very fast double-click/tap can
+  // fire handleFollow twice before `isPending` re-renders the disabled button,
+  // causing duplicate follow/notification rows. This ref blocks that
+  // immediately, with no render delay.
+  const submittingRef = useRef(false)
 
   if (!currentUserId || currentUserId === targetUserId) return null
 
-  const handleFollow = () => {
-    if (followStatus) {
-      unfollowUser.mutate({ followerId: currentUserId, followingId: targetUserId })
-    } else {
-      followUser.mutate({ followerId: currentUserId, followingId: targetUserId, isPrivate })
+  const handleFollow = async () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      if (followStatus) {
+        await unfollowUser.mutateAsync({ followerId: currentUserId, followingId: targetUserId })
+      } else {
+        await followUser.mutateAsync({ followerId: currentUserId, followingId: targetUserId, isPrivate })
+      }
+    } finally {
+      submittingRef.current = false
     }
   }
 
