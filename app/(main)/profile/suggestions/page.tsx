@@ -20,15 +20,23 @@ export default function SuggestionsPage() {
   const { data: suggestions = [], isLoading } = useQuery({
     queryKey: ['suggestions', user?.id],
     queryFn: async () => {
+      const { data: alreadyFollowing } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user?.id ?? '')
+
+      const excludeIds = new Set((alreadyFollowing || []).map(f => f.following_id))
+      excludeIds.add(user?.id ?? '')
+
       const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('is_private', false)
         .eq('search_privacy', 'everyone')
-        .neq('id', user?.id ?? '')
         .order('created_at', { ascending: false })
-        .limit(30)
-      return (data as Profile[]) || []
+        .limit(50)
+
+      return ((data as Profile[]) || []).filter(p => !excludeIds.has(p.id)).slice(0, 30)
     },
     enabled: !!user,
   })
