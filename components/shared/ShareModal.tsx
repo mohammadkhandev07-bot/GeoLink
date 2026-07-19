@@ -91,13 +91,10 @@ export function ShareModal({ post, onClose }: ShareModalProps) {
         last_message_type: msgType,
       }).eq('id', chatId)
 
-      // Notification
-      await supabase.from('notifications').insert({
-        user_id: receiverId,
-        actor_id: user.id,
-        type: 'message',
-        message: preview,
-      })
+      // Note: no manual notification insert here - the database trigger on
+      // `messages` INSERT already creates one, respecting the recipient's
+      // notify_messages privacy setting. Inserting one here too would create
+      // a duplicate notification for every shared post.
     }
 
     setSent(true)
