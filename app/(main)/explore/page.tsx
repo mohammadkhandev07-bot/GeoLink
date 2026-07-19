@@ -110,14 +110,6 @@ export default function ExplorePage() {
     },
   })
 
-  const { data: newProfiles = [] } = useQuery({
-    queryKey: ['new-profiles'],
-    queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('is_private', false).eq('search_privacy', 'everyone').order('created_at', { ascending: false }).limit(8)
-      return data as Profile[]
-    },
-  })
-
   const isSearching = query.length > 1
 
   if (selectedHashtag) {
@@ -212,22 +204,8 @@ export default function ExplorePage() {
         </div>
       ) : (
         <div className="pb-20">
-          <div className="px-4 pt-4 pb-2">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> New People</h3>
-            <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-              {newProfiles.map(profile => (
-                <Link key={profile.id} href={`/profile/${profile.username}`} className="flex flex-col items-center gap-2 shrink-0 w-20 group">
-                  <Avatar className="h-14 w-14 ring-2 ring-offset-2 ring-pink-500/20 group-hover:ring-pink-500 transition-all">
-                    <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
-                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white font-bold text-lg">{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <p className="text-xs text-center truncate w-full font-medium">{profile.username}</p>
-                </Link>
-              ))}
-            </div>
-          </div>
           {popularHashtags.length > 0 && (
-            <div className="px-4 pb-4">
+            <div className="px-4 pt-4 pb-4">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> Trending Hashtags</h3>
               <div className="flex flex-wrap gap-2">
                 {popularHashtags.map(({ tag, count }) => (
@@ -246,4 +224,4 @@ export default function ExplorePage() {
       )}
     </div>
   )
-} 
+}
