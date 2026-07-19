@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Lock } from 'lucide-react'
+import { Lock, Users, ChevronRight } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { FollowButton } from './FollowButton'
@@ -89,6 +89,19 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
             <p className="text-xs text-muted-foreground">Following</p>
           </button>
         </div>
+
+        {isOwn && (
+          <Link
+            href="/profile/suggestions"
+            className="flex items-center justify-between mt-4 px-3 py-2.5 rounded-xl border hover:border-pink-500/40 hover:bg-pink-500/5 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-pink-500" />
+              <span className="text-sm font-medium">Suggestions for you</span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+        )}
       </div>
 
       {/* Modals */}
