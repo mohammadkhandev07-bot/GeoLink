@@ -97,11 +97,11 @@ export default function AccountPrivacyPage() {
       </div>
 
       <div>
-        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2 px-1">Search Result Privacy</p>
+        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2 px-1">Search &amp; Suggestions Privacy</p>
         <PrivacyOptionSelector
           icon={<Search className="h-5 w-5" />}
-          title="Who can find you in search"
-          description="Choose who can find your account through Explore and Search"
+          title="Who can find you in search & suggestions"
+          description="Choose who can find your account through Search and the Suggestions page"
           value={searchPrivacy}
           onChange={v => updateField('search_privacy', v)}
           category="search"
