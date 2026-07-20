@@ -79,7 +79,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIndex, storyIndex])
 
-  // Progress for video stories, driven by actual playback time.
+  // Progress for video stories, driven by actual playback Time.
   useEffect(() => {
     if (!story || story.story_type !== 'video') return
     const video = videoRef.current
