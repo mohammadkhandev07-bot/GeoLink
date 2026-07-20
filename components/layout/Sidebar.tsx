@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Compass, Film, MessageCircle, Settings, PlusSquare, Heart } from 'lucide-react'
+import { Home, Search, SquarePlay, Send, Settings, PlusSquare } from 'lucide-react'
 import { cn } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -13,10 +13,9 @@ import { CreatePostModal } from '@/components/shared/CreatePostModal'
 
 const navItems = [
   { href: '/feed', icon: Home, label: 'Home' },
-  { href: '/explore', icon: Compass, label: 'Explore' },
-  { href: '/reels', icon: Film, label: 'Reels' },
-  { href: '/chat', icon: MessageCircle, label: 'Messages' },
-  { href: '/liked', icon: Heart, label: 'Liked Videos' },
+  { href: '/explore', icon: Search, label: 'Explore' },
+  { href: '/reels', icon: SquarePlay, label: 'Reels' },
+  { href: '/chat', icon: Send, label: 'Messages' },
 ]
 
 export function Sidebar() {
@@ -31,7 +30,7 @@ export function Sidebar() {
           <Link key={href} href={href}
             className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-accent',
               pathname.startsWith(href) && 'bg-accent text-accent-foreground')}>
-            <Icon className={cn('h-5 w-5', pathname.startsWith(href) && href === '/liked' ? 'fill-pink-500 text-pink-500' : '')} />
+            <Icon className="h-5 w-5" />
             {label}
           </Link>
         ))}
