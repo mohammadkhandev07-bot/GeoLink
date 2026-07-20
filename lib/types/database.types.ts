@@ -118,6 +118,24 @@ export type SavedPost = {
   created_at: string
 }
 
+export type Story = {
+  id: string
+  user_id: string
+  story_type: 'text' | 'photo' | 'video'
+  media_url: string | null
+  text_content: string | null
+  background_color: string | null
+  overlay_text: string | null
+  overlay_x: number
+  overlay_y: number
+  created_at: string
+  expires_at: string
+}
+
+export type StoryWithProfile = Story & {
+  profiles: Profile
+}
+
 export type PostWithProfile = Post & {
   profiles: Profile
   is_liked?: boolean
@@ -147,6 +165,7 @@ export type Database = {
       notifications: { Row: Notification; Insert: Omit<Notification, 'id' | 'created_at' | 'is_read'> & { is_read?: boolean }; Update: Partial<Notification> }
       saved_folders: { Row: SavedFolder; Insert: Omit<SavedFolder, 'id' | 'created_at'>; Update: Partial<SavedFolder> }
       saved_posts: { Row: SavedPost; Insert: Omit<SavedPost, 'id' | 'created_at'>; Update: Partial<SavedPost> }
+      stories: { Row: Story; Insert: Omit<Story, 'id' | 'created_at' | 'expires_at'> & { id?: string }; Update: Partial<Story> }
     }
   }
 }
