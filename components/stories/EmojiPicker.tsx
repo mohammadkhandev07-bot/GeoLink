@@ -39,4 +39,4 @@ export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
       </div>
     </div>
   )
-}
+} 
