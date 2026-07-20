@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
-import { ChevronLeft, ChevronRight, User, Bookmark, Trash2, Plus, Users, X, Check, Moon, Sun } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User, Bookmark, Heart, Trash2, Plus, Users, X, Check, Moon, Sun } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -78,6 +78,13 @@ export default function GeneralSettingsPage() {
             <div className="flex items-center gap-3">
               <Bookmark className="h-5 w-5" />
               <span className="text-sm font-medium">Saved Posts</span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link href="/liked" className="flex items-center justify-between py-3 hover:text-pink-500 transition-colors">
+            <div className="flex items-center gap-3">
+              <Heart className="h-5 w-5" />
+              <span className="text-sm font-medium">Liked Videos</span>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
