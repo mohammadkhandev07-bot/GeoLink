@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Lock, Users, ChevronRight } from 'lucide-react'
+import { Lock, Users, ChevronRight, MessageCircle, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { FollowButton } from './FollowButton'
 import { FollowersModal } from './FollowersModal'
 import { Profile } from '@/lib/types/database.types'
 import { formatCount, getAvatarUrl } from '@/lib/utils/helpers'
+import { useStartChat } from '@/lib/hooks/useStartChat'
 import Link from 'next/link'
 
 interface ProfileHeaderProps {
@@ -19,6 +20,7 @@ interface ProfileHeaderProps {
 export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
   const isOwn = currentUserId === profile.id
   const [modal, setModal] = useState<'followers' | 'following' | null>(null)
+  const { startChat, startingChatWith, error: chatError } = useStartChat()
 
   return (
     <div>
@@ -45,12 +47,31 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
                 <Button variant="outline" size="sm">Edit Profile</Button>
               </Link>
             ) : (
-              <FollowButton
-                targetUserId={profile.id}
-                targetUsername={profile.username}
-                isPrivate={profile.is_private}
-                currentUserId={currentUserId}
-              />
+              <>
+                <FollowButton
+                  targetUserId={profile.id}
+                  targetUsername={profile.username}
+                  isPrivate={profile.is_private}
+                  currentUserId={currentUserId}
+                />
+                {currentUserId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={startingChatWith === profile.id}
+                    onClick={() => startChat(currentUserId, profile)}
+                  >
+                    {startingChatWith === profile.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <MessageCircle className="h-4 w-4 sm:mr-1.5" />
+                        <span className="hidden sm:inline">Message</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -64,6 +85,7 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
           </div>
           <p className="text-muted-foreground text-sm">@{profile.username}</p>
           {profile.bio && <p className="text-sm mt-2">{profile.bio}</p>}
+          {chatError && <p className="text-xs text-red-500 mt-2">{chatError}</p>}
         </div>
 
         {/* Stats - clickable */}
