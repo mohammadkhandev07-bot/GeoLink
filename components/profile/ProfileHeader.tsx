@@ -136,4 +136,4 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
       )}
     </div>
   )
-}
+} 
