@@ -1,5 +1,11 @@
 {
   "name": "GeoLink",
+  "crons": [
+    {
+      "path": "/api/stories/cleanup",
+      "schedule": "0 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/sw.js",
