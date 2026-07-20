@@ -86,4 +86,4 @@ export function CreateStoryModal({ userId, onClose }: CreateStoryModalProps) {
       </div>
     </div>
   )
-}
+} 
