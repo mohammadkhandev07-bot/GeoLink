@@ -22,12 +22,19 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const { register, handleSubmit, formState: { errors } } = useForm<SignupForm>()
+
+  // OTP step state
+  const [awaitingCode, setAwaitingCode] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   const onSubmit = async (data: SignupForm) => {
     if (!agreedToTerms) {
@@ -44,7 +51,6 @@ export default function SignupPage() {
         email: data.email,
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
           data: {
             username: data.username,
             full_name: data.full_name,
@@ -64,7 +70,8 @@ export default function SignupPage() {
         return
       }
 
-      // 2. Profile manually insert karo
+      // 2. Profile manually insert karo (onboarding already complete - they
+      // just picked their own username right here in this form).
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -76,6 +83,7 @@ export default function SignupPage() {
           cover_photo_url: null,
           is_private: false,
           is_verified: false,
+          onboarding_completed: true,
           accepted_terms_at: new Date().toISOString(),
           posts_count: 0,
           followers_count: 0,
@@ -87,13 +95,59 @@ export default function SignupPage() {
         // Profile error ignore karo - trigger se ban jayega
       }
 
-      setSent(true)
+      setPendingEmail(data.email)
+      setAwaitingCode(true)
+      startResendCooldown()
     } catch (err) {
       setError('Something went wrong. Please try again.')
       console.error(err)
     }
 
     setLoading(false)
+  }
+
+  const startResendCooldown = () => {
+    setResendCooldown(30)
+    const interval = setInterval(() => {
+      setResendCooldown((s) => {
+        if (s <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
+  }
+
+  const handleVerifyCode = async () => {
+    if (code.trim().length < 6) {
+      setVerifyError('Please enter the 6-digit code.')
+      return
+    }
+    setVerifying(true)
+    setVerifyError(null)
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: pendingEmail,
+      token: code.trim(),
+      type: 'signup',
+    })
+
+    if (error) {
+      setVerifyError(error.message)
+      setVerifying(false)
+      return
+    }
+
+    router.push('/feed')
+  }
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return
+    setVerifyError(null)
+    const { error } = await supabase.auth.resend({ type: 'signup', email: pendingEmail })
+    if (error) setVerifyError(error.message)
+    startResendCooldown()
   }
 
   const handleGoogleSignup = async () => {
@@ -103,43 +157,49 @@ export default function SignupPage() {
     })
   }
 
-  if (sent) {
+  if (awaitingCode) {
     return (
       <Card className="w-full max-w-sm shadow-xl text-center">
         <CardHeader>
           <div className="flex justify-center mb-2">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-3xl">✉️</div>
+            <Image src="/images/geolink-logo.png" alt="GeoLink" width={56} height={56} className="rounded-xl" />
           </div>
-          <CardTitle>Check your email!</CardTitle>
+          <CardTitle>Enter your code</CardTitle>
           <CardDescription>
-            We sent a verification link to your email. Please verify to continue.
+            We sent a 6-digit code to <span className="font-medium text-foreground">{pendingEmail}</span>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="text-left bg-muted/60 rounded-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What to do next</p>
-            <ol className="text-sm space-y-1.5 list-decimal list-inside">
-              <li>Open your email inbox (check the <span className="font-medium">Spam/Junk</span> folder too).</li>
-              <li>
-                Look for an email from <span className="font-medium">&quot;Supabase Auth&quot;</span> or an address like{' '}
-                <span className="font-medium">noreply@mail.app.supabase.io</span> — this is expected, GeoLink uses Supabase to send verification emails.
-              </li>
-              <li>Open that email and click the verification link inside it.</li>
-              <li>Come back here and log in to GeoLink.</li>
-            </ol>
-          </div>
+          <Input
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            inputMode="numeric"
+            maxLength={6}
+            className="text-center text-2xl tracking-[0.5em] font-semibold"
+            autoFocus
+          />
+          {verifyError && (
+            <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
+              {verifyError}
+            </div>
+          )}
           <Button
             variant="gradient"
             className="w-full"
-            onClick={() => router.push('/login')}
+            disabled={verifying || code.length < 6}
+            onClick={handleVerifyCode}
           >
-            Go to Login
+            {verifying ? 'Verifying...' : 'Verify & Continue'}
           </Button>
-          <Link href="/verify-email">
-            <Button variant="ghost" className="w-full text-sm">
-              Resend verification email
-            </Button>
-          </Link>
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={resendCooldown > 0}
+            className="text-sm text-pink-500 hover:underline disabled:text-muted-foreground disabled:no-underline"
+          >
+            {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Didn't get it? Resend code"}
+          </button>
         </CardContent>
       </Card>
     )
@@ -280,4 +340,4 @@ export default function SignupPage() {
       </CardContent>
     </Card>
   )
-} 
+}
