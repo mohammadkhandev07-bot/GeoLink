@@ -20,6 +20,7 @@ export type Profile = {
   notify_messages: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   notify_posts: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   is_verified: boolean
+  onboarding_completed: boolean
   posts_count: number
   followers_count: number
   following_count: number
@@ -168,4 +169,4 @@ export type Database = {
       stories: { Row: Story; Insert: Omit<Story, 'id' | 'created_at' | 'expires_at'> & { id?: string }; Update: Partial<Story> }
     }
   }
-}  
+}
