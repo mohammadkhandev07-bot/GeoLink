@@ -8,8 +8,23 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!error && data.user) {
+      // Google (and any other OAuth) sign-ins skip the manual signup form,
+      // so they never picked their own username - send first-timers to
+      // /onboarding to do that instead of dropping them straight into the
+      // feed with an auto-generated username they never chose.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', data.user.id)
+        .single()
+
+      if (profile && profile.onboarding_completed === false) {
+        return NextResponse.redirect(`${origin}/onboarding`)
+      }
+
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
