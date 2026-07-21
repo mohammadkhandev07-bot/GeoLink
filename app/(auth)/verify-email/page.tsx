@@ -82,6 +82,11 @@ export default function VerifyEmailPage() {
       <CardContent className="space-y-3">
         {sent ? (
           <>
+            <div className="text-left bg-muted/60 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">
+                📩 The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> (not GeoLink, for now) - that&apos;s expected, just copy the 6-digit code from it into the box below.
+              </p>
+            </div>
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
