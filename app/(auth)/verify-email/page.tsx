@@ -35,60 +35,27 @@ export default function VerifyEmailPage() {
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const [code, setCode] = useState('')
-  const [verifying, setVerifying] = useState(false)
-  const [resendCooldown, setResendCooldown] = useState(0)
-
   const supabase = createClient()
   const router = useRouter()
 
-  const startResendCooldown = () => {
-    setResendCooldown(30)
-    const interval = setInterval(() => {
-      setResendCooldown((s) => {
-        if (s <= 1) { clearInterval(interval); return 0 }
-        return s - 1
-      })
-    }, 1000)
-  }
-
-  const handleSendCode = async () => {
+  const handleResend = async () => {
     if (!email) { setError('Please enter your email'); return }
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.resend({ type: 'signup', email })
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/api/auth/callback` },
+    })
+
     if (error) setError(error.message)
-    else {
-      setSent(true)
-      startResendCooldown()
-    }
+    else setSent(true)
+
     setLoading(false)
   }
 
-  const handleResend = async () => {
-    if (resendCooldown > 0) return
-    setError(null)
-    const { error } = await supabase.auth.resend({ type: 'signup', email })
-    if (error) setError(error.message)
-    startResendCooldown()
-  }
-
-  const handleVerify = async () => {
-    if (code.trim().length < 6) { setError('Please enter the 6-digit code.'); return }
-    setVerifying(true)
-    setError(null)
-
-    const { error } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: 'signup' })
-
-    if (error) {
-      setError(error.message)
-      setVerifying(false)
-      return
-    }
-
-    router.push('/feed')
-  }
+  const providerLink = getEmailProviderLink(email)
 
   return (
     <Card className="w-full max-w-sm shadow-xl text-center">
@@ -98,7 +65,9 @@ export default function VerifyEmailPage() {
         </div>
         <CardTitle>Verify your email</CardTitle>
         <CardDescription>
-          {sent ? `A 6-digit verification code has been sent to ${email}` : 'Enter your email address to receive a verification code'}
+          {sent
+            ? `A confirmation link has been sent to ${email}`
+            : 'Enter your email address to receive a new confirmation link'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -106,41 +75,23 @@ export default function VerifyEmailPage() {
           <>
             <div className="text-left bg-muted/60 rounded-lg p-3">
               <p className="text-xs text-muted-foreground">
-                The code will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected for now. Please check your inbox (and spam folder), then enter the 6-digit Supabase verification code below.
+                The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected. Open it and click the confirmation link to activate your GeoLink account.
               </p>
             </div>
-            {getEmailProviderLink(email) && (
+            {providerLink && (
               <a
-                href={getEmailProviderLink(email)!.url}
+                href={providerLink.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2 rounded-md border text-sm font-medium hover:bg-accent transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-pink-500 text-white text-sm font-medium hover:bg-pink-600 transition-colors"
               >
                 <Mail className="h-4 w-4" />
-                Open {getEmailProviderLink(email)!.name}
+                Open {providerLink.name}
               </a>
             )}
-            <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="000000"
-              inputMode="numeric"
-              maxLength={6}
-              className="text-center text-2xl tracking-[0.5em] font-semibold"
-              autoFocus
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button className="w-full" variant="gradient" onClick={handleVerify} disabled={verifying || code.length < 6}>
-              {verifying ? 'Verifying...' : 'Verify & Continue'}
+            <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
+              Back to Login
             </Button>
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={resendCooldown > 0}
-              className="text-sm text-pink-500 hover:underline disabled:text-muted-foreground disabled:no-underline block mx-auto"
-            >
-              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Didn't get it? Resend code"}
-            </button>
           </>
         ) : (
           <>
@@ -151,8 +102,8 @@ export default function VerifyEmailPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button className="w-full" variant="gradient" onClick={handleSendCode} disabled={loading}>
-              {loading ? 'Sending...' : 'Send Verification Code'}
+            <Button className="w-full" variant="gradient" onClick={handleResend} disabled={loading}>
+              {loading ? 'Sending...' : 'Send Confirmation Link'}
             </Button>
             <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
               Back to Login
