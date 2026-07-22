@@ -44,18 +44,12 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
   const { register, handleSubmit, formState: { errors } } = useForm<SignupForm>()
-
-  // OTP step state
-  const [awaitingCode, setAwaitingCode] = useState(false)
-  const [pendingEmail, setPendingEmail] = useState('')
-  const [code, setCode] = useState('')
-  const [verifying, setVerifying] = useState(false)
-  const [verifyError, setVerifyError] = useState<string | null>(null)
-  const [resendCooldown, setResendCooldown] = useState(0)
 
   const onSubmit = async (data: SignupForm) => {
     if (!agreedToTerms) {
@@ -72,6 +66,7 @@ export default function SignupPage() {
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
           data: {
             username: data.username,
             full_name: data.full_name,
@@ -117,58 +112,13 @@ export default function SignupPage() {
       }
 
       setPendingEmail(data.email)
-      setAwaitingCode(true)
-      startResendCooldown()
+      setSent(true)
     } catch (err) {
       setError('Something went wrong. Please try again.')
       console.error(err)
     }
 
     setLoading(false)
-  }
-
-  const startResendCooldown = () => {
-    setResendCooldown(30)
-    const interval = setInterval(() => {
-      setResendCooldown((s) => {
-        if (s <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return s - 1
-      })
-    }, 1000)
-  }
-
-  const handleVerifyCode = async () => {
-    if (code.trim().length < 6) {
-      setVerifyError('Please enter the 6-digit code.')
-      return
-    }
-    setVerifying(true)
-    setVerifyError(null)
-
-    const { error } = await supabase.auth.verifyOtp({
-      email: pendingEmail,
-      token: code.trim(),
-      type: 'signup',
-    })
-
-    if (error) {
-      setVerifyError(error.message)
-      setVerifying(false)
-      return
-    }
-
-    router.push('/feed')
-  }
-
-  const handleResendCode = async () => {
-    if (resendCooldown > 0) return
-    setVerifyError(null)
-    const { error } = await supabase.auth.resend({ type: 'signup', email: pendingEmail })
-    if (error) setVerifyError(error.message)
-    startResendCooldown()
   }
 
   const handleGoogleSignup = async () => {
@@ -178,66 +128,40 @@ export default function SignupPage() {
     })
   }
 
-  if (awaitingCode) {
+  if (sent) {
+    const providerLink = getEmailProviderLink(pendingEmail)
     return (
       <Card className="w-full max-w-sm shadow-xl text-center">
         <CardHeader>
           <div className="flex justify-center mb-2">
             <Image src="/images/geolink-logo.png" alt="GeoLink" width={56} height={56} className="rounded-xl" />
           </div>
-          <CardTitle>Enter your code</CardTitle>
+          <CardTitle>Check your email</CardTitle>
           <CardDescription>
-            A 6-digit verification code has been sent to{' '}
+            A confirmation link has been sent to{' '}
             <span className="font-medium text-foreground">{pendingEmail}</span>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="text-left bg-muted/60 rounded-lg p-3">
             <p className="text-xs text-muted-foreground">
-              The code will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected for now. Please check your inbox (and spam folder), then enter the 6-digit Supabase verification code below.
+              The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected. Open it and click the confirmation link to activate your GeoLink account and go straight to your feed.
             </p>
           </div>
-          {getEmailProviderLink(pendingEmail) && (
+          {providerLink && (
             <a
-              href={getEmailProviderLink(pendingEmail)!.url}
+              href={providerLink.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2 rounded-md border text-sm font-medium hover:bg-accent transition-colors"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-pink-500 text-white text-sm font-medium hover:bg-pink-600 transition-colors"
             >
               <Mail className="h-4 w-4" />
-              Open {getEmailProviderLink(pendingEmail)!.name}
+              Open {providerLink.name}
             </a>
           )}
-          <Input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="000000"
-            inputMode="numeric"
-            maxLength={6}
-            className="text-center text-2xl tracking-[0.5em] font-semibold"
-            autoFocus
-          />
-          {verifyError && (
-            <div className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
-              {verifyError}
-            </div>
-          )}
-          <Button
-            variant="gradient"
-            className="w-full"
-            disabled={verifying || code.length < 6}
-            onClick={handleVerifyCode}
-          >
-            {verifying ? 'Verifying...' : 'Verify & Continue'}
+          <Button variant="ghost" className="w-full" onClick={() => router.push('/login')}>
+            Back to Login
           </Button>
-          <button
-            type="button"
-            onClick={handleResendCode}
-            disabled={resendCooldown > 0}
-            className="text-sm text-pink-500 hover:underline disabled:text-muted-foreground disabled:no-underline"
-          >
-            {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Didn't get it? Resend code"}
-          </button>
         </CardContent>
       </Card>
     )
