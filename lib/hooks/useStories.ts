@@ -72,6 +72,7 @@ interface CreateTextStoryInput {
   musicTitle?: string
   musicArtist?: string
   musicArtworkUrl?: string
+  durationSeconds?: number
 }
 
 interface CreateMediaStoryInput {
@@ -85,6 +86,7 @@ interface CreateMediaStoryInput {
   musicTitle?: string
   musicArtist?: string
   musicArtworkUrl?: string
+  durationSeconds?: number
 }
 
 export function useCreateStory() {
@@ -96,7 +98,7 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, text, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, text, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds }: CreateTextStoryInput) => {
       const { error } = await supabase.from('stories').insert({
         user_id: userId,
         story_type: 'text',
@@ -106,6 +108,7 @@ export function useCreateStory() {
         music_title: musicTitle || null,
         music_artist: musicArtist || null,
         music_artwork_url: musicArtworkUrl || null,
+        duration_seconds: durationSeconds ?? 5,
       })
       if (error) throw error
     },
@@ -113,7 +116,7 @@ export function useCreateStory() {
   })
 
   const createMediaStory = useMutation({
-    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl }: CreateMediaStoryInput) => {
+    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds }: CreateMediaStoryInput) => {
       const ext = file.name.split('.').pop()
       const path = `${userId}/${Date.now()}.${ext}`
 
@@ -133,6 +136,7 @@ export function useCreateStory() {
         music_title: musicTitle || null,
         music_artist: musicArtist || null,
         music_artwork_url: musicArtworkUrl || null,
+        duration_seconds: storyType === 'photo' ? (durationSeconds ?? 5) : 5,
       })
       if (error) throw error
     },
