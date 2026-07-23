@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { X, ArrowLeft, Upload, Type, Loader2, Music, Play, Pause, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MusicPicker, SelectedSong } from './MusicPicker'
+import { DiscardConfirmDialog } from './DiscardConfirmDialog'
 import { useCreateStory } from '@/lib/hooks/useStories'
 
 interface MediaStoryModalProps {
@@ -24,6 +25,8 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   const [previewPlaying, setPreviewPlaying] = useState(false)
   const [showDuration, setShowDuration] = useState(false)
   const [duration, setDuration] = useState(5)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+  const [discardAction, setDiscardAction] = useState<'close' | 'back' | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -82,6 +85,34 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
     setSong(null)
   }
 
+  // Once a file is picked, that's real unsaved work worth protecting.
+  const hasUnsavedWork = !!file
+
+  const requestClose = () => {
+    if (hasUnsavedWork) {
+      setDiscardAction('close')
+      setShowDiscardConfirm(true)
+    } else {
+      onClose()
+    }
+  }
+
+  const requestBack = () => {
+    if (hasUnsavedWork) {
+      setDiscardAction('back')
+      setShowDiscardConfirm(true)
+    } else {
+      onBack()
+    }
+  }
+
+  const confirmDiscard = () => {
+    previewAudioRef.current?.pause()
+    setShowDiscardConfirm(false)
+    if (discardAction === 'back') onBack()
+    else onClose()
+  }
+
   const handleShare = async () => {
     if (!file) return
     previewAudioRef.current?.pause()
@@ -109,11 +140,11 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
     <div className="fixed inset-0 bg-black z-[100] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 relative z-10">
-        <button onClick={onBack} className="text-white p-1">
+        <button onClick={requestBack} className="text-white p-1">
           <ArrowLeft className="h-6 w-6" />
         </button>
         <p className="text-white font-semibold">{mode === 'photo' ? 'Photo Story' : 'Video Story'}</p>
-        <button onClick={onClose} className="text-white p-1">
+        <button onClick={requestClose} className="text-white p-1">
           <X className="h-6 w-6" />
         </button>
       </div>
@@ -264,6 +295,13 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         <MusicPicker
           onSelect={(s) => { setSong(s); setShowMusicPicker(false) }}
           onClose={() => setShowMusicPicker(false)}
+        />
+      )}
+
+      {showDiscardConfirm && (
+        <DiscardConfirmDialog
+          onContinueEditing={() => setShowDiscardConfirm(false)}
+          onDiscard={confirmDiscard}
         />
       )}
     </div>
