@@ -129,6 +129,10 @@ export type Story = {
   overlay_text: string | null
   overlay_x: number
   overlay_y: number
+  music_url: string | null
+  music_title: string | null
+  music_artist: string | null
+  music_artwork_url: string | null
   created_at: string
   expires_at: string
 }
