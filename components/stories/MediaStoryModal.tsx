@@ -38,7 +38,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   }
 
   // Dragging the overlay text around the media - position is stored as a
-  // percentage of the canvas so it lines up the same on any screen size.
+  // Percentage of the canvas so it lines up the same on any screen size.
   const updatePosFromClientPoint = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return
