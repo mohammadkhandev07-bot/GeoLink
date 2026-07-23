@@ -1,8 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { X, ArrowLeft, Upload, Type, Loader2 } from 'lucide-react'
+import { X, ArrowLeft, Upload, Type, Loader2, Music, Play, Pause } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { MusicPicker, SelectedSong } from './MusicPicker'
 import { useCreateStory } from '@/lib/hooks/useStories'
 
 interface MediaStoryModalProps {
@@ -18,6 +19,10 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   const [overlayText, setOverlayText] = useState('')
   const [editingText, setEditingText] = useState(false)
   const [pos, setPos] = useState({ x: 50, y: 50 }) // percent from top-left
+  const [showMusicPicker, setShowMusicPicker] = useState(false)
+  const [song, setSong] = useState<SelectedSong | null>(null)
+  const [previewPlaying, setPreviewPlaying] = useState(false)
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -55,8 +60,23 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
     dragging.current = false
   }
 
+  const toggleSongPreview = () => {
+    if (!song) return
+    if (previewPlaying) {
+      previewAudioRef.current?.pause()
+      setPreviewPlaying(false)
+      return
+    }
+    const audio = new Audio(song.previewUrl)
+    audio.play().catch(() => {})
+    audio.onended = () => setPreviewPlaying(false)
+    previewAudioRef.current = audio
+    setPreviewPlaying(true)
+  }
+
   const handleShare = async () => {
     if (!file) return
+    previewAudioRef.current?.pause()
     try {
       await createMediaStory.mutateAsync({
         userId,
@@ -65,6 +85,10 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         overlayText: overlayText.trim() || undefined,
         overlayX: pos.x,
         overlayY: pos.y,
+        musicUrl: song?.previewUrl,
+        musicTitle: song?.title,
+        musicArtist: song?.artist,
+        musicArtworkUrl: song?.artworkUrl,
       })
       onClose()
     } catch {
@@ -109,7 +133,9 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
               // eslint-disable-next-line @next/next/no-img-element
               <img src={preview} alt="Story preview" className="max-w-full max-h-full object-contain" />
             ) : (
-              <video src={preview} className="max-w-full max-h-full object-contain" autoPlay loop muted playsInline />
+              // If a song is picked, mute the clip's own audio - same idea as
+              // Instagram, the chosen song replaces the original sound.
+              <video src={preview} className="max-w-full max-h-full object-contain" autoPlay loop muted={!!song} playsInline />
             )}
 
             {overlayText && (
@@ -122,6 +148,18 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
                   {overlayText}
                 </p>
               </div>
+            )}
+
+            {song && (
+              <button
+                onClick={toggleSongPreview}
+                className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%]"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={song.artworkUrl} alt={song.title} className="h-7 w-7 rounded-full object-cover shrink-0" />
+                <span className="text-white text-xs font-medium truncate">{song.title} &middot; {song.artist}</span>
+                {previewPlaying ? <Pause className="h-3.5 w-3.5 text-white shrink-0" /> : <Play className="h-3.5 w-3.5 text-white shrink-0" />}
+              </button>
             )}
           </div>
         )}
@@ -152,13 +190,20 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
 
       {/* Footer actions */}
       {preview && !editingText && (
-        <div className="p-4 flex items-center gap-3 border-t border-white/10">
+        <div className="p-4 flex items-center gap-2 border-t border-white/10">
           <button
             onClick={() => setEditingText(true)}
-            className="h-11 px-4 shrink-0 rounded-full bg-white/10 flex items-center gap-2 text-white hover:bg-white/20 transition-colors"
+            className="h-11 px-3 shrink-0 rounded-full bg-white/10 flex items-center gap-1.5 text-white hover:bg-white/20 transition-colors"
           >
             <Type className="h-5 w-5" />
-            <span className="text-sm font-medium">{overlayText ? 'Edit text' : 'Add text'}</span>
+            <span className="text-sm font-medium hidden sm:inline">{overlayText ? 'Edit text' : 'Add text'}</span>
+          </button>
+          <button
+            onClick={() => setShowMusicPicker(true)}
+            className="h-11 px-3 shrink-0 rounded-full bg-white/10 flex items-center gap-1.5 text-white hover:bg-white/20 transition-colors"
+          >
+            <Music className="h-5 w-5" />
+            <span className="text-sm font-medium hidden sm:inline">{song ? 'Change song' : 'Add music'}</span>
           </button>
           <Button
             variant="gradient"
@@ -173,6 +218,13 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
       {createMediaStory.isError && (
         <p className="text-xs text-red-400 text-center pb-3">Couldn't post your story. Try again.</p>
       )}
+
+      {showMusicPicker && (
+        <MusicPicker
+          onSelect={(s) => { setSong(s); setShowMusicPicker(false) }}
+          onClose={() => setShowMusicPicker(false)}
+        />
+      )}
     </div>
   )
-} 
+}
