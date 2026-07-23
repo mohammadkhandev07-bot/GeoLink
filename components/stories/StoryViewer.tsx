@@ -14,7 +14,6 @@ interface StoryViewerProps {
   onClose: () => void
 }
 
-const TEXT_PHOTO_DURATION_MS = 5000
 const DEFAULT_BACKGROUND = 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)'
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
@@ -52,15 +51,16 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     }
   }
 
-  // Progress + Auto-Advance timer for text/photo stories.
+  // Progress + auto-advance timer for text/photo stories.
   useEffect(() => {
     setProgress(0)
     if (timerRef.current) clearInterval(timerRef.current)
     if (!story || story.story_type === 'video') return
 
     const start = Date.now()
+    const durationMs = (story.duration_seconds || 5) * 1000
     timerRef.current = setInterval(() => {
-      const pct = Math.min(100, ((Date.now() - start) / TEXT_PHOTO_DURATION_MS) * 100)
+      const pct = Math.min(100, ((Date.now() - start) / durationMs) * 100)
       setProgress(pct)
       if (pct >= 100) {
         if (timerRef.current) clearInterval(timerRef.current)
