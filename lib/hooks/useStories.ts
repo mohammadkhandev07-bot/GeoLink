@@ -12,7 +12,7 @@ export interface StoryGroup {
 
 // Groups this user's own + their followed accounts' active stories by
 // author, most-recently-posted author first. "Active" here just means the
-// Row is visible at all - the database RLS policy already hides anything
+// row is visible at all - the database RLS policy already hides anything
 // past its 24h expires_at, so nothing extra needs to be checked here.
 export function useActiveStories(userId?: string) {
   const supabase = createClient()
@@ -68,6 +68,10 @@ interface CreateTextStoryInput {
   userId: string
   text: string
   backgroundColor: string
+  musicUrl?: string
+  musicTitle?: string
+  musicArtist?: string
+  musicArtworkUrl?: string
 }
 
 interface CreateMediaStoryInput {
@@ -77,6 +81,10 @@ interface CreateMediaStoryInput {
   overlayText?: string
   overlayX?: number
   overlayY?: number
+  musicUrl?: string
+  musicTitle?: string
+  musicArtist?: string
+  musicArtworkUrl?: string
 }
 
 export function useCreateStory() {
@@ -88,12 +96,16 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, text, backgroundColor }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, text, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl }: CreateTextStoryInput) => {
       const { error } = await supabase.from('stories').insert({
         user_id: userId,
         story_type: 'text',
         text_content: text,
         background_color: backgroundColor,
+        music_url: musicUrl || null,
+        music_title: musicTitle || null,
+        music_artist: musicArtist || null,
+        music_artwork_url: musicArtworkUrl || null,
       })
       if (error) throw error
     },
@@ -101,7 +113,7 @@ export function useCreateStory() {
   })
 
   const createMediaStory = useMutation({
-    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY }: CreateMediaStoryInput) => {
+    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl }: CreateMediaStoryInput) => {
       const ext = file.name.split('.').pop()
       const path = `${userId}/${Date.now()}.${ext}`
 
@@ -117,6 +129,10 @@ export function useCreateStory() {
         overlay_text: overlayText || null,
         overlay_x: overlayX ?? 50,
         overlay_y: overlayY ?? 50,
+        music_url: musicUrl || null,
+        music_title: musicTitle || null,
+        music_artist: musicArtist || null,
+        music_artwork_url: musicArtworkUrl || null,
       })
       if (error) throw error
     },
