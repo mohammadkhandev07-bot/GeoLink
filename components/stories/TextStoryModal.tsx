@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause } from 'lucide-react'
+import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
@@ -15,7 +15,7 @@ interface TextStoryModalProps {
 
 // Gradient backgrounds the person can pick between for their text story.
 // Stored as raw CSS so the exact same value can be replayed later in the
-// viewer Without depending on Tailwind's generated classes.
+// viewer without depending on Tailwind's generated classes.
 const BACKGROUNDS = [
   { key: 'pink-purple', css: 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)' },
   { key: 'orange-red', css: 'linear-gradient(135deg, #fb923c, #ef4444, #db2777)' },
@@ -35,6 +35,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [song, setSong] = useState<SelectedSong | null>(null)
   const [previewPlaying, setPreviewPlaying] = useState(false)
+  const [showDuration, setShowDuration] = useState(false)
+  const [duration, setDuration] = useState(5)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { createTextStory } = useCreateStory()
@@ -89,6 +91,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         musicTitle: song?.title,
         musicArtist: song?.artist,
         musicArtworkUrl: song?.artworkUrl,
+        durationSeconds: duration,
       })
       onClose()
     } catch {
@@ -185,7 +188,24 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         </div>
       )}
 
-      {/* Footer: emoji + music + share */}
+      {showDuration && (
+        <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white text-sm font-medium">Story duration</span>
+            <span className="text-white font-bold text-lg">{duration}s</span>
+          </div>
+          <input
+            type="range"
+            min={2}
+            max={120}
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            className="w-full accent-pink-500"
+          />
+        </div>
+      )}
+
+      {/* Footer: emoji + music + duration + share */}
       <div className="relative p-4 flex items-center gap-2 border-t border-white/10">
         {showEmoji && <EmojiPicker onSelect={insertEmoji} onClose={() => setShowEmoji(false)} />}
         <button
@@ -199,6 +219,13 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
         >
           <Music className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => setShowDuration((s) => !s)}
+          className="h-11 shrink-0 rounded-full bg-white/10 flex items-center gap-1.5 px-3 text-white hover:bg-white/20 transition-colors"
+        >
+          <Clock className="h-5 w-5" />
+          <span className="text-xs font-semibold">{duration}s</span>
         </button>
         <Button
           variant="gradient"
