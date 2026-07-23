@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { X, ArrowLeft, Upload, Type, Loader2, Music, Play, Pause } from 'lucide-react'
+import { X, ArrowLeft, Upload, Type, Loader2, Music, Play, Pause, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MusicPicker, SelectedSong } from './MusicPicker'
 import { useCreateStory } from '@/lib/hooks/useStories'
@@ -22,6 +22,8 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [song, setSong] = useState<SelectedSong | null>(null)
   const [previewPlaying, setPreviewPlaying] = useState(false)
+  const [showDuration, setShowDuration] = useState(false)
+  const [duration, setDuration] = useState(5)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -38,7 +40,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   }
 
   // Dragging the overlay text around the media - position is stored as a
-  // Percentage of the canvas so it lines up the same on any screen size.
+  // percentage of the canvas so it lines up the same on any screen size.
   const updatePosFromClientPoint = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -89,6 +91,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         musicTitle: song?.title,
         musicArtist: song?.artist,
         musicArtworkUrl: song?.artworkUrl,
+        durationSeconds: mode === 'photo' ? duration : undefined,
       })
       onClose()
     } catch {
@@ -188,6 +191,23 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         </div>
       )}
 
+      {mode === 'photo' && showDuration && !editingText && (
+        <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white text-sm font-medium">Story duration</span>
+            <span className="text-white font-bold text-lg">{duration}s</span>
+          </div>
+          <input
+            type="range"
+            min={2}
+            max={120}
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            className="w-full accent-pink-500"
+          />
+        </div>
+      )}
+
       {/* Footer actions */}
       {preview && !editingText && (
         <div className="p-4 flex items-center gap-2 border-t border-white/10">
@@ -205,6 +225,15 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
             <Music className="h-5 w-5" />
             <span className="text-sm font-medium hidden sm:inline">{song ? 'Change song' : 'Add music'}</span>
           </button>
+          {mode === 'photo' && (
+            <button
+              onClick={() => setShowDuration((s) => !s)}
+              className="h-11 px-3 shrink-0 rounded-full bg-white/10 flex items-center gap-1.5 text-white hover:bg-white/20 transition-colors"
+            >
+              <Clock className="h-5 w-5" />
+              <span className="text-xs font-semibold">{duration}s</span>
+            </button>
+          )}
           <Button
             variant="gradient"
             className="flex-1"
