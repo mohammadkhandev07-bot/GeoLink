@@ -5,6 +5,7 @@ import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause, Clock } from
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
+import { DiscardConfirmDialog } from './DiscardConfirmDialog'
 import { useCreateStory } from '@/lib/hooks/useStories'
 
 interface TextStoryModalProps {
@@ -37,6 +38,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [previewPlaying, setPreviewPlaying] = useState(false)
   const [showDuration, setShowDuration] = useState(false)
   const [duration, setDuration] = useState(5)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
+  const [discardAction, setDiscardAction] = useState<'close' | 'back' | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { createTextStory } = useCreateStory()
@@ -85,6 +88,34 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     setSong(null)
   }
 
+  // Anything typed or picked counts as unsaved work worth protecting.
+  const hasUnsavedWork = text.trim().length > 0 || !!song
+
+  const requestClose = () => {
+    if (hasUnsavedWork) {
+      setDiscardAction('close')
+      setShowDiscardConfirm(true)
+    } else {
+      onClose()
+    }
+  }
+
+  const requestBack = () => {
+    if (hasUnsavedWork) {
+      setDiscardAction('back')
+      setShowDiscardConfirm(true)
+    } else {
+      onBack()
+    }
+  }
+
+  const confirmDiscard = () => {
+    previewAudioRef.current?.pause()
+    setShowDiscardConfirm(false)
+    if (discardAction === 'back') onBack()
+    else onClose()
+  }
+
   const handleShare = async () => {
     if (!text.trim()) return
     previewAudioRef.current?.pause()
@@ -109,11 +140,11 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     <div className="fixed inset-0 bg-black z-[100] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 relative z-10">
-        <button onClick={onBack} className="text-white p-1">
+        <button onClick={requestBack} className="text-white p-1">
           <ArrowLeft className="h-6 w-6" />
         </button>
         <p className="text-white font-semibold">Text Story</p>
-        <button onClick={onClose} className="text-white p-1">
+        <button onClick={requestClose} className="text-white p-1">
           <X className="h-6 w-6" />
         </button>
       </div>
@@ -256,6 +287,13 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <MusicPicker
           onSelect={(s) => { setSong(s); setShowMusicPicker(false) }}
           onClose={() => setShowMusicPicker(false)}
+        />
+      )}
+
+      {showDiscardConfirm && (
+        <DiscardConfirmDialog
+          onContinueEditing={() => setShowDiscardConfirm(false)}
+          onDiscard={confirmDiscard}
         />
       )}
     </div>
