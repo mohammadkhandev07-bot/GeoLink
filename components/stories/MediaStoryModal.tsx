@@ -76,6 +76,12 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
     setPreviewPlaying(true)
   }
 
+  const removeSong = () => {
+    previewAudioRef.current?.pause()
+    setPreviewPlaying(false)
+    setSong(null)
+  }
+
   const handleShare = async () => {
     if (!file) return
     previewAudioRef.current?.pause()
@@ -154,15 +160,21 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
             )}
 
             {song && (
-              <button
-                onClick={toggleSongPreview}
-                className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%]"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={song.artworkUrl} alt={song.title} className="h-7 w-7 rounded-full object-cover shrink-0" />
-                <span className="text-white text-xs font-medium truncate">{song.title} &middot; {song.artist}</span>
-                {previewPlaying ? <Pause className="h-3.5 w-3.5 text-white shrink-0" /> : <Play className="h-3.5 w-3.5 text-white shrink-0" />}
-              </button>
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-1.5 py-1.5 max-w-[85%]">
+                <button onClick={toggleSongPreview} className="flex items-center gap-2 min-w-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={song.artworkUrl} alt={song.title} className="h-7 w-7 rounded-full object-cover shrink-0" />
+                  <span className="text-white text-xs font-medium truncate">{song.title} &middot; {song.artist}</span>
+                  {previewPlaying ? <Pause className="h-3.5 w-3.5 text-white shrink-0" /> : <Play className="h-3.5 w-3.5 text-white shrink-0" />}
+                </button>
+                <button
+                  onClick={removeSong}
+                  className="h-5 w-5 shrink-0 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+                  aria-label="Remove song"
+                >
+                  <X className="h-3 w-3 text-white" />
+                </button>
+              </div>
             )}
           </div>
         )}
