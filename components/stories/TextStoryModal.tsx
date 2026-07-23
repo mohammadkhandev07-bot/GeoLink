@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause, Clock } from 'lucide-react'
+import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause, Clock, Circle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
@@ -33,6 +33,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [customColor1, setCustomColor1] = useState('#ec4899')
   const [customColor2, setCustomColor2] = useState('#06b6d4')
+  const [showSolidPicker, setShowSolidPicker] = useState(false)
+  const [solidColor, setSolidColor] = useState('#ec4899')
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [song, setSong] = useState<SelectedSong | null>(null)
   const [previewPlaying, setPreviewPlaying] = useState(false)
@@ -66,6 +68,13 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     // color wheel - not limited to the 6 presets.
     setBackground(`linear-gradient(135deg, ${customColor1}, ${customColor2})`)
     setShowColorPicker(false)
+  }
+
+  const applySolidColor = () => {
+    // A plain, single flat color - no gradient - for people who want a
+    // simple, clean background instead of the shaded/gradient presets.
+    setBackground(solidColor)
+    setShowSolidPicker(false)
   }
 
   const toggleSongPreview = () => {
@@ -195,11 +204,37 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <button
           onClick={() => setShowColorPicker((s) => !s)}
           className="h-8 w-8 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
-          title="Pick any color"
+          title="Pick a custom gradient"
         >
           <Palette className="h-4 w-4" />
         </button>
+        {/* Simple/solid color - one flat color, no gradient */}
+        <button
+          onClick={() => setShowSolidPicker((s) => !s)}
+          className="h-8 w-8 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
+          title="Pick a simple solid color"
+        >
+          <Circle className="h-4 w-4" />
+        </button>
       </div>
+
+      {showSolidPicker && (
+        <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-3 flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-3">
+            <div className="flex flex-col items-center gap-1">
+              <input
+                type="color"
+                value={solidColor}
+                onChange={(e) => setSolidColor(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent"
+              />
+              <span className="text-[10px] text-white/70">Color</span>
+            </div>
+            <div className="flex-1 h-9 rounded-lg" style={{ background: solidColor }} />
+          </div>
+          <Button size="sm" variant="gradient" onClick={applySolidColor}>Apply</Button>
+        </div>
+      )}
 
       {showColorPicker && (
         <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-3 flex items-center gap-3">
