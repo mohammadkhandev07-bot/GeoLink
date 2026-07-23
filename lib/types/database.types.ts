@@ -133,6 +133,7 @@ export type Story = {
   music_title: string | null
   music_artist: string | null
   music_artwork_url: string | null
+  duration_seconds: number
   created_at: string
   expires_at: string
 }
