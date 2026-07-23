@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Music } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { useDeleteStory } from '@/lib/hooks/useStories'
@@ -15,21 +15,14 @@ interface StoryViewerProps {
 }
 
 const TEXT_PHOTO_DURATION_MS = 5000
-
-const BG_CLASS: Record<string, string> = {
-  'pink-purple': 'bg-gradient-to-br from-pink-500 via-purple-500 to-cyan-500',
-  'orange-red': 'bg-gradient-to-br from-orange-400 via-red-500 to-pink-600',
-  'blue-cyan': 'bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400',
-  'green-lime': 'bg-gradient-to-br from-emerald-500 via-green-500 to-lime-400',
-  'dark-slate': 'bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900',
-  'violet-fuchsia': 'bg-gradient-to-br from-violet-600 via-fuchsia-500 to-pink-500',
-}
+const DEFAULT_BACKGROUND = 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)'
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
   const [groupIndex, setGroupIndex] = useState(startGroupIndex)
   const [storyIndex, setStoryIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const deleteStory = useDeleteStory()
 
@@ -79,7 +72,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIndex, storyIndex])
 
-  // Progress for video stories, driven by actual playback Time.
+  // Progress for video stories, driven by actual playback time.
   useEffect(() => {
     if (!story || story.story_type !== 'video') return
     const video = videoRef.current
@@ -99,11 +92,32 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIndex, storyIndex])
 
+  // Play the story's chosen song, if it has one. Loops for text/photo
+  // stories (which have a fixed short display time), plays once for videos.
+  useEffect(() => {
+    audioRef.current?.pause()
+    audioRef.current = null
+
+    if (!story?.music_url) return
+
+    const audio = new Audio(story.music_url)
+    audio.loop = story.story_type !== 'video'
+    audio.play().catch(() => {
+      // Autoplay can be blocked in some browsers - not critical, the story
+      // still plays fine without sound in that edge case.
+    })
+    audioRef.current = audio
+
+    return () => { audio.pause() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupIndex, storyIndex, story?.music_url])
+
   if (!group || !story) return null
 
   const isOwn = currentUserId === story.user_id
 
   const handleDelete = async () => {
+    audioRef.current?.pause()
     await deleteStory.mutateAsync({ storyId: story.id, mediaUrl: story.media_url })
     if (group.stories.length <= 1) {
       onClose()
@@ -157,7 +171,10 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
         {/* Content */}
         <div className="relative w-full h-full flex items-center justify-center">
           {story.story_type === 'text' && (
-            <div className={`w-full h-full flex items-center justify-center p-8 ${BG_CLASS[story.background_color || ''] || BG_CLASS['pink-purple']}`}>
+            <div
+              className="w-full h-full flex items-center justify-center p-8"
+              style={{ background: story.background_color || DEFAULT_BACKGROUND }}
+            >
               <p className="text-white text-center text-2xl font-semibold break-words">{story.text_content}</p>
             </div>
           )}
@@ -174,7 +191,9 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               className="max-w-full max-h-full object-contain"
               autoPlay
               playsInline
-              muted={false}
+              // If a song was picked, the video's own sound is muted so the
+              // chosen song plays instead - same as Instagram/Reels behavior.
+              muted={!!story.music_url}
             />
           )}
 
@@ -186,6 +205,20 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               <p className="text-white text-xl font-bold break-words" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.6)' }}>
                 {story.overlay_text}
               </p>
+            </div>
+          )}
+
+          {story.music_title && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%] z-10">
+              {story.music_artwork_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={story.music_artwork_url} alt={story.music_title} className="h-7 w-7 rounded-full object-cover shrink-0" />
+              ) : (
+                <Music className="h-4 w-4 text-white shrink-0" />
+              )}
+              <span className="text-white text-xs font-medium truncate">
+                {story.music_title}{story.music_artist ? ` \u00b7 ${story.music_artist}` : ''}
+              </span>
             </div>
           )}
         </div>
