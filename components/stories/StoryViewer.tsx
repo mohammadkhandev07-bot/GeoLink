@@ -52,7 +52,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     }
   }
 
-  // Progress + auto-advance timer for text/photo stories.
+  // Progress + Auto-Advance timer for text/photo stories.
   useEffect(() => {
     setProgress(0)
     if (timerRef.current) clearInterval(timerRef.current)
