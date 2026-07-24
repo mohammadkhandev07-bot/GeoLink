@@ -17,7 +17,7 @@ interface TextStoryModalProps {
 
 // Gradient backgrounds the person can pick between for their text story.
 // Stored as raw CSS so the exact same value can be replayed later in the
-// viewer without depending on Tailwind's generated classes.
+// Viewer without depending on Tailwind's generated classes.
 const BACKGROUNDS = [
   { key: 'pink-purple', css: 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)' },
   { key: 'orange-red', css: 'linear-gradient(135deg, #fb923c, #ef4444, #db2777)' },
