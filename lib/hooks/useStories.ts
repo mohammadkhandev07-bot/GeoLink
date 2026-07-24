@@ -73,6 +73,8 @@ interface CreateTextStoryInput {
   musicArtist?: string
   musicArtworkUrl?: string
   durationSeconds?: number
+  textColor?: string
+  fontFamily?: string
 }
 
 interface CreateMediaStoryInput {
@@ -87,6 +89,8 @@ interface CreateMediaStoryInput {
   musicArtist?: string
   musicArtworkUrl?: string
   durationSeconds?: number
+  overlayTextColor?: string
+  overlayFontFamily?: string
 }
 
 export function useCreateStory() {
@@ -98,7 +102,7 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, text, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, text, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds, textColor, fontFamily }: CreateTextStoryInput) => {
       const { error } = await supabase.from('stories').insert({
         user_id: userId,
         story_type: 'text',
@@ -109,6 +113,8 @@ export function useCreateStory() {
         music_artist: musicArtist || null,
         music_artwork_url: musicArtworkUrl || null,
         duration_seconds: durationSeconds ?? 5,
+        text_color: textColor || null,
+        font_family: fontFamily || null,
       })
       if (error) throw error
     },
@@ -116,7 +122,7 @@ export function useCreateStory() {
   })
 
   const createMediaStory = useMutation({
-    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds }: CreateMediaStoryInput) => {
+    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds, overlayTextColor, overlayFontFamily }: CreateMediaStoryInput) => {
       const ext = file.name.split('.').pop()
       const path = `${userId}/${Date.now()}.${ext}`
 
@@ -137,6 +143,8 @@ export function useCreateStory() {
         music_artist: musicArtist || null,
         music_artwork_url: musicArtworkUrl || null,
         duration_seconds: storyType === 'photo' ? (durationSeconds ?? 5) : 5,
+        overlay_text_color: overlayTextColor || null,
+        overlay_font_family: overlayFontFamily || null,
       })
       if (error) throw error
     },
