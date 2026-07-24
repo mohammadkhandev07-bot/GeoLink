@@ -61,6 +61,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [textGradient2, setTextGradient2] = useState('#06b6d4')
   const [showFontPicker, setShowFontPicker] = useState(false)
   const [fontFamily, setFontFamily] = useState('')
+  const fontBeforePicker = useRef('')
 
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [song, setSong] = useState<SelectedSong | null>(null)
@@ -412,7 +413,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           <Music className="h-5 w-5" />
         </button>
         <button
-          onClick={() => setShowFontPicker(true)}
+          onClick={() => { fontBeforePicker.current = fontFamily; setShowFontPicker(true) }}
           className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
           title="Choose font"
         >
@@ -449,7 +450,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <FontPicker
           currentFont={fontFamily}
           onSelect={(f) => setFontFamily(f)}
-          onClose={() => setShowFontPicker(false)}
+          onCancel={() => { setFontFamily(fontBeforePicker.current); setShowFontPicker(false) }}
+          onDone={() => setShowFontPicker(false)}
         />
       )}
 
