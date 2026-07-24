@@ -134,6 +134,10 @@ export type Story = {
   music_artist: string | null
   music_artwork_url: string | null
   duration_seconds: number
+  text_color: string | null
+  font_family: string | null
+  overlay_text_color: string | null
+  overlay_font_family: string | null
   created_at: string
   expires_at: string
 }
