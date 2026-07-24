@@ -1,11 +1,12 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause, Clock, Circle } from 'lucide-react'
+import { X, ArrowLeft, Smile, Loader2, Palette, Music, Play, Pause, Clock, Circle, CaseSensitive, Type } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
 import { DiscardConfirmDialog } from './DiscardConfirmDialog'
+import { FontPicker } from './FontPicker'
 import { useCreateStory } from '@/lib/hooks/useStories'
 
 interface TextStoryModalProps {
@@ -26,6 +27,21 @@ const BACKGROUNDS = [
   { key: 'violet-fuchsia', css: 'linear-gradient(135deg, #7c3aed, #d946ef, #ec4899)' },
 ]
 
+// Builds the CSS to actually render a story's text color, whether it's a
+// plain solid color or a "gradient:#hex1:#hex2" gradient-fill value.
+function getTextColorStyle(textColor: string): React.CSSProperties {
+  if (textColor.startsWith('gradient:')) {
+    const [, c1, c2] = textColor.split(':')
+    return {
+      backgroundImage: `linear-gradient(135deg, ${c1}, ${c2})`,
+      WebkitBackgroundClip: 'text',
+      backgroundClip: 'text',
+      color: 'transparent',
+    }
+  }
+  return { color: textColor }
+}
+
 export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps) {
   const [text, setText] = useState('')
   const [background, setBackground] = useState(BACKGROUNDS[0].css)
@@ -35,6 +51,17 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [customColor2, setCustomColor2] = useState('#06b6d4')
   const [showSolidPicker, setShowSolidPicker] = useState(false)
   const [solidColor, setSolidColor] = useState('#ec4899')
+
+  // Text color/style
+  const [textColor, setTextColor] = useState('#ffffff')
+  const [showTextSolidPicker, setShowTextSolidPicker] = useState(false)
+  const [textSolidColor, setTextSolidColor] = useState('#ffffff')
+  const [showTextGradientPicker, setShowTextGradientPicker] = useState(false)
+  const [textGradient1, setTextGradient1] = useState('#ec4899')
+  const [textGradient2, setTextGradient2] = useState('#06b6d4')
+  const [showFontPicker, setShowFontPicker] = useState(false)
+  const [fontFamily, setFontFamily] = useState('')
+
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [song, setSong] = useState<SelectedSong | null>(null)
   const [previewPlaying, setPreviewPlaying] = useState(false)
@@ -75,6 +102,16 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     // simple, clean background instead of the shaded/gradient presets.
     setBackground(solidColor)
     setShowSolidPicker(false)
+  }
+
+  const applyTextSolidColor = () => {
+    setTextColor(textSolidColor)
+    setShowTextSolidPicker(false)
+  }
+
+  const applyTextGradient = () => {
+    setTextColor(`gradient:${textGradient1}:${textGradient2}`)
+    setShowTextGradientPicker(false)
   }
 
   const toggleSongPreview = () => {
@@ -138,6 +175,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         musicArtist: song?.artist,
         musicArtworkUrl: song?.artworkUrl,
         durationSeconds: duration,
+        textColor,
+        fontFamily: fontFamily || undefined,
       })
       onClose()
     } catch {
@@ -167,7 +206,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           placeholder="Start typing..."
           autoFocus
           maxLength={280}
-          className="w-full max-h-full bg-transparent text-white text-center text-2xl font-semibold placeholder:text-white/60 outline-none resize-none"
+          style={{ ...getTextColorStyle(textColor), fontFamily: fontFamily ? `'${fontFamily}', sans-serif` : undefined }}
+          className="w-full max-h-full bg-transparent text-center text-2xl font-semibold placeholder:text-white/60 outline-none resize-none"
           rows={6}
         />
 
@@ -191,30 +231,56 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
       </div>
 
       {/* Background color swatches */}
-      <div className="flex items-center justify-center gap-2 py-3 relative z-10">
+      <div className="flex items-center justify-center gap-2 py-2 relative z-10">
+        <span className="text-white/50 text-[10px] uppercase tracking-wide mr-1">Background</span>
         {BACKGROUNDS.map((bg) => (
           <button
             key={bg.key}
             onClick={() => setBackground(bg.css)}
             style={{ background: bg.css }}
-            className={`h-8 w-8 rounded-full ${background === bg.css ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : ''}`}
+            className={`h-7 w-7 rounded-full ${background === bg.css ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : ''}`}
           />
         ))}
-        {/* Custom color - pick any color that exists */}
         <button
           onClick={() => setShowColorPicker((s) => !s)}
-          className="h-8 w-8 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
+          className="h-7 w-7 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
           title="Pick a custom gradient"
         >
-          <Palette className="h-4 w-4" />
+          <Palette className="h-3.5 w-3.5" />
         </button>
-        {/* Simple/solid color - one flat color, no gradient */}
         <button
           onClick={() => setShowSolidPicker((s) => !s)}
-          className="h-8 w-8 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
+          className="h-7 w-7 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
           title="Pick a simple solid color"
         >
-          <Circle className="h-4 w-4" />
+          <Circle className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Text color swatches */}
+      <div className="flex items-center justify-center gap-2 py-2 relative z-10">
+        <span className="text-white/50 text-[10px] uppercase tracking-wide mr-1">Text</span>
+        {['#ffffff', '#000000', '#facc15', '#f472b6'].map((c) => (
+          <button
+            key={c}
+            onClick={() => setTextColor(c)}
+            style={{ background: c }}
+            className={`h-7 w-7 rounded-full border border-white/20 ${textColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : ''}`}
+          />
+        ))}
+        <button
+          onClick={() => setShowTextGradientPicker((s) => !s)}
+          className="h-7 w-7 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
+          title="Custom text gradient"
+        >
+          <Palette className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => setShowTextSolidPicker((s) => !s)}
+          className="h-7 w-7 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white"
+          title="Custom text color"
+        >
+          <CaseSensitive className="h-4 w-4" />
         </button>
       </div>
 
@@ -228,7 +294,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
                 onChange={(e) => setSolidColor(e.target.value)}
                 className="h-9 w-9 rounded-lg cursor-pointer bg-transparent"
               />
-              <span className="text-[10px] text-white/70">Color</span>
+              <span className="text-[10px] text-white/70">Background Color</span>
             </div>
             <div className="flex-1 h-9 rounded-lg" style={{ background: solidColor }} />
           </div>
@@ -266,6 +332,53 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         </div>
       )}
 
+      {showTextSolidPicker && (
+        <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-3 flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-3">
+            <div className="flex flex-col items-center gap-1">
+              <input
+                type="color"
+                value={textSolidColor}
+                onChange={(e) => setTextSolidColor(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent"
+              />
+              <span className="text-[10px] text-white/70">Text Color</span>
+            </div>
+            <p className="flex-1 text-lg font-semibold" style={{ color: textSolidColor }}>Aa Preview</p>
+          </div>
+          <Button size="sm" variant="gradient" onClick={applyTextSolidColor}>Apply</Button>
+        </div>
+      )}
+
+      {showTextGradientPicker && (
+        <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-3 flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1">
+              <input
+                type="color"
+                value={textGradient1}
+                onChange={(e) => setTextGradient1(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent"
+              />
+              <span className="text-[10px] text-white/70">Color 1</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <input
+                type="color"
+                value={textGradient2}
+                onChange={(e) => setTextGradient2(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent"
+              />
+              <span className="text-[10px] text-white/70">Color 2</span>
+            </div>
+            <p className="flex-1 text-lg font-semibold" style={getTextColorStyle(`gradient:${textGradient1}:${textGradient2}`)}>
+              Aa Preview
+            </p>
+          </div>
+          <Button size="sm" variant="gradient" onClick={applyTextGradient}>Apply</Button>
+        </div>
+      )}
+
       {showDuration && (
         <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
@@ -283,7 +396,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         </div>
       )}
 
-      {/* Footer: emoji + music + duration + share */}
+      {/* Footer: emoji + music + font + duration + share */}
       <div className="relative p-4 flex items-center gap-2 border-t border-white/10">
         {showEmoji && <EmojiPicker onSelect={insertEmoji} onClose={() => setShowEmoji(false)} />}
         <button
@@ -297,6 +410,13 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
         >
           <Music className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => setShowFontPicker(true)}
+          className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+          title="Choose font"
+        >
+          <Type className="h-5 w-5" />
         </button>
         <button
           onClick={() => setShowDuration((s) => !s)}
@@ -322,6 +442,14 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <MusicPicker
           onSelect={(s) => { setSong(s); setShowMusicPicker(false) }}
           onClose={() => setShowMusicPicker(false)}
+        />
+      )}
+
+      {showFontPicker && (
+        <FontPicker
+          currentFont={fontFamily}
+          onSelect={(f) => { setFontFamily(f); setShowFontPicker(false) }}
+          onClose={() => setShowFontPicker(false)}
         />
       )}
 
