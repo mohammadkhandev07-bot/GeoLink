@@ -1,10 +1,11 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { X, ArrowLeft, Upload, Type, Loader2, Music, Play, Pause, Clock } from 'lucide-react'
+import { X, ArrowLeft, Upload, Type, Loader2, Music, Play, Pause, Clock, Palette, Circle, CaseSensitive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MusicPicker, SelectedSong } from './MusicPicker'
 import { DiscardConfirmDialog } from './DiscardConfirmDialog'
+import { FontPicker } from './FontPicker'
 import { useCreateStory } from '@/lib/hooks/useStories'
 
 interface MediaStoryModalProps {
@@ -12,6 +13,21 @@ interface MediaStoryModalProps {
   mode: 'photo' | 'video'
   onClose: () => void
   onBack: () => void
+}
+
+// Builds the CSS to render the caption's color, whether it's a plain solid
+// color or a "gradient:#hex1:#hex2" gradient-fill value.
+function getTextColorStyle(textColor: string): React.CSSProperties {
+  if (textColor.startsWith('gradient:')) {
+    const [, c1, c2] = textColor.split(':')
+    return {
+      backgroundImage: `linear-gradient(135deg, ${c1}, ${c2})`,
+      WebkitBackgroundClip: 'text',
+      backgroundClip: 'text',
+      color: 'transparent',
+    }
+  }
+  return { color: textColor }
 }
 
 export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryModalProps) {
@@ -25,6 +41,17 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   const [previewPlaying, setPreviewPlaying] = useState(false)
   const [showDuration, setShowDuration] = useState(false)
   const [duration, setDuration] = useState(5)
+
+  // Caption text style
+  const [overlayColor, setOverlayColor] = useState('#ffffff')
+  const [showTextSolidPicker, setShowTextSolidPicker] = useState(false)
+  const [textSolidColor, setTextSolidColor] = useState('#ffffff')
+  const [showTextGradientPicker, setShowTextGradientPicker] = useState(false)
+  const [textGradient1, setTextGradient1] = useState('#ec4899')
+  const [textGradient2, setTextGradient2] = useState('#06b6d4')
+  const [showFontPicker, setShowFontPicker] = useState(false)
+  const [overlayFont, setOverlayFont] = useState('')
+
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discardAction, setDiscardAction] = useState<'close' | 'back' | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -85,6 +112,16 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
     setSong(null)
   }
 
+  const applyTextSolidColor = () => {
+    setOverlayColor(textSolidColor)
+    setShowTextSolidPicker(false)
+  }
+
+  const applyTextGradient = () => {
+    setOverlayColor(`gradient:${textGradient1}:${textGradient2}`)
+    setShowTextGradientPicker(false)
+  }
+
   // Once a file is picked, that's real unsaved work worth protecting.
   const hasUnsavedWork = !!file
 
@@ -129,6 +166,8 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         musicArtist: song?.artist,
         musicArtworkUrl: song?.artworkUrl,
         durationSeconds: mode === 'photo' ? duration : undefined,
+        overlayTextColor: overlayText.trim() ? overlayColor : undefined,
+        overlayFontFamily: overlayText.trim() ? (overlayFont || undefined) : undefined,
       })
       onClose()
     } catch {
@@ -184,7 +223,14 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
                 style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
                 className="absolute cursor-grab active:cursor-grabbing px-3 py-1.5 max-w-[85%] text-center"
               >
-                <p className="text-white text-xl font-bold break-words" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.6)' }}>
+                <p
+                  className="text-xl font-bold break-words"
+                  style={{
+                    ...getTextColorStyle(overlayColor),
+                    textShadow: overlayColor.startsWith('gradient:') ? undefined : '0 1px 6px rgba(0,0,0,0.6)',
+                    fontFamily: overlayFont ? `'${overlayFont}', sans-serif` : undefined,
+                  }}
+                >
                   {overlayText}
                 </p>
               </div>
@@ -215,7 +261,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
 
       {/* Text input row (shown when adding/editing overlay text) */}
       {editingText && (
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/10 space-y-3">
           <input
             autoFocus
             value={overlayText}
@@ -225,9 +271,78 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
             maxLength={100}
             className="w-full bg-white/10 text-white placeholder:text-white/50 rounded-xl px-4 py-2.5 outline-none"
           />
+
+          {/* Text color + font controls */}
+          <div className="flex items-center gap-2">
+            {['#ffffff', '#000000', '#facc15', '#f472b6'].map((c) => (
+              <button
+                key={c}
+                onClick={() => setOverlayColor(c)}
+                style={{ background: c }}
+                className={`h-7 w-7 rounded-full border border-white/20 shrink-0 ${overlayColor === c ? 'ring-2 ring-white ring-offset-2 ring-offset-black' : ''}`}
+              />
+            ))}
+            <button
+              onClick={() => setShowTextGradientPicker((s) => !s)}
+              className="h-7 w-7 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white shrink-0"
+              title="Custom text gradient"
+            >
+              <Palette className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setShowTextSolidPicker((s) => !s)}
+              className="h-7 w-7 rounded-full flex items-center justify-center border-2 border-dashed border-white/50 text-white shrink-0"
+              title="Custom text color"
+            >
+              <CaseSensitive className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowFontPicker(true)}
+              className="h-7 px-2.5 rounded-full flex items-center gap-1 border-2 border-dashed border-white/50 text-white shrink-0"
+              title="Choose font"
+            >
+              <Type className="h-3.5 w-3.5" />
+              <span className="text-[10px]">Font</span>
+            </button>
+          </div>
+
+          {showTextSolidPicker && (
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 flex items-center gap-3">
+              <input
+                type="color"
+                value={textSolidColor}
+                onChange={(e) => setTextSolidColor(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent shrink-0"
+              />
+              <p className="flex-1 text-lg font-semibold" style={{ color: textSolidColor }}>Aa Preview</p>
+              <Button size="sm" variant="gradient" onClick={applyTextSolidColor}>Apply</Button>
+            </div>
+          )}
+
+          {showTextGradientPicker && (
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 flex items-center gap-3">
+              <input
+                type="color"
+                value={textGradient1}
+                onChange={(e) => setTextGradient1(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent shrink-0"
+              />
+              <input
+                type="color"
+                value={textGradient2}
+                onChange={(e) => setTextGradient2(e.target.value)}
+                className="h-9 w-9 rounded-lg cursor-pointer bg-transparent shrink-0"
+              />
+              <p className="flex-1 text-lg font-semibold" style={getTextColorStyle(`gradient:${textGradient1}:${textGradient2}`)}>
+                Aa Preview
+              </p>
+              <Button size="sm" variant="gradient" onClick={applyTextGradient}>Apply</Button>
+            </div>
+          )}
+
           <button
             onClick={() => setEditingText(false)}
-            className="text-white/70 text-sm mt-2"
+            className="text-white/70 text-sm"
           >
             Done — drag the text on your {mode} to reposition it
           </button>
@@ -295,6 +410,14 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         <MusicPicker
           onSelect={(s) => { setSong(s); setShowMusicPicker(false) }}
           onClose={() => setShowMusicPicker(false)}
+        />
+      )}
+
+      {showFontPicker && (
+        <FontPicker
+          currentFont={overlayFont}
+          onSelect={(f) => { setOverlayFont(f); setShowFontPicker(false) }}
+          onClose={() => setShowFontPicker(false)}
         />
       )}
 
