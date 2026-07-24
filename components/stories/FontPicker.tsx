@@ -7,10 +7,11 @@ import { GOOGLE_FONTS, loadGoogleFontsBatch } from '@/lib/utils/googleFonts'
 interface FontPickerProps {
   currentFont: string | null
   onSelect: (font: string) => void
-  onClose: () => void
+  onCancel: () => void
+  onDone: () => void
 }
 
-export function FontPicker({ currentFont, onSelect, onClose }: FontPickerProps) {
+export function FontPicker({ currentFont, onSelect, onCancel, onDone }: FontPickerProps) {
   const [query, setQuery] = useState('')
 
   // Load every font in the list up front (in a handful of batched requests)
@@ -28,13 +29,13 @@ export function FontPicker({ currentFont, onSelect, onClose }: FontPickerProps) 
   return (
     // No dark backdrop over the whole screen on purpose - this sits to the
     // side so the story canvas stays visible and picking a font previews
-    // live behind it. Only the X button closes this, so trying several
-    // fonts in a row doesn't keep re-opening the picker.
+    // live behind it. X cancels (reverts to whatever font was set before
+    // this panel opened); Done keeps whatever's currently previewed.
     <div className="fixed right-0 top-0 h-full w-full sm:w-80 max-w-[88vw] z-[110] bg-card border-l shadow-2xl flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b shrink-0">
         <h2 className="font-bold text-lg">Choose Font</h2>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close font picker">
+        <button onClick={onCancel} className="text-muted-foreground hover:text-foreground" aria-label="Cancel">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -80,6 +81,16 @@ export function FontPicker({ currentFont, onSelect, onClose }: FontPickerProps) 
         {filtered.length === 0 && (
           <p className="text-center text-sm text-muted-foreground py-8">No fonts found. Try another search.</p>
         )}
+      </div>
+
+      {/* Done - confirms whatever font is currently previewed */}
+      <div className="p-4 border-t shrink-0">
+        <button
+          onClick={onDone}
+          className="w-full py-2.5 rounded-xl bg-pink-500 text-white font-semibold hover:bg-pink-600 transition-colors"
+        >
+          Done
+        </button>
       </div>
     </div>
   )
