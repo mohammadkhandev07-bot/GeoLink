@@ -55,3 +55,24 @@ export function loadGoogleFont(fontFamily: string) {
   document.head.appendChild(link)
   loadedFonts.add(fontFamily)
 }
+
+// Loads many fonts at once using a single request per batch (Google's CSS2
+// endpoint accepts multiple family= params in one URL), so a font list can
+// show real font previews without firing 100+ separate network requests.
+export function loadGoogleFontsBatch(fontFamilies: string[]) {
+  if (typeof document === 'undefined') return
+
+  const toLoad = fontFamilies.filter((f) => f && !loadedFonts.has(f))
+  if (toLoad.length === 0) return
+
+  const CHUNK_SIZE = 40
+  for (let i = 0; i < toLoad.length; i += CHUNK_SIZE) {
+    const chunk = toLoad.slice(i, i + CHUNK_SIZE)
+    const familyParams = chunk.map((f) => `family=${encodeURIComponent(f)}:wght@400;600;700`).join('&')
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = `https://fonts.googleapis.com/css2?${familyParams}&display=swap`
+    document.head.appendChild(link)
+    chunk.forEach((f) => loadedFonts.add(f))
+  }
+}
