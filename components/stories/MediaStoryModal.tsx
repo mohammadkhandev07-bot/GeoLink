@@ -51,6 +51,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
   const [textGradient2, setTextGradient2] = useState('#06b6d4')
   const [showFontPicker, setShowFontPicker] = useState(false)
   const [overlayFont, setOverlayFont] = useState('')
+  const fontBeforePicker = useRef('')
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discardAction, setDiscardAction] = useState<'close' | 'back' | null>(null)
@@ -297,7 +298,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
               <CaseSensitive className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setShowFontPicker(true)}
+              onClick={() => { fontBeforePicker.current = overlayFont; setShowFontPicker(true) }}
               className="h-7 px-2.5 rounded-full flex items-center gap-1 border-2 border-dashed border-white/50 text-white shrink-0"
               title="Choose font"
             >
@@ -417,7 +418,8 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
         <FontPicker
           currentFont={overlayFont}
           onSelect={(f) => setOverlayFont(f)}
-          onClose={() => setShowFontPicker(false)}
+          onCancel={() => { setOverlayFont(fontBeforePicker.current); setShowFontPicker(false) }}
+          onDone={() => setShowFontPicker(false)}
         />
       )}
 
