@@ -15,7 +15,7 @@ export function FontPicker({ currentFont, onSelect, onCancel, onDone }: FontPick
   const [query, setQuery] = useState('')
 
   // Load every font in the list up front (in a handful of batched requests)
-  // so names actually render in their real style instead of the fallback.
+  // So names actually render in their real style instead of the fallback.
   useEffect(() => {
     loadGoogleFontsBatch(GOOGLE_FONTS)
   }, [])
