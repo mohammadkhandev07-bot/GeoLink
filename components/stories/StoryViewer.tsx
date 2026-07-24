@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { useDeleteStory } from '@/lib/hooks/useStories'
 import type { StoryGroup } from '@/lib/hooks/useStories'
+import { loadGoogleFont } from '@/lib/utils/googleFonts'
 
 interface StoryViewerProps {
   groups: StoryGroup[]
@@ -15,6 +16,22 @@ interface StoryViewerProps {
 }
 
 const DEFAULT_BACKGROUND = 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)'
+
+// Builds the CSS to render a story's text color, whether it's a plain solid
+// color or a "gradient:#hex1:#hex2" gradient-fill value.
+function getTextColorStyle(textColor: string | null): React.CSSProperties {
+  if (!textColor) return { color: '#ffffff' }
+  if (textColor.startsWith('gradient:')) {
+    const [, c1, c2] = textColor.split(':')
+    return {
+      backgroundImage: `linear-gradient(135deg, ${c1}, ${c2})`,
+      WebkitBackgroundClip: 'text',
+      backgroundClip: 'text',
+      color: 'transparent',
+    }
+  }
+  return { color: textColor }
+}
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
   const [groupIndex, setGroupIndex] = useState(startGroupIndex)
@@ -116,6 +133,11 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
   const isOwn = currentUserId === story.user_id
 
+  // Load whichever font this particular story needs (only fetched once per
+  // font, cached after that - see loadGoogleFont).
+  const activeFont = story.story_type === 'text' ? story.font_family : story.overlay_font_family
+  if (activeFont) loadGoogleFont(activeFont)
+
   const handleDelete = async () => {
     audioRef.current?.pause()
     await deleteStory.mutateAsync({ storyId: story.id, mediaUrl: story.media_url })
@@ -175,7 +197,15 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               className="w-full h-full flex items-center justify-center p-8"
               style={{ background: story.background_color || DEFAULT_BACKGROUND }}
             >
-              <p className="text-white text-center text-2xl font-semibold break-words">{story.text_content}</p>
+              <p
+                className="text-center text-2xl font-semibold break-words"
+                style={{
+                  ...getTextColorStyle(story.text_color),
+                  fontFamily: story.font_family ? `'${story.font_family}', sans-serif` : undefined,
+                }}
+              >
+                {story.text_content}
+              </p>
             </div>
           )}
 
@@ -202,7 +232,14 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               style={{ left: `${story.overlay_x}%`, top: `${story.overlay_y}%`, transform: 'translate(-50%, -50%)' }}
               className="absolute max-w-[85%] text-center px-2"
             >
-              <p className="text-white text-xl font-bold break-words" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.6)' }}>
+              <p
+                className="text-xl font-bold break-words"
+                style={{
+                  ...getTextColorStyle(story.overlay_text_color),
+                  textShadow: story.overlay_text_color?.startsWith('gradient:') ? undefined : '0 1px 6px rgba(0,0,0,0.6)',
+                  fontFamily: story.overlay_font_family ? `'${story.overlay_font_family}', sans-serif` : undefined,
+                }}
+              >
                 {story.overlay_text}
               </p>
             </div>
