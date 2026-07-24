@@ -416,7 +416,7 @@ export function MediaStoryModal({ userId, mode, onClose, onBack }: MediaStoryMod
       {showFontPicker && (
         <FontPicker
           currentFont={overlayFont}
-          onSelect={(f) => { setOverlayFont(f); setShowFontPicker(false) }}
+          onSelect={(f) => setOverlayFont(f)}
           onClose={() => setShowFontPicker(false)}
         />
       )}
