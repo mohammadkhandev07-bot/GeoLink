@@ -448,7 +448,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
       {showFontPicker && (
         <FontPicker
           currentFont={fontFamily}
-          onSelect={(f) => { setFontFamily(f); setShowFontPicker(false) }}
+          onSelect={(f) => setFontFamily(f)}
           onClose={() => setShowFontPicker(false)}
         />
       )}
