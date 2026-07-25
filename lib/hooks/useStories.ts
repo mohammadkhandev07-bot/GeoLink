@@ -12,7 +12,7 @@ export interface StoryGroup {
 
 // Groups this user's own + their followed accounts' active stories by
 // author, most-recently-posted author first. "Active" here just means the
-// row is visible at all - the database RLS policy already hides anything
+// Row is visible at all - the database RLS policy already hides anything
 // past its 24h expires_at, so nothing extra needs to be checked here.
 export function useActiveStories(userId?: string) {
   const supabase = createClient()
