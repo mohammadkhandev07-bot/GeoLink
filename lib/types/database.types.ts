@@ -119,6 +119,12 @@ export type SavedPost = {
   created_at: string
 }
 
+export type TextScene = {
+  id: string
+  text: string
+  duration: number
+}
+
 export type Story = {
   id: string
   user_id: string
@@ -138,6 +144,7 @@ export type Story = {
   font_family: string | null
   overlay_text_color: string | null
   overlay_font_family: string | null
+  text_scenes: TextScene[] | null
   created_at: string
   expires_at: string
 }
