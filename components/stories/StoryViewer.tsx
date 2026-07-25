@@ -7,30 +7,13 @@ import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { useDeleteStory } from '@/lib/hooks/useStories'
 import type { StoryGroup } from '@/lib/hooks/useStories'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
+import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 
 interface StoryViewerProps {
   groups: StoryGroup[]
   startGroupIndex: number
   currentUserId?: string
   onClose: () => void
-}
-
-const DEFAULT_BACKGROUND = 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)'
-
-// Builds the CSS to render a story's text color, whether it's a plain solid
-// color or a "gradient:#hex1:#hex2" gradient-fill value.
-function getTextColorStyle(textColor: string | null): React.CSSProperties {
-  if (!textColor) return { color: '#ffffff' }
-  if (textColor.startsWith('gradient:')) {
-    const [, c1, c2] = textColor.split(':')
-    return {
-      backgroundImage: `linear-gradient(135deg, ${c1}, ${c2})`,
-      WebkitBackgroundClip: 'text',
-      backgroundClip: 'text',
-      color: 'transparent',
-    }
-  }
-  return { color: textColor }
 }
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
@@ -138,6 +121,24 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const activeFont = story.story_type === 'text' ? story.font_family : story.overlay_font_family
   if (activeFont) loadGoogleFont(activeFont)
 
+  // For multi-scene text stories, figure out which scene should be showing
+  // right now based on how far into the story we are (mirrors how the
+  // timeline strip laid the scenes out one after another in the composer).
+  const scenes = story.text_scenes
+  let displayText = story.text_content
+  if (scenes && scenes.length > 1) {
+    const totalDuration = story.duration_seconds || 5
+    const elapsedSeconds = (progress / 100) * totalDuration
+    let cursor = 0
+    for (const scene of scenes) {
+      cursor += scene.duration
+      if (elapsedSeconds < cursor) { displayText = scene.text; break }
+    }
+    if (elapsedSeconds >= cursor) displayText = scenes[scenes.length - 1]?.text ?? displayText
+  } else if (scenes && scenes.length === 1) {
+    displayText = scenes[0].text
+  }
+
   const handleDelete = async () => {
     audioRef.current?.pause()
     await deleteStory.mutateAsync({ storyId: story.id, mediaUrl: story.media_url })
@@ -195,16 +196,16 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
           {story.story_type === 'text' && (
             <div
               className="w-full h-full flex items-center justify-center p-8"
-              style={{ background: story.background_color || DEFAULT_BACKGROUND }}
+              style={{ background: resolveBackgroundCss(story.background_color) }}
             >
               <p
                 className="text-center text-2xl font-semibold break-words"
                 style={{
-                  ...getTextColorStyle(story.text_color),
+                  ...getTextFillStyle(story.text_color),
                   fontFamily: story.font_family ? `'${story.font_family}', sans-serif` : undefined,
                 }}
               >
-                {story.text_content}
+                {displayText}
               </p>
             </div>
           )}
@@ -235,7 +236,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               <p
                 className="text-xl font-bold break-words"
                 style={{
-                  ...getTextColorStyle(story.overlay_text_color),
+                  ...getTextFillStyle(story.overlay_text_color),
                   textShadow: story.overlay_text_color?.startsWith('gradient:') ? undefined : '0 1px 6px rgba(0,0,0,0.6)',
                   fontFamily: story.overlay_font_family ? `'${story.overlay_font_family}', sans-serif` : undefined,
                 }}
