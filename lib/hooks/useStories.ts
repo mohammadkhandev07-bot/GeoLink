@@ -66,13 +66,12 @@ export function useActiveStories(userId?: string) {
 
 interface CreateTextStoryInput {
   userId: string
-  text: string
+  scenes: { id: string; text: string; duration: number }[]
   backgroundColor: string
   musicUrl?: string
   musicTitle?: string
   musicArtist?: string
   musicArtworkUrl?: string
-  durationSeconds?: number
   textColor?: string
   fontFamily?: string
 }
@@ -102,17 +101,19 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, text, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds, textColor, fontFamily }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, scenes, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl, textColor, fontFamily }: CreateTextStoryInput) => {
+      const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
       const { error } = await supabase.from('stories').insert({
         user_id: userId,
         story_type: 'text',
-        text_content: text,
+        text_content: scenes[0]?.text || '',
+        text_scenes: scenes,
         background_color: backgroundColor,
         music_url: musicUrl || null,
         music_title: musicTitle || null,
         music_artist: musicArtist || null,
         music_artwork_url: musicArtworkUrl || null,
-        duration_seconds: durationSeconds ?? 5,
+        duration_seconds: totalDuration,
         text_color: textColor || null,
         font_family: fontFamily || null,
       })
