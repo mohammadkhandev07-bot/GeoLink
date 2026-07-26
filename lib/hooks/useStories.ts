@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { StoryWithProfile } from '@/lib/types/database.types'
+import { StoryWithProfile, TextScene } from '@/lib/types/database.types'
 
 export interface StoryGroup {
   userId: string
@@ -12,7 +12,7 @@ export interface StoryGroup {
 
 // Groups this user's own + their followed accounts' active stories by
 // author, most-recently-posted author first. "Active" here just means the
-// Row is visible at all - the database RLS policy already hides anything
+// row is visible at all - the database RLS policy already hides anything
 // past its 24h expires_at, so nothing extra needs to be checked here.
 export function useActiveStories(userId?: string) {
   const supabase = createClient()
@@ -66,14 +66,7 @@ export function useActiveStories(userId?: string) {
 
 interface CreateTextStoryInput {
   userId: string
-  scenes: { id: string; text: string; duration: number }[]
-  backgroundColor: string
-  musicUrl?: string
-  musicTitle?: string
-  musicArtist?: string
-  musicArtworkUrl?: string
-  textColor?: string
-  fontFamily?: string
+  scenes: TextScene[]
 }
 
 interface CreateMediaStoryInput {
@@ -101,21 +94,22 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, scenes, backgroundColor, musicUrl, musicTitle, musicArtist, musicArtworkUrl, textColor, fontFamily }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, scenes }: CreateTextStoryInput) => {
       const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
+      const first = scenes[0]
       const { error } = await supabase.from('stories').insert({
         user_id: userId,
         story_type: 'text',
-        text_content: scenes[0]?.text || '',
+        text_content: first?.text || '',
         text_scenes: scenes,
-        background_color: backgroundColor,
-        music_url: musicUrl || null,
-        music_title: musicTitle || null,
-        music_artist: musicArtist || null,
-        music_artwork_url: musicArtworkUrl || null,
+        background_color: first?.backgroundColor || null,
+        music_url: first?.musicUrl || null,
+        music_title: first?.musicTitle || null,
+        music_artist: first?.musicArtist || null,
+        music_artwork_url: first?.musicArtworkUrl || null,
         duration_seconds: totalDuration,
-        text_color: textColor || null,
-        font_family: fontFamily || null,
+        text_color: first?.textColor || null,
+        font_family: first?.fontFamily || null,
       })
       if (error) throw error
     },
