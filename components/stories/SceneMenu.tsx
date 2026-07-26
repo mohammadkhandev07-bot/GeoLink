@@ -48,4 +48,4 @@ export function SceneMenu({
       {canDelete && item(<Trash2 className="h-4 w-4" />, 'Delete Scene', onDelete, true)}
     </div>
   )
-}
+} 
