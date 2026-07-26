@@ -1,17 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { X, ArrowLeft, Smile, Loader2, Music, Play, Pause, Type } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { X, ArrowLeft, Smile, Loader2, Music, Type, Play, Minus, Plus, Move } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
+import { MusicTrimPanel } from './MusicTrimPanel'
 import { DiscardConfirmDialog } from './DiscardConfirmDialog'
 import { FontPicker } from './FontPicker'
 import { ColorPickerPanel } from './ColorPickerPanel'
 import { StoryTimeline } from './StoryTimeline'
+import { StoryViewer } from './StoryViewer'
 import { useCreateStory } from '@/lib/hooks/useStories'
+import { useUser } from '@/lib/hooks/useUser'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 import type { TextScene } from '@/lib/types/database.types'
+import type { StoryGroup } from '@/lib/hooks/useStories'
 
 interface TextStoryModalProps {
   userId: string
@@ -23,105 +27,116 @@ function makeSceneId() {
   return Math.random().toString(36).slice(2, 9)
 }
 
+function newScene(): TextScene {
+  return {
+    id: makeSceneId(),
+    text: '',
+    duration: 5,
+    backgroundColor: 'gradient:#ec4899:#06b6d4',
+    textColor: '#ffffff',
+    fontFamily: undefined,
+    textX: 50,
+    textY: 50,
+    textSize: 28,
+  }
+}
+
 export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps) {
-  const [scenes, setScenes] = useState<TextScene[]>([{ id: makeSceneId(), text: '', duration: 5 }])
+  const { profile } = useUser()
+  const [scenes, setScenes] = useState<TextScene[]>([newScene()])
   const [activeSceneId, setActiveSceneId] = useState(scenes[0].id)
 
-  const [background, setBackground] = useState('gradient:#ec4899:#06b6d4')
-  const [textColor, setTextColor] = useState('#ffffff')
-  const [showBgPicker, setShowBgPicker] = useState(false)
-  const [showTextPicker, setShowTextPicker] = useState(false)
-  const bgBeforePicker = useRef('')
-  const textColorBeforePicker = useRef('')
+  const [colorPanel, setColorPanel] = useState<'bg' | 'text' | null>(null)
+  const colorBeforePicker = useRef('')
 
   const [showEmoji, setShowEmoji] = useState(false)
   const [showFontPicker, setShowFontPicker] = useState(false)
-  const [fontFamily, setFontFamily] = useState('')
   const fontBeforePicker = useRef('')
 
   const [showMusicPicker, setShowMusicPicker] = useState(false)
-  const [song, setSong] = useState<SelectedSong | null>(null)
-  const [previewPlaying, setPreviewPlaying] = useState(false)
-  const [showDuration, setShowDuration] = useState(false)
+  const [trimSong, setTrimSong] = useState<SelectedSong | null>(null)
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discardAction, setDiscardAction] = useState<'close' | 'back' | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
   const { createTextStory } = useCreateStory()
 
   const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0]
 
-  const updateActiveSceneText = (text: string) => {
-    setScenes((prev) => prev.map((s) => (s.id === activeSceneId ? { ...s, text } : s)))
+  const updateScene = (id: string, patch: Partial<TextScene>) => {
+    setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
   }
 
   const insertEmoji = (emoji: string) => {
     const el = textareaRef.current
     const current = activeScene.text
-    if (!el) {
-      updateActiveSceneText(current + emoji)
-      return
-    }
+    if (!el) { updateScene(activeSceneId, { text: current + emoji }); return }
     const start = el.selectionStart ?? current.length
     const end = el.selectionEnd ?? current.length
     const next = current.slice(0, start) + emoji + current.slice(end)
-    updateActiveSceneText(next)
-    requestAnimationFrame(() => {
-      el.focus()
-      const pos = start + emoji.length
-      el.setSelectionRange(pos, pos)
-    })
+    updateScene(activeSceneId, { text: next })
+    requestAnimationFrame(() => { el.focus(); const pos = start + emoji.length; el.setSelectionRange(pos, pos) })
   }
 
   const handleAddScene = () => {
-    const newScene = { id: makeSceneId(), text: '', duration: 5 }
-    setScenes((prev) => [...prev, newScene])
-    setActiveSceneId(newScene.id)
+    const s = newScene()
+    setScenes((prev) => [...prev, s])
+    setActiveSceneId(s.id)
+  }
+
+  const handleDuplicateScene = (id: string) => {
+    const source = scenes.find((s) => s.id === id)
+    if (!source) return
+    const copy = { ...source, id: makeSceneId() }
+    setScenes((prev) => {
+      const idx = prev.findIndex((s) => s.id === id)
+      const next = [...prev]
+      next.splice(idx + 1, 0, copy)
+      return next
+    })
+    setActiveSceneId(copy.id)
   }
 
   const handleDeleteScene = (id: string) => {
     setScenes((prev) => {
       const next = prev.filter((s) => s.id !== id)
-      if (next.length === 0) return prev // never go below 1 scene
+      if (next.length === 0) return prev
       if (id === activeSceneId) setActiveSceneId(next[0].id)
       return next
     })
   }
 
-  const updateActiveSceneDuration = (duration: number) => {
-    setScenes((prev) => prev.map((s) => (s.id === activeSceneId ? { ...s, duration } : s)))
+  // Dragging the text box around the canvas.
+  const updatePosFromClientPoint = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const x = Math.min(95, Math.max(5, ((clientX - rect.left) / rect.width) * 100))
+    const y = Math.min(95, Math.max(5, ((clientY - rect.top) / rect.height) * 100))
+    updateScene(activeSceneId, { textX: x, textY: y })
+  }
+  const handleDragStart = (e: React.PointerEvent) => {
+    dragging.current = true
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const handleDragMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return
+    updatePosFromClientPoint(e.clientX, e.clientY)
+  }
+  const handleDragEnd = () => { dragging.current = false }
+
+  const adjustTextSize = (delta: number) => {
+    updateScene(activeSceneId, { textSize: Math.min(64, Math.max(14, activeScene.textSize + delta)) })
   }
 
-  const toggleSongPreview = () => {
-    if (!song) return
-    if (previewPlaying) {
-      previewAudioRef.current?.pause()
-      setPreviewPlaying(false)
-      return
-    }
-    const audio = new Audio(song.previewUrl)
-    audio.play().catch(() => {})
-    audio.onended = () => setPreviewPlaying(false)
-    previewAudioRef.current = audio
-    setPreviewPlaying(true)
-  }
-
-  const removeSong = () => {
-    previewAudioRef.current?.pause()
-    setPreviewPlaying(false)
-    setSong(null)
-  }
-
-  const hasUnsavedWork = scenes.some((s) => s.text.trim().length > 0) || !!song
-
-  const requestClose = () => {
-    if (hasUnsavedWork) { setDiscardAction('close'); setShowDiscardConfirm(true) } else onClose()
-  }
-  const requestBack = () => {
-    if (hasUnsavedWork) { setDiscardAction('back'); setShowDiscardConfirm(true) } else onBack()
-  }
+  const hasUnsavedWork = scenes.some((s) => s.text.trim().length > 0 || !!s.musicUrl)
+  const requestClose = () => { if (hasUnsavedWork) { setDiscardAction('close'); setShowDiscardConfirm(true) } else onClose() }
+  const requestBack = () => { if (hasUnsavedWork) { setDiscardAction('back'); setShowDiscardConfirm(true) } else onBack() }
   const confirmDiscard = () => {
     previewAudioRef.current?.pause()
     setShowDiscardConfirm(false)
@@ -130,24 +145,49 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
 
   const handleShare = async () => {
     if (!scenes.some((s) => s.text.trim())) return
-    previewAudioRef.current?.pause()
     try {
       await createTextStory.mutateAsync({
         userId,
         scenes: scenes.filter((s) => s.text.trim()).map((s) => ({ ...s, text: s.text.trim() })),
-        backgroundColor: background,
-        musicUrl: song?.previewUrl,
-        musicTitle: song?.title,
-        musicArtist: song?.artist,
-        musicArtworkUrl: song?.artworkUrl,
-        textColor,
-        fontFamily: fontFamily || undefined,
       })
       onClose()
     } catch {
       // surfaced via createTextStory.isError below
     }
   }
+
+  // Builds a throwaway "story" out of the current draft so it can be played
+  // through the exact same viewer people see after posting - lets them
+  // check the whole thing (colors, timing, music) before sharing it for real.
+  const buildDraftGroup = (): StoryGroup | null => {
+    if (!profile) return null
+    const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
+    const first = scenes[0]
+    const draftStory: any = {
+      id: 'draft-preview',
+      user_id: userId,
+      story_type: 'text',
+      media_url: null,
+      text_content: first?.text || '',
+      background_color: first?.backgroundColor || null,
+      overlay_text: null, overlay_x: 50, overlay_y: 50,
+      music_url: first?.musicUrl || null,
+      music_title: first?.musicTitle || null,
+      music_artist: first?.musicArtist || null,
+      music_artwork_url: first?.musicArtworkUrl || null,
+      duration_seconds: totalDuration,
+      text_color: first?.textColor || null,
+      font_family: first?.fontFamily || null,
+      overlay_text_color: null,
+      overlay_font_family: null,
+      text_scenes: scenes,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+      profiles: profile,
+    }
+    return { userId, profile, stories: [draftStory] }
+  }
+  const draftGroup = showPreview ? buildDraftGroup() : null
 
   return (
     <div className="fixed inset-0 bg-black z-[100] flex flex-col">
@@ -162,120 +202,131 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         </button>
       </div>
 
-      {/* Top: just 2 simple options - Background / Text color */}
+      {/* Top: 2 simple options, apply to the currently selected scene */}
       <div className="flex items-center gap-2 px-4 pb-3 relative z-10">
         <button
-          onClick={() => { bgBeforePicker.current = background; setShowBgPicker(true) }}
+          onClick={() => { colorBeforePicker.current = activeScene.backgroundColor; setColorPanel('bg') }}
           className="flex-1 flex items-center justify-center gap-2 py-2 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
         >
-          <span className="h-4 w-4 rounded-full" style={{ background: resolveBackgroundCss(background) }} />
+          <span className="h-4 w-4 rounded-full" style={{ background: resolveBackgroundCss(activeScene.backgroundColor) }} />
           Background Color
         </button>
         <button
-          onClick={() => { textColorBeforePicker.current = textColor; setShowTextPicker(true) }}
+          onClick={() => { colorBeforePicker.current = activeScene.textColor; setColorPanel('text') }}
           className="flex-1 flex items-center justify-center gap-2 py-2 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
         >
-          <span className="h-4 w-4 rounded-full border border-white/40" style={{ background: textColor.startsWith('gradient:') ? resolveBackgroundCss(textColor) : textColor }} />
+          <span className="h-4 w-4 rounded-full border border-white/40" style={{ background: activeScene.textColor.startsWith('gradient:') ? resolveBackgroundCss(activeScene.textColor) : activeScene.textColor }} />
           Text Color
         </button>
       </div>
 
-      {showBgPicker && (
+      {colorPanel === 'bg' && (
         <ColorPickerPanel
           label="Background Color"
-          initialValue={background}
-          onPreview={(v) => setBackground(v)}
-          onCancel={() => { setBackground(bgBeforePicker.current); setShowBgPicker(false) }}
-          onDone={() => setShowBgPicker(false)}
+          initialValue={activeScene.backgroundColor}
+          onPreview={(v) => updateScene(activeSceneId, { backgroundColor: v })}
+          onCancel={() => { updateScene(activeSceneId, { backgroundColor: colorBeforePicker.current }); setColorPanel(null) }}
+          onDone={() => setColorPanel(null)}
         />
       )}
-      {showTextPicker && (
+      {colorPanel === 'text' && (
         <ColorPickerPanel
           label="Text Color"
-          initialValue={textColor}
-          onPreview={(v) => setTextColor(v)}
-          onCancel={() => { setTextColor(textColorBeforePicker.current); setShowTextPicker(false) }}
-          onDone={() => setShowTextPicker(false)}
+          initialValue={activeScene.textColor}
+          onPreview={(v) => updateScene(activeSceneId, { textColor: v })}
+          onCancel={() => { updateScene(activeSceneId, { textColor: colorBeforePicker.current }); setColorPanel(null) }}
+          onDone={() => setColorPanel(null)}
         />
       )}
 
       {/* Canvas */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 relative" style={{ background: resolveBackgroundCss(background) }}>
-        <textarea
-          ref={textareaRef}
-          value={activeScene.text}
-          onChange={(e) => updateActiveSceneText(e.target.value)}
-          placeholder="Start typing..."
-          autoFocus
-          maxLength={280}
-          style={{ ...getTextFillStyle(textColor), fontFamily: fontFamily ? `'${fontFamily}', sans-serif` : undefined }}
-          className="w-full max-h-full bg-transparent text-center text-2xl font-semibold placeholder:text-white/60 outline-none resize-none"
-          rows={6}
-        />
-
-        {song && (
-          <button
-            onClick={toggleSongPreview}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%]"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={song.artworkUrl} alt={song.title} className="h-7 w-7 rounded-full object-cover shrink-0" />
-            <span className="text-white text-xs font-medium truncate">{song.title} &middot; {song.artist}</span>
-            {previewPlaying ? <Pause className="h-3.5 w-3.5 text-white shrink-0" /> : <Play className="h-3.5 w-3.5 text-white shrink-0" />}
-          </button>
-        )}
+      <div
+        ref={canvasRef}
+        className="flex-1 relative overflow-hidden touch-none"
+        style={{ background: resolveBackgroundCss(activeScene.backgroundColor) }}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+      >
+        <div
+          style={{ left: `${activeScene.textX}%`, top: `${activeScene.textY}%`, transform: 'translate(-50%, -50%)' }}
+          className="absolute max-w-[85%] select-none"
+        >
+          <textarea
+            ref={textareaRef}
+            value={activeScene.text}
+            onChange={(e) => updateScene(activeSceneId, { text: e.target.value })}
+            placeholder="Start typing..."
+            autoFocus
+            maxLength={280}
+            rows={3}
+            style={{
+              ...getTextFillStyle(activeScene.textColor),
+              fontFamily: activeScene.fontFamily ? `'${activeScene.fontFamily}', sans-serif` : undefined,
+              fontSize: `${activeScene.textSize}px`,
+            }}
+            className="bg-transparent text-center font-semibold outline-none resize-none w-full"
+          />
+          {/* Drag handle + size controls */}
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <button onPointerDown={handleDragStart} className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center cursor-grab active:cursor-grabbing">
+              <Move className="h-3.5 w-3.5 text-white" />
+            </button>
+            <button onClick={() => adjustTextSize(-4)} className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+              <Minus className="h-3.5 w-3.5 text-white" />
+            </button>
+            <button onClick={() => adjustTextSize(4)} className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center">
+              <Plus className="h-3.5 w-3.5 text-white" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Timeline strip - like a video editor: scenes track + music track + duration */}
+      {/* Timeline strip */}
       <StoryTimeline
         scenes={scenes}
         activeSceneId={activeSceneId}
         onSelectScene={setActiveSceneId}
         onAddScene={handleAddScene}
         onDeleteScene={handleDeleteScene}
-        song={song}
-        onRemoveSong={removeSong}
-        onOpenDuration={() => setShowDuration((s) => !s)}
+        onDuplicateScene={handleDuplicateScene}
+        onResizeScene={(id, duration) => updateScene(id, { duration })}
+        onEditText={() => textareaRef.current?.focus()}
+        onChangeTextColor={() => { colorBeforePicker.current = activeScene.textColor; setColorPanel('text') }}
+        onChangeBackground={() => { colorBeforePicker.current = activeScene.backgroundColor; setColorPanel('bg') }}
+        onOpenMusic={() => {
+          if (activeScene.musicUrl && activeScene.musicTitle) {
+            setTrimSong({
+              title: activeScene.musicTitle,
+              artist: activeScene.musicArtist || '',
+              artworkUrl: activeScene.musicArtworkUrl || '',
+              previewUrl: activeScene.musicUrl,
+            })
+          } else {
+            setShowMusicPicker(true)
+          }
+        }}
       />
 
-      {showDuration && (
-        <div className="relative z-20 mx-4 mb-3 bg-white/10 backdrop-blur-md rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white text-sm font-medium">This scene's duration</span>
-            <span className="text-white font-bold text-lg">{activeScene.duration}s</span>
-          </div>
-          <input
-            type="range"
-            min={2}
-            max={120}
-            value={activeScene.duration}
-            onChange={(e) => updateActiveSceneDuration(Number(e.target.value))}
-            className="w-full accent-pink-500"
-          />
-        </div>
-      )}
-
-      {/* Footer: emoji + music + font + share */}
+      {/* Footer: emoji + font + preview + share */}
       <div className="relative p-4 flex items-center gap-2 border-t border-white/10">
         {showEmoji && <EmojiPicker onSelect={insertEmoji} onClose={() => setShowEmoji(false)} />}
-        <button
-          onClick={() => setShowEmoji((s) => !s)}
-          className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-        >
+        <button onClick={() => setShowEmoji((s) => !s)} className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
           <Smile className="h-5 w-5" />
         </button>
         <button
-          onClick={() => setShowMusicPicker(true)}
-          className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-        >
-          <Music className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { fontBeforePicker.current = fontFamily; setShowFontPicker(true) }}
+          onClick={() => { fontBeforePicker.current = activeScene.fontFamily || ''; setShowFontPicker(true) }}
           className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
           title="Choose font"
         >
           <Type className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => setShowPreview(true)}
+          disabled={!scenes.some((s) => s.text.trim())}
+          className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-40"
+          title="Preview story"
+        >
+          <Play className="h-5 w-5" />
         </button>
         <Button
           variant="gradient"
@@ -292,16 +343,44 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
 
       {showMusicPicker && (
         <MusicPicker
-          onSelect={(s) => { setSong(s); setShowMusicPicker(false) }}
+          onSelect={(s) => {
+            updateScene(activeSceneId, {
+              musicUrl: s.previewUrl, musicTitle: s.title, musicArtist: s.artist, musicArtworkUrl: s.artworkUrl,
+              musicStart: 0, musicDuration: Math.min(activeScene.duration, 30),
+            })
+            setShowMusicPicker(false)
+            setTrimSong(s)
+          }}
           onClose={() => setShowMusicPicker(false)}
+        />
+      )}
+
+      {trimSong && (
+        <MusicTrimPanel
+          song={trimSong}
+          initialStart={activeScene.musicStart ?? 0}
+          initialDuration={activeScene.musicDuration ?? Math.min(activeScene.duration, 30)}
+          sceneDuration={activeScene.duration}
+          onCancel={() => setTrimSong(null)}
+          onDone={(start, duration) => {
+            updateScene(activeSceneId, { musicStart: start, musicDuration: duration })
+            setTrimSong(null)
+          }}
+          onRemove={() => {
+            updateScene(activeSceneId, {
+              musicUrl: undefined, musicTitle: undefined, musicArtist: undefined,
+              musicArtworkUrl: undefined, musicStart: undefined, musicDuration: undefined,
+            })
+            setTrimSong(null)
+          }}
         />
       )}
 
       {showFontPicker && (
         <FontPicker
-          currentFont={fontFamily}
-          onSelect={(f) => setFontFamily(f)}
-          onCancel={() => { setFontFamily(fontBeforePicker.current); setShowFontPicker(false) }}
+          currentFont={activeScene.fontFamily || ''}
+          onSelect={(f) => updateScene(activeSceneId, { fontFamily: f || undefined })}
+          onCancel={() => { updateScene(activeSceneId, { fontFamily: fontBeforePicker.current || undefined }); setShowFontPicker(false) }}
           onDone={() => setShowFontPicker(false)}
         />
       )}
@@ -310,6 +389,15 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <DiscardConfirmDialog
           onContinueEditing={() => setShowDiscardConfirm(false)}
           onDiscard={confirmDiscard}
+        />
+      )}
+
+      {showPreview && draftGroup && (
+        <StoryViewer
+          groups={[draftGroup]}
+          startGroupIndex={0}
+          currentUserId={undefined}
+          onClose={() => setShowPreview(false)}
         />
       )}
     </div>
