@@ -197,4 +197,4 @@ export type Database = {
       stories: { Row: Story; Insert: Omit<Story, 'id' | 'created_at' | 'expires_at'> & { id?: string }; Update: Partial<Story> }
     }
   }
-}
+} 
