@@ -123,6 +123,18 @@ export type TextScene = {
   id: string
   text: string
   duration: number
+  backgroundColor: string   // hex, or "gradient:#hex1:#hex2"
+  textColor: string         // hex, or "gradient:#hex1:#hex2"
+  fontFamily?: string
+  textX: number              // percent from left, where the text box sits
+  textY: number              // percent from top
+  textSize: number           // font size in px
+  musicUrl?: string
+  musicTitle?: string
+  musicArtist?: string
+  musicArtworkUrl?: string
+  musicStart?: number        // seconds into the preview clip to start from
+  musicDuration?: number     // how many seconds of it to play
 }
 
 export type Story = {
