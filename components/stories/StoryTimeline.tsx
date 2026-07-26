@@ -1,8 +1,9 @@
 'use client'
 
-import { Plus, X, Clock, Music } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Plus, Music as MusicIcon, MoreVertical, Type } from 'lucide-react'
 import type { TextScene } from '@/lib/types/database.types'
-import type { SelectedSong } from './MusicPicker'
+import { SceneMenu } from './SceneMenu'
 
 interface StoryTimelineProps {
   scenes: TextScene[]
@@ -10,31 +11,50 @@ interface StoryTimelineProps {
   onSelectScene: (id: string) => void
   onAddScene: () => void
   onDeleteScene: (id: string) => void
-  song: SelectedSong | null
-  onRemoveSong: () => void
-  onOpenDuration: () => void
+  onDuplicateScene: (id: string) => void
+  onResizeScene: (id: string, duration: number) => void
+  onEditText: (id: string) => void
+  onChangeTextColor: (id: string) => void
+  onChangeBackground: (id: string) => void
+  onOpenMusic: (id: string) => void
 }
 
-const PX_PER_SECOND = 18
+const PX_PER_SECOND = 20
+const MIN_SCENE_DURATION = 1
+const MAX_SCENE_DURATION = 60
 
 export function StoryTimeline({
-  scenes, activeSceneId, onSelectScene, onAddScene, onDeleteScene,
-  song, onRemoveSong, onOpenDuration,
+  scenes, activeSceneId, onSelectScene, onAddScene, onDeleteScene, onDuplicateScene,
+  onResizeScene, onEditText, onChangeTextColor, onChangeBackground, onOpenMusic,
 }: StoryTimelineProps) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const resizing = useRef<{ id: string; startX: number; startDuration: number } | null>(null)
+
   const totalSeconds = scenes.reduce((sum, s) => sum + s.duration, 0)
-  const rulerSeconds = Math.max(10, Math.ceil(totalSeconds / 5) * 5)
+  const rulerSeconds = Math.max(15, Math.ceil(totalSeconds / 5) * 5 + 5)
+
+  const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0]
+
+  const handleResizeStart = (e: React.PointerEvent, scene: TextScene) => {
+    e.stopPropagation()
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    resizing.current = { id: scene.id, startX: e.clientX, startDuration: scene.duration }
+  }
+  const handleResizeMove = (e: React.PointerEvent) => {
+    if (!resizing.current) return
+    const deltaSeconds = (e.clientX - resizing.current.startX) / PX_PER_SECOND
+    const next = Math.round(Math.min(MAX_SCENE_DURATION, Math.max(MIN_SCENE_DURATION, resizing.current.startDuration + deltaSeconds)))
+    onResizeScene(resizing.current.id, next)
+  }
+  const handleResizeEnd = () => { resizing.current = null }
 
   return (
-    <div className="bg-black/60 backdrop-blur-sm border-t border-white/10 px-3 pt-2 pb-3 space-y-2">
+    <div className="bg-[#111214] border-t border-white/10 px-3 pt-2 pb-3 space-y-1.5">
       {/* Ruler */}
       <div className="relative h-4 overflow-x-auto scrollbar-hide">
         <div className="relative h-full" style={{ width: `${rulerSeconds * PX_PER_SECOND}px` }}>
           {Array.from({ length: Math.floor(rulerSeconds / 5) + 1 }).map((_, i) => (
-            <span
-              key={i}
-              className="absolute top-0 text-[9px] text-white/40"
-              style={{ left: `${i * 5 * PX_PER_SECOND}px` }}
-            >
+            <span key={i} className="absolute top-0 text-[9px] text-white/40" style={{ left: `${i * 5 * PX_PER_SECOND}px` }}>
               {i * 5}s
             </span>
           ))}
@@ -43,63 +63,87 @@ export function StoryTimeline({
 
       {/* Text scenes track */}
       <div className="flex items-center gap-2">
-        <span className="text-white/50 text-[10px] uppercase tracking-wide w-10 shrink-0">Text</span>
-        <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-hide">
+        <Type className="h-3.5 w-3.5 text-white/40 shrink-0" />
+        <div
+          className="flex-1 flex items-center gap-[3px] overflow-x-auto scrollbar-hide"
+          onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeEnd}
+        >
           {scenes.map((scene, i) => (
-            <button
+            <div
               key={scene.id}
               onClick={() => onSelectScene(scene.id)}
-              style={{ width: `${Math.max(scene.duration * PX_PER_SECOND, 44)}px` }}
-              className={`relative h-9 shrink-0 rounded-md flex items-center px-2 text-[11px] font-medium text-white truncate transition-colors ${
+              style={{ width: `${Math.max(scene.duration * PX_PER_SECOND, 50)}px` }}
+              className={`relative h-10 shrink-0 rounded-md flex items-center px-2 cursor-pointer transition-colors ${
                 scene.id === activeSceneId ? 'bg-pink-500 ring-2 ring-white' : 'bg-white/15 hover:bg-white/25'
               }`}
             >
-              <span className="truncate">{scene.text || `Scene ${i + 1}`}</span>
-              {scenes.length > 1 && scene.id === activeSceneId && (
-                <span
-                  role="button"
-                  onClick={(e) => { e.stopPropagation(); onDeleteScene(scene.id) }}
-                  className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center"
-                >
-                  <X className="h-2.5 w-2.5 text-white" />
-                </span>
+              <span className="text-[11px] font-medium text-white truncate flex-1">{scene.text || `Scene ${i + 1}`}</span>
+
+              {scene.id === activeSceneId && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === scene.id ? null : scene.id) }}
+                    className="h-5 w-5 shrink-0 rounded-full bg-black/30 flex items-center justify-center ml-1"
+                  >
+                    <MoreVertical className="h-3 w-3 text-white" />
+                  </button>
+                  {openMenuId === scene.id && (
+                    <SceneMenu
+                      canDelete={scenes.length > 1}
+                      onClose={() => setOpenMenuId(null)}
+                      onDelete={() => onDeleteScene(scene.id)}
+                      onDuplicate={() => onDuplicateScene(scene.id)}
+                      onEditText={() => onEditText(scene.id)}
+                      onChangeTextColor={() => onChangeTextColor(scene.id)}
+                      onChangeBackground={() => onChangeBackground(scene.id)}
+                    />
+                  )}
+                  {/* Drag handle to resize this scene's duration, right on the timeline itself */}
+                  <div
+                    onPointerDown={(e) => handleResizeStart(e, scene)}
+                    className="absolute right-0 top-0 h-full w-2 cursor-ew-resize flex items-center justify-center"
+                  >
+                    <div className="h-5 w-1 rounded-full bg-white/70" />
+                  </div>
+                </>
               )}
-            </button>
+            </div>
           ))}
           <button
             onClick={onAddScene}
-            className="h-9 w-9 shrink-0 rounded-md bg-white/10 border border-dashed border-white/40 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+            className="h-10 w-10 shrink-0 rounded-md bg-white/10 border border-dashed border-white/40 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
             title="Add another scene"
           >
             <Plus className="h-4 w-4" />
           </button>
         </div>
-        {/* Duration control for the currently selected scene, right at the end of this row */}
-        <button
-          onClick={onOpenDuration}
-          className="h-9 shrink-0 rounded-md bg-white/10 flex items-center gap-1 px-2 text-white hover:bg-white/20 transition-colors"
-        >
-          <Clock className="h-3.5 w-3.5" />
-          <span className="text-[11px] font-semibold">
-            {scenes.find((s) => s.id === activeSceneId)?.duration ?? 5}s
-          </span>
-        </button>
       </div>
 
-      {/* Music track */}
-      {song && (
-        <div className="flex items-center gap-2">
-          <span className="text-white/50 text-[10px] uppercase tracking-wide w-10 shrink-0">Music</span>
-          <div className="flex-1 flex items-center gap-2 h-9 rounded-md bg-white/15 px-2">
+      {/* Music track - specific to whichever scene is selected */}
+      <div className="flex items-center gap-2">
+        <MusicIcon className="h-3.5 w-3.5 text-white/40 shrink-0" />
+        {activeScene?.musicUrl ? (
+          <button
+            onClick={() => onOpenMusic(activeScene.id)}
+            className="flex-1 flex items-center gap-2 h-9 rounded-md bg-white/15 px-2 hover:bg-white/25 transition-colors"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={song.artworkUrl} alt={song.title} className="h-6 w-6 rounded object-cover shrink-0" />
-            <span className="text-[11px] text-white truncate flex-1">{song.title} &middot; {song.artist}</span>
-            <button onClick={onRemoveSong} className="h-5 w-5 shrink-0 rounded-full bg-white/20 flex items-center justify-center">
-              <X className="h-3 w-3 text-white" />
-            </button>
-          </div>
-        </div>
-      )}
+            <img src={activeScene.musicArtworkUrl} alt={activeScene.musicTitle} className="h-6 w-6 rounded object-cover shrink-0" />
+            <span className="text-[11px] text-white truncate flex-1 text-left">
+              {activeScene.musicTitle} &middot; {activeScene.musicArtist}
+            </span>
+            <span className="text-[10px] text-white/50 shrink-0">Trim</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => onOpenMusic(activeScene?.id)}
+            className="flex-1 h-9 rounded-md bg-white/5 border border-dashed border-white/20 flex items-center justify-center gap-1.5 text-white/60 text-[11px] hover:bg-white/10 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add audio for this scene
+          </button>
+        )}
+      </div>
     </div>
   )
 }
