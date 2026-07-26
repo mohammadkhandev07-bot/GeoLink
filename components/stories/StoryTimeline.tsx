@@ -120,7 +120,7 @@ export function StoryTimeline({
         </div>
       </div>
 
-      {/* Music track - specific to whichever scene is selected */}
+      {/* Music track - specific to whichever scene is Selected */}
       <div className="flex items-center gap-2">
         <MusicIcon className="h-3.5 w-3.5 text-white/40 shrink-0" />
         {activeScene?.musicUrl ? (
