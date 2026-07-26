@@ -8,12 +8,26 @@ import { useDeleteStory } from '@/lib/hooks/useStories'
 import type { StoryGroup } from '@/lib/hooks/useStories'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
+import type { TextScene } from '@/lib/types/database.types'
 
 interface StoryViewerProps {
   groups: StoryGroup[]
   startGroupIndex: number
   currentUserId?: string
   onClose: () => void
+}
+
+// Figures out which scene should be showing right now, given how far into
+// the story's total duration we are - mirrors how the timeline strip laid
+// scenes out one after another in the composer.
+function getActiveScene(scenes: TextScene[] | null, elapsedSeconds: number): TextScene | null {
+  if (!scenes || scenes.length === 0) return null
+  let cursor = 0
+  for (const scene of scenes) {
+    cursor += scene.duration
+    if (elapsedSeconds < cursor) return scene
+  }
+  return scenes[scenes.length - 1]
 }
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
@@ -23,6 +37,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loopCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const deleteStory = useDeleteStory()
 
   const group = groups[groupIndex]
@@ -92,52 +107,73 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIndex, storyIndex])
 
-  // Play the story's chosen song, if it has one. Loops for text/photo
-  // stories (which have a fixed short display time), plays once for videos.
+  if (!group || !story) return null
+
+  const isOwn = currentUserId === story.user_id
+
+  // For multi-scene text stories, figure out which scene should be showing
+  // right now, and pull that scene's own background/text style/position/
+  // size/music from it. Falls back to the story's top-level fields for
+  // photo/video stories, or text stories that only ever had one scene.
+  const totalDuration = story.duration_seconds || 5
+  const elapsedSeconds = (progress / 100) * totalDuration
+  const activeScene = story.story_type === 'text' ? getActiveScene(story.text_scenes, elapsedSeconds) : null
+
+  const displayText = activeScene ? activeScene.text : story.text_content
+  const displayBackground = activeScene ? activeScene.backgroundColor : story.background_color
+  const displayTextColor = activeScene ? activeScene.textColor : story.text_color
+  const displayFont = activeScene ? activeScene.fontFamily : story.font_family
+  const displayTextX = activeScene?.textX ?? 50
+  const displayTextY = activeScene?.textY ?? 50
+  const displayTextSize = activeScene?.textSize ?? 32
+
+  const activeMusicUrl = activeScene ? activeScene.musicUrl : story.music_url
+  const activeMusicTitle = activeScene ? activeScene.musicTitle : story.music_title
+  const activeMusicArtist = activeScene ? activeScene.musicArtist : story.music_artist
+  const activeMusicArtwork = activeScene ? activeScene.musicArtworkUrl : story.music_artwork_url
+  const musicStart = activeScene?.musicStart ?? 0
+  const musicClipDuration = activeScene?.musicDuration
+
+  // Load whichever font this particular scene/story needs (only fetched
+  // once per font, cached after that - see loadGoogleFont).
+  const activeFont = story.story_type === 'text' ? displayFont : story.overlay_font_family
+  if (activeFont) loadGoogleFont(activeFont)
+
+  // Play whichever song is active right now. Re-runs when the active
+  // scene's music changes (a new scene with a different/no song took over).
   useEffect(() => {
     audioRef.current?.pause()
     audioRef.current = null
+    if (loopCheckRef.current) clearInterval(loopCheckRef.current)
 
-    if (!story?.music_url) return
+    if (!activeMusicUrl) return
 
-    const audio = new Audio(story.music_url)
-    audio.loop = story.story_type !== 'video'
+    const audio = new Audio(activeMusicUrl)
+    audio.currentTime = musicStart
     audio.play().catch(() => {
       // Autoplay can be blocked in some browsers - not critical, the story
       // still plays fine without sound in that edge case.
     })
     audioRef.current = audio
 
-    return () => { audio.pause() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupIndex, storyIndex, story?.music_url])
-
-  if (!group || !story) return null
-
-  const isOwn = currentUserId === story.user_id
-
-  // Load whichever font this particular story needs (only fetched once per
-  // font, cached after that - see loadGoogleFont).
-  const activeFont = story.story_type === 'text' ? story.font_family : story.overlay_font_family
-  if (activeFont) loadGoogleFont(activeFont)
-
-  // For multi-scene text stories, figure out which scene should be showing
-  // right now based on how far into the story we are (mirrors how the
-  // timeline strip laid the scenes out one after another in the composer).
-  const scenes = story.text_scenes
-  let displayText = story.text_content
-  if (scenes && scenes.length > 1) {
-    const totalDuration = story.duration_seconds || 5
-    const elapsedSeconds = (progress / 100) * totalDuration
-    let cursor = 0
-    for (const scene of scenes) {
-      cursor += scene.duration
-      if (elapsedSeconds < cursor) { displayText = scene.text; break }
+    // If a trimmed clip is shorter than however long this scene/story stays
+    // on screen, loop just that trimmed window instead of the whole preview.
+    if (musicClipDuration) {
+      loopCheckRef.current = setInterval(() => {
+        if (audio.currentTime >= musicStart + musicClipDuration) {
+          audio.currentTime = musicStart
+        }
+      }, 200)
+    } else if (story.story_type !== 'video') {
+      audio.loop = true
     }
-    if (elapsedSeconds >= cursor) displayText = scenes[scenes.length - 1]?.text ?? displayText
-  } else if (scenes && scenes.length === 1) {
-    displayText = scenes[0].text
-  }
+
+    return () => {
+      audio.pause()
+      if (loopCheckRef.current) clearInterval(loopCheckRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupIndex, storyIndex, activeMusicUrl, activeScene?.id])
 
   const handleDelete = async () => {
     audioRef.current?.pause()
@@ -195,15 +231,20 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
         <div className="relative w-full h-full flex items-center justify-center">
           {story.story_type === 'text' && (
             <div
-              className="w-full h-full flex items-center justify-center p-8"
-              style={{ background: resolveBackgroundCss(story.background_color) }}
+              className="w-full h-full relative"
+              style={{ background: resolveBackgroundCss(displayBackground) }}
             >
               <p
-                className="text-center text-2xl font-semibold break-words"
                 style={{
-                  ...getTextFillStyle(story.text_color),
-                  fontFamily: story.font_family ? `'${story.font_family}', sans-serif` : undefined,
+                  position: 'absolute',
+                  left: `${displayTextX}%`,
+                  top: `${displayTextY}%`,
+                  transform: 'translate(-50%, -50%)',
+                  ...getTextFillStyle(displayTextColor),
+                  fontFamily: displayFont ? `'${displayFont}', sans-serif` : undefined,
+                  fontSize: `${displayTextSize}px`,
                 }}
+                className="text-center font-semibold break-words max-w-[85%]"
               >
                 {displayText}
               </p>
@@ -246,16 +287,16 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
             </div>
           )}
 
-          {story.music_title && (
+          {activeMusicTitle && (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%] z-10">
-              {story.music_artwork_url ? (
+              {activeMusicArtwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={story.music_artwork_url} alt={story.music_title} className="h-7 w-7 rounded-full object-cover shrink-0" />
+                <img src={activeMusicArtwork} alt={activeMusicTitle} className="h-7 w-7 rounded-full object-cover shrink-0" />
               ) : (
                 <Music className="h-4 w-4 text-white shrink-0" />
               )}
               <span className="text-white text-xs font-medium truncate">
-                {story.music_title}{story.music_artist ? ` \u00b7 ${story.music_artist}` : ''}
+                {activeMusicTitle}{activeMusicArtist ? ` \u00b7 ${activeMusicArtist}` : ''}
               </span>
             </div>
           )}
