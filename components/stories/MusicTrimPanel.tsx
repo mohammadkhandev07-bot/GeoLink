@@ -14,7 +14,7 @@ interface MusicTrimPanelProps {
   onRemove: () => void
 }
 
-const CLIP_LENGTH = 30 // iTunes preview clips are ~30 seconds
+const CLIP_LENGTH = 30 // iTunes preview Clips are ~30 seconds
 
 export function MusicTrimPanel({ song, initialStart, initialDuration, sceneDuration, onCancel, onDone, onRemove }: MusicTrimPanelProps) {
   const [start, setStart] = useState(Math.min(initialStart, CLIP_LENGTH - 1))
