@@ -23,23 +23,38 @@ export function MusicTrimPanel({ song, initialStart, initialDuration, sceneDurat
   const [start, setStart] = useState(Math.min(initialStart, CLIP_LENGTH - 2))
   const [duration, setDuration] = useState(Math.min(initialDuration, sceneDuration, CLIP_LENGTH - start))
   const [playing, setPlaying] = useState(false)
+  const [playheadPct, setPlayheadPct] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const playheadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ mode: 'left' | 'right' | 'move'; startX: number; origStart: number; origDuration: number } | null>(null)
 
-  useEffect(() => () => { audioRef.current?.pause() }, [])
+  useEffect(() => () => {
+    audioRef.current?.pause()
+    if (playheadTimerRef.current) clearInterval(playheadTimerRef.current)
+  }, [])
 
-  const stopAudio = () => { audioRef.current?.pause(); setPlaying(false) }
+  const stopAudio = () => {
+    audioRef.current?.pause()
+    setPlaying(false)
+    if (playheadTimerRef.current) clearInterval(playheadTimerRef.current)
+  }
 
   const togglePreview = () => {
     if (playing) { stopAudio(); return }
     const audio = new Audio(song.previewUrl)
     audio.currentTime = start
     audio.play().catch(() => {})
-    const stopAt = setTimeout(() => { audio.pause(); setPlaying(false) }, duration * 1000)
+    const stopAt = setTimeout(() => stopAudio(), duration * 1000)
     audio.onended = () => { setPlaying(false); clearTimeout(stopAt) }
     audioRef.current = audio
     setPlaying(true)
+
+    // Moves a little line across the waveform as the song plays, so it's
+    // obvious how far into the clip playback currently is.
+    playheadTimerRef.current = setInterval(() => {
+      setPlayheadPct(((audio.currentTime - start) / duration) * 100)
+    }, 50)
   }
 
   const pxToSeconds = (px: number) => {
@@ -104,6 +119,13 @@ export function MusicTrimPanel({ song, initialStart, initialDuration, sceneDurat
         >
           <div onPointerDown={beginDrag('left')} className="absolute left-0 top-0 bottom-0 w-2.5 -ml-1.5 bg-pink-500 rounded-l-sm cursor-ew-resize" />
           <div onPointerDown={beginDrag('right')} className="absolute right-0 top-0 bottom-0 w-2.5 -mr-1.5 bg-pink-500 rounded-r-sm cursor-ew-resize" />
+          {/* Playhead - shows exactly how far playback has gotten */}
+          {playing && (
+            <div
+              className="absolute top-0 bottom-0 w-[2px] bg-white shadow-[0_0_4px_rgba(255,255,255,0.9)]"
+              style={{ left: `${Math.min(100, Math.max(0, playheadPct))}%` }}
+            />
+          )}
         </div>
       </div>
 
