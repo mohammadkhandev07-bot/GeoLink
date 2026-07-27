@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, ArrowLeft, Smile, Loader2, Music, Type, Play, Minus, Plus, Move } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
@@ -10,12 +10,9 @@ import { DiscardConfirmDialog } from './DiscardConfirmDialog'
 import { FontPicker } from './FontPicker'
 import { ColorPickerPanel } from './ColorPickerPanel'
 import { StoryTimeline } from './StoryTimeline'
-import { StoryViewer } from './StoryViewer'
 import { useCreateStory } from '@/lib/hooks/useStories'
-import { useUser } from '@/lib/hooks/useUser'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 import type { TextScene } from '@/lib/types/database.types'
-import type { StoryGroup } from '@/lib/hooks/useStories'
 
 interface TextStoryModalProps {
   userId: string
@@ -42,7 +39,6 @@ function newScene(): TextScene {
 }
 
 export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps) {
-  const { profile } = useUser()
   const [scenes, setScenes] = useState<TextScene[]>([newScene()])
   const [activeSceneId, setActiveSceneId] = useState(scenes[0].id)
 
@@ -58,9 +54,16 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discardAction, setDiscardAction] = useState<'close' | 'back' | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
 
+  // Inline preview - plays right here in the editor (not the real posted-
+  // story viewer), so it never looks like it's already gone live.
+  const [previewing, setPreviewing] = useState(false)
+  const [previewIndex, setPreviewIndex] = useState(0)
+  const [previewProgress, setPreviewProgress] = useState(0)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const previewLoopRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const editAudioRef = useRef<HTMLAudioElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -138,7 +141,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const requestClose = () => { if (hasUnsavedWork) { setDiscardAction('close'); setShowDiscardConfirm(true) } else onClose() }
   const requestBack = () => { if (hasUnsavedWork) { setDiscardAction('back'); setShowDiscardConfirm(true) } else onBack() }
   const confirmDiscard = () => {
-    previewAudioRef.current?.pause()
+    editAudioRef.current?.pause()
     setShowDiscardConfirm(false)
     if (discardAction === 'back') onBack(); else onClose()
   }
@@ -156,38 +159,106 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     }
   }
 
-  // Builds a throwaway "story" out of the current draft so it can be played
-  // through the exact same viewer people see after posting - lets them
-  // check the whole thing (colors, timing, music) before sharing it for real.
-  const buildDraftGroup = (): StoryGroup | null => {
-    if (!profile) return null
-    const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
-    const first = scenes[0]
-    const draftStory: any = {
-      id: 'draft-preview',
-      user_id: userId,
-      story_type: 'text',
-      media_url: null,
-      text_content: first?.text || '',
-      background_color: first?.backgroundColor || null,
-      overlay_text: null, overlay_x: 50, overlay_y: 50,
-      music_url: first?.musicUrl || null,
-      music_title: first?.musicTitle || null,
-      music_artist: first?.musicArtist || null,
-      music_artwork_url: first?.musicArtworkUrl || null,
-      duration_seconds: totalDuration,
-      text_color: first?.textColor || null,
-      font_family: first?.fontFamily || null,
-      overlay_text_color: null,
-      overlay_font_family: null,
-      text_scenes: scenes,
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 86400000).toISOString(),
-      profiles: profile,
-    }
-    return { userId, profile, stories: [draftStory] }
+  // --- Inline preview: cycles through scenes right in this canvas -------
+  const stopPreview = () => {
+    previewAudioRef.current?.pause()
+    previewAudioRef.current = null
+    if (previewLoopRef.current) clearInterval(previewLoopRef.current)
+    setPreviewing(false)
   }
-  const draftGroup = showPreview ? buildDraftGroup() : null
+
+  const startPreview = () => {
+    if (!scenes.some((s) => s.text.trim())) return
+    setPreviewIndex(0)
+    setPreviewProgress(0)
+    setPreviewing(true)
+  }
+
+  useEffect(() => {
+    if (!previewing) return
+    const scene = scenes[previewIndex]
+    if (!scene) { stopPreview(); return }
+
+    setPreviewProgress(0)
+
+    previewAudioRef.current?.pause()
+    if (scene.musicUrl) {
+      const audio = new Audio(scene.musicUrl)
+      audio.currentTime = scene.musicStart ?? 0
+      audio.play().catch(() => {})
+      previewAudioRef.current = audio
+    }
+
+    const start = Date.now()
+    const durationMs = scene.duration * 1000
+    const timer = setInterval(() => {
+      const pct = Math.min(100, ((Date.now() - start) / durationMs) * 100)
+      setPreviewProgress(pct)
+      if (pct >= 100) {
+        clearInterval(timer)
+        if (previewIndex < scenes.length - 1) {
+          setPreviewIndex((i) => i + 1)
+        } else {
+          stopPreview()
+        }
+      }
+    }, 50)
+
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewing, previewIndex])
+
+  useEffect(() => () => { previewAudioRef.current?.pause() }, [])
+
+  if (previewing) {
+    const scene = scenes[previewIndex]
+    return (
+      <div className="fixed inset-0 bg-black z-[100] flex flex-col">
+        {/* Segmented progress bars - the only "story-viewer-like" touch,
+            everything else stays inside this editor so it's obvious this
+            hasn't been posted yet. */}
+        <div className="flex gap-1 p-3 pt-4">
+          {scenes.map((_, i) => (
+            <div key={i} className="flex-1 h-1 bg-white/25 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full"
+                style={{
+                  width: i < previewIndex ? '100%' : i === previewIndex ? `${previewProgress}%` : '0%',
+                  transition: i === previewIndex ? 'width 50ms linear' : undefined,
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between px-4 pb-2">
+          <span className="text-white/60 text-xs font-medium">Previewing draft - not posted yet</span>
+          <button onClick={stopPreview} className="text-white p-1">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        <div className="flex-1 relative" style={{ background: resolveBackgroundCss(scene.backgroundColor) }}>
+          <p
+            style={{
+              position: 'absolute', left: `${scene.textX}%`, top: `${scene.textY}%`, transform: 'translate(-50%, -50%)',
+              ...getTextFillStyle(scene.textColor),
+              fontFamily: scene.fontFamily ? `'${scene.fontFamily}', sans-serif` : undefined,
+              fontSize: `${scene.textSize}px`,
+            }}
+            className="text-center font-semibold break-words max-w-[85%]"
+          >
+            {scene.text}
+          </p>
+          {scene.musicTitle && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={scene.musicArtworkUrl} alt={scene.musicTitle} className="h-7 w-7 rounded-full object-cover shrink-0" />
+              <span className="text-white text-xs font-medium truncate">{scene.musicTitle} &middot; {scene.musicArtist}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black z-[100] flex flex-col">
@@ -321,7 +392,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           <Type className="h-5 w-5" />
         </button>
         <button
-          onClick={() => setShowPreview(true)}
+          onClick={startPreview}
           disabled={!scenes.some((s) => s.text.trim())}
           className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors disabled:opacity-40"
           title="Preview story"
@@ -389,15 +460,6 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <DiscardConfirmDialog
           onContinueEditing={() => setShowDiscardConfirm(false)}
           onDiscard={confirmDiscard}
-        />
-      )}
-
-      {showPreview && draftGroup && (
-        <StoryViewer
-          groups={[draftGroup]}
-          startGroupIndex={0}
-          currentUserId={undefined}
-          onClose={() => setShowPreview(false)}
         />
       )}
     </div>
