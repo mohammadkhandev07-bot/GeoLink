@@ -22,13 +22,18 @@ interface StoryTimelineProps {
 const PX_PER_SECOND = 20
 const MIN_SCENE_DURATION = 1
 const MAX_SCENE_DURATION = 60
+// Touch drags report much smaller pixel deltas than mouse drags for the
+// same physical finger movement on most phones, so the resize handle felt
+// almost unresponsive - this multiplier makes a small finger drag move the
+// duration a lot more, on touch specifically.
+const TOUCH_SENSITIVITY = 4
 
 export function StoryTimeline({
   scenes, activeSceneId, onSelectScene, onAddScene, onDeleteScene, onDuplicateScene,
   onResizeScene, onEditText, onChangeTextColor, onChangeBackground, onOpenMusic,
 }: StoryTimelineProps) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const resizing = useRef<{ id: string; startX: number; startDuration: number } | null>(null)
+  const [menuFor, setMenuFor] = useState<{ id: string; x: number; y: number } | null>(null)
+  const resizing = useRef<{ id: string; startX: number; startDuration: number; isTouch: boolean } | null>(null)
 
   const totalSeconds = scenes.reduce((sum, s) => sum + s.duration, 0)
   const rulerSeconds = Math.max(15, Math.ceil(totalSeconds / 5) * 5 + 5)
@@ -38,11 +43,12 @@ export function StoryTimeline({
   const handleResizeStart = (e: React.PointerEvent, scene: TextScene) => {
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    resizing.current = { id: scene.id, startX: e.clientX, startDuration: scene.duration }
+    resizing.current = { id: scene.id, startX: e.clientX, startDuration: scene.duration, isTouch: e.pointerType === 'touch' }
   }
   const handleResizeMove = (e: React.PointerEvent) => {
     if (!resizing.current) return
-    const deltaSeconds = (e.clientX - resizing.current.startX) / PX_PER_SECOND
+    const sensitivity = resizing.current.isTouch ? TOUCH_SENSITIVITY : 1
+    const deltaSeconds = ((e.clientX - resizing.current.startX) * sensitivity) / PX_PER_SECOND
     const next = Math.round(Math.min(MAX_SCENE_DURATION, Math.max(MIN_SCENE_DURATION, resizing.current.startDuration + deltaSeconds)))
     onResizeScene(resizing.current.id, next)
   }
@@ -83,28 +89,23 @@ export function StoryTimeline({
               {scene.id === activeSceneId && (
                 <>
                   <button
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === scene.id ? null : scene.id) }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setMenuFor(menuFor?.id === scene.id ? null : { id: scene.id, x: rect.left, y: rect.top })
+                    }}
                     className="h-5 w-5 shrink-0 rounded-full bg-black/30 flex items-center justify-center ml-1"
                   >
                     <MoreVertical className="h-3 w-3 text-white" />
                   </button>
-                  {openMenuId === scene.id && (
-                    <SceneMenu
-                      canDelete={scenes.length > 1}
-                      onClose={() => setOpenMenuId(null)}
-                      onDelete={() => onDeleteScene(scene.id)}
-                      onDuplicate={() => onDuplicateScene(scene.id)}
-                      onEditText={() => onEditText(scene.id)}
-                      onChangeTextColor={() => onChangeTextColor(scene.id)}
-                      onChangeBackground={() => onChangeBackground(scene.id)}
-                    />
-                  )}
-                  {/* Drag handle to resize this scene's duration, right on the timeline itself */}
+                  {/* Drag handle to resize this scene's duration - a bigger
+                      invisible touch target than it looks, so it's easy to
+                      grab on a phone. */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, scene)}
-                    className="absolute right-0 top-0 h-full w-2 cursor-ew-resize flex items-center justify-center"
+                    className="absolute -right-2 top-0 h-full w-6 cursor-ew-resize flex items-center justify-center touch-none"
                   >
-                    <div className="h-5 w-1 rounded-full bg-white/70" />
+                    <div className="h-6 w-1.5 rounded-full bg-white" />
                   </div>
                 </>
               )}
@@ -120,7 +121,7 @@ export function StoryTimeline({
         </div>
       </div>
 
-      {/* Music track - specific to whichever scene is Selected */}
+      {/* Music track - specific to whichever scene is selected */}
       <div className="flex items-center gap-2">
         <MusicIcon className="h-3.5 w-3.5 text-white/40 shrink-0" />
         {activeScene?.musicUrl ? (
@@ -144,6 +145,23 @@ export function StoryTimeline({
           </button>
         )}
       </div>
+
+      {/* Rendered fixed to the viewport (not inside the horizontally-
+          scrolling track above) so it never gets clipped by that track's
+          overflow. */}
+      {menuFor && (
+        <SceneMenu
+          anchorX={menuFor.x}
+          anchorY={menuFor.y}
+          canDelete={scenes.length > 1}
+          onClose={() => setMenuFor(null)}
+          onDelete={() => onDeleteScene(menuFor.id)}
+          onDuplicate={() => onDuplicateScene(menuFor.id)}
+          onEditText={() => onEditText(menuFor.id)}
+          onChangeTextColor={() => onChangeTextColor(menuFor.id)}
+          onChangeBackground={() => onChangeBackground(menuFor.id)}
+        />
+      )}
     </div>
   )
 }
