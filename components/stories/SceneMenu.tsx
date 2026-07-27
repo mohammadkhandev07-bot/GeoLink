@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react'
 import { Trash2, Copy, Type, Palette, PaintBucket } from 'lucide-react'
 
 interface SceneMenuProps {
+  anchorX: number
+  anchorY: number
   onClose: () => void
   onDelete: () => void
   onDuplicate: () => void
@@ -14,7 +16,7 @@ interface SceneMenuProps {
 }
 
 export function SceneMenu({
-  onClose, onDelete, onDuplicate, onEditText, onChangeTextColor, onChangeBackground, canDelete,
+  anchorX, anchorY, onClose, onDelete, onDuplicate, onEditText, onChangeTextColor, onChangeBackground, canDelete,
 }: SceneMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -36,10 +38,14 @@ export function SceneMenu({
     </button>
   )
 
+  // Fixed to the viewport (not a descendant of the timeline's scrolling
+  // track), and opens upward from the 3-dot button's exact position - this
+  // is what actually escapes that track's overflow clipping.
   return (
     <div
       ref={ref}
-      className="absolute bottom-full mb-1 left-0 z-30 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden w-48"
+      style={{ left: `${Math.max(8, anchorX - 180)}px`, bottom: `${window.innerHeight - anchorY + 6}px` }}
+      className="fixed z-[130] bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden w-48"
     >
       {item(<Type className="h-4 w-4" />, 'Edit Text', onEditText)}
       {item(<Palette className="h-4 w-4" />, 'Change Text Color', onChangeTextColor)}
@@ -48,4 +54,4 @@ export function SceneMenu({
       {canDelete && item(<Trash2 className="h-4 w-4" />, 'Delete Scene', onDelete, true)}
     </div>
   )
-} 
+}
