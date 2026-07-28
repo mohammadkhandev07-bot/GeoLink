@@ -127,20 +127,24 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const displayTextY = activeScene?.textY ?? 50
   const displayTextSize = activeScene?.textSize ?? 32
 
-  const activeMusicUrl = activeScene ? activeScene.musicUrl : story.music_url
-  const activeMusicTitle = activeScene ? activeScene.musicTitle : story.music_title
-  const activeMusicArtist = activeScene ? activeScene.musicArtist : story.music_artist
-  const activeMusicArtwork = activeScene ? activeScene.musicArtworkUrl : story.music_artwork_url
-  const musicStart = activeScene?.musicStart ?? 0
-  const musicClipDuration = activeScene?.musicDuration
+  const activeMusicUrl = activeScene?.musicUrl || (story.story_type === 'text' ? story.global_music?.url : story.music_url) || null
+  const activeMusicTitle = activeScene?.musicUrl ? activeScene.musicTitle : (story.story_type === 'text' ? story.global_music?.title : story.music_title)
+  const activeMusicArtist = activeScene?.musicUrl ? activeScene.musicArtist : (story.story_type === 'text' ? story.global_music?.artist : story.music_artist)
+  const activeMusicArtwork = activeScene?.musicUrl ? activeScene.musicArtworkUrl : (story.story_type === 'text' ? story.global_music?.artworkUrl : story.music_artwork_url)
+  const musicStart = activeScene?.musicUrl ? (activeScene.musicStart ?? 0) : (story.global_music?.start ?? 0)
+  const musicClipDuration = activeScene?.musicUrl ? activeScene.musicDuration : story.global_music?.duration
 
   // Load whichever font this particular scene/story needs (only fetched
   // once per font, cached after that - see loadGoogleFont).
   const activeFont = story.story_type === 'text' ? displayFont : story.overlay_font_family
   if (activeFont) loadGoogleFont(activeFont)
 
-  // Play whichever song is active right now. Re-runs when the active
-  // scene's music changes (a new scene with a different/no song took over).
+  // Play whichever song is active right now. Deliberately keyed on the
+  // resolved music URL (not the scene id) - as long as consecutive scenes
+  // keep resolving to the SAME song (the shared global one), this effect
+  // won't re-run and the audio just keeps playing straight through instead
+  // of restarting at every scene change. It only restarts when the song
+  // actually changes (a scene's own separate song taking over, or back).
   useEffect(() => {
     audioRef.current?.pause()
     audioRef.current = null
@@ -173,7 +177,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
       if (loopCheckRef.current) clearInterval(loopCheckRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupIndex, storyIndex, activeMusicUrl, activeScene?.id])
+  }, [groupIndex, storyIndex, activeMusicUrl])
 
   const handleDelete = async () => {
     audioRef.current?.pause()
