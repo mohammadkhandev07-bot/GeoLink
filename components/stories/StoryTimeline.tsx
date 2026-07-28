@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Plus, Music as MusicIcon, MoreVertical, Type } from 'lucide-react'
-import type { TextScene } from '@/lib/types/database.types'
+import type { TextScene, GlobalMusic } from '@/lib/types/database.types'
 import { SceneMenu } from './SceneMenu'
 
 interface StoryTimelineProps {
@@ -16,7 +16,9 @@ interface StoryTimelineProps {
   onEditText: (id: string) => void
   onChangeTextColor: (id: string) => void
   onChangeBackground: (id: string) => void
-  onOpenMusic: (id: string) => void
+  onSeparateSong: (id: string) => void
+  globalMusic: GlobalMusic | null
+  onOpenGlobalMusic: () => void
 }
 
 const PX_PER_SECOND = 20
@@ -30,15 +32,14 @@ const TOUCH_SENSITIVITY = 4
 
 export function StoryTimeline({
   scenes, activeSceneId, onSelectScene, onAddScene, onDeleteScene, onDuplicateScene,
-  onResizeScene, onEditText, onChangeTextColor, onChangeBackground, onOpenMusic,
+  onResizeScene, onEditText, onChangeTextColor, onChangeBackground, onSeparateSong,
+  globalMusic, onOpenGlobalMusic,
 }: StoryTimelineProps) {
   const [menuFor, setMenuFor] = useState<{ id: string; x: number; y: number } | null>(null)
   const resizing = useRef<{ id: string; startX: number; startDuration: number; isTouch: boolean } | null>(null)
 
   const totalSeconds = scenes.reduce((sum, s) => sum + s.duration, 0)
   const rulerSeconds = Math.max(15, Math.ceil(totalSeconds / 5) * 5 + 5)
-
-  const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0]
 
   const handleResizeStart = (e: React.PointerEvent, scene: TextScene) => {
     e.stopPropagation()
@@ -84,6 +85,7 @@ export function StoryTimeline({
                 scene.id === activeSceneId ? 'bg-pink-500 ring-2 ring-white' : 'bg-white/15 hover:bg-white/25'
               }`}
             >
+              {scene.musicUrl && <MusicIcon className="h-3 w-3 text-white/80 shrink-0 mr-1" />}
               <span className="text-[11px] font-medium text-white truncate flex-1">{scene.text || `Scene ${i + 1}`}</span>
 
               {scene.id === activeSceneId && (
@@ -121,27 +123,29 @@ export function StoryTimeline({
         </div>
       </div>
 
-      {/* Music track - specific to whichever scene is selected */}
+      {/* Music track - one song shared across the whole story. Scenes with
+          their own separate song (little music icon on their block above)
+          override this for just their own duration. */}
       <div className="flex items-center gap-2">
         <MusicIcon className="h-3.5 w-3.5 text-white/40 shrink-0" />
-        {activeScene?.musicUrl ? (
+        {globalMusic ? (
           <button
-            onClick={() => onOpenMusic(activeScene.id)}
+            onClick={onOpenGlobalMusic}
             className="flex-1 flex items-center gap-2 h-9 rounded-md bg-white/15 px-2 hover:bg-white/25 transition-colors"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={activeScene.musicArtworkUrl} alt={activeScene.musicTitle} className="h-6 w-6 rounded object-cover shrink-0" />
+            <img src={globalMusic.artworkUrl} alt={globalMusic.title} className="h-6 w-6 rounded object-cover shrink-0" />
             <span className="text-[11px] text-white truncate flex-1 text-left">
-              {activeScene.musicTitle} &middot; {activeScene.musicArtist}
+              {globalMusic.title} &middot; {globalMusic.artist}
             </span>
             <span className="text-[10px] text-white/50 shrink-0">Trim</span>
           </button>
         ) : (
           <button
-            onClick={() => onOpenMusic(activeScene?.id)}
+            onClick={onOpenGlobalMusic}
             className="flex-1 h-9 rounded-md bg-white/5 border border-dashed border-white/20 flex items-center justify-center gap-1.5 text-white/60 text-[11px] hover:bg-white/10 transition-colors"
           >
-            <Plus className="h-3.5 w-3.5" /> Add audio for this scene
+            <Plus className="h-3.5 w-3.5" /> Add music for your story
           </button>
         )}
       </div>
@@ -154,12 +158,14 @@ export function StoryTimeline({
           anchorX={menuFor.x}
           anchorY={menuFor.y}
           canDelete={scenes.length > 1}
+          hasSeparateSong={!!scenes.find((s) => s.id === menuFor.id)?.musicUrl}
           onClose={() => setMenuFor(null)}
           onDelete={() => onDeleteScene(menuFor.id)}
           onDuplicate={() => onDuplicateScene(menuFor.id)}
           onEditText={() => onEditText(menuFor.id)}
           onChangeTextColor={() => onChangeTextColor(menuFor.id)}
           onChangeBackground={() => onChangeBackground(menuFor.id)}
+          onSeparateSong={() => onSeparateSong(menuFor.id)}
         />
       )}
     </div>
