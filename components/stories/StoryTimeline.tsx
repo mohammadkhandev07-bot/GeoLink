@@ -102,7 +102,7 @@ export function StoryTimeline({
                   </button>
                   {/* Drag handle to resize this scene's duration - a bigger
                       invisible touch target than it looks, so it's easy to
-                      grab on a phone. */}
+                      Grab on a phone. */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, scene)}
                     className="absolute -right-2 top-0 h-full w-6 cursor-ew-resize flex items-center justify-center touch-none"
