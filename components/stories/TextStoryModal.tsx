@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, ArrowLeft, Smile, Loader2, Music, Type, Play, Minus, Plus, Move } from 'lucide-react'
+import { X, ArrowLeft, Smile, Loader2, Type, Play, Minus, Plus, Move } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
@@ -12,7 +12,7 @@ import { ColorPickerPanel } from './ColorPickerPanel'
 import { StoryTimeline } from './StoryTimeline'
 import { useCreateStory } from '@/lib/hooks/useStories'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
-import type { TextScene } from '@/lib/types/database.types'
+import type { TextScene, GlobalMusic } from '@/lib/types/database.types'
 
 interface TextStoryModalProps {
   userId: string
@@ -38,9 +38,23 @@ function newScene(): TextScene {
   }
 }
 
+// Whichever song should actually be heard for a given scene right now - its
+// own separate song if it has one, otherwise the one song shared across the
+// whole story.
+function effectiveMusicFor(scene: TextScene, globalMusic: GlobalMusic | null) {
+  if (scene.musicUrl) {
+    return { url: scene.musicUrl, title: scene.musicTitle, artist: scene.musicArtist, artworkUrl: scene.musicArtworkUrl, start: scene.musicStart ?? 0 }
+  }
+  if (globalMusic) {
+    return { url: globalMusic.url, title: globalMusic.title, artist: globalMusic.artist, artworkUrl: globalMusic.artworkUrl, start: globalMusic.start }
+  }
+  return null
+}
+
 export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps) {
   const [scenes, setScenes] = useState<TextScene[]>([newScene()])
   const [activeSceneId, setActiveSceneId] = useState(scenes[0].id)
+  const [globalMusic, setGlobalMusic] = useState<GlobalMusic | null>(null)
 
   const [colorPanel, setColorPanel] = useState<'bg' | 'text' | null>(null)
   const colorBeforePicker = useRef('')
@@ -49,6 +63,9 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [showFontPicker, setShowFontPicker] = useState(false)
   const fontBeforePicker = useRef('')
 
+  // Which song session is currently open: the one global song, or a
+  // specific scene's own separate song.
+  const [musicTarget, setMusicTarget] = useState<'global' | string | null>(null)
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [trimSong, setTrimSong] = useState<SelectedSong | null>(null)
 
@@ -61,15 +78,15 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [previewIndex, setPreviewIndex] = useState(0)
   const [previewProgress, setPreviewProgress] = useState(0)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
-  const previewLoopRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const previewAudioUrlRef = useRef<string | null>(null)
 
-  const editAudioRef = useRef<HTMLAudioElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const { createTextStory } = useCreateStory()
 
   const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0]
+  const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
 
   const updateScene = (id: string, patch: Partial<TextScene>) => {
     setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
@@ -137,11 +154,10 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     updateScene(activeSceneId, { textSize: Math.min(64, Math.max(14, activeScene.textSize + delta)) })
   }
 
-  const hasUnsavedWork = scenes.some((s) => s.text.trim().length > 0 || !!s.musicUrl)
+  const hasUnsavedWork = scenes.some((s) => s.text.trim().length > 0 || !!s.musicUrl) || !!globalMusic
   const requestClose = () => { if (hasUnsavedWork) { setDiscardAction('close'); setShowDiscardConfirm(true) } else onClose() }
   const requestBack = () => { if (hasUnsavedWork) { setDiscardAction('back'); setShowDiscardConfirm(true) } else onBack() }
   const confirmDiscard = () => {
-    editAudioRef.current?.pause()
     setShowDiscardConfirm(false)
     if (discardAction === 'back') onBack(); else onClose()
   }
@@ -152,6 +168,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
       await createTextStory.mutateAsync({
         userId,
         scenes: scenes.filter((s) => s.text.trim()).map((s) => ({ ...s, text: s.text.trim() })),
+        globalMusic,
       })
       onClose()
     } catch {
@@ -159,11 +176,32 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     }
   }
 
+  // --- Music: one global song is the default; "Add Separate Song" (3-dot
+  // menu on a scene) lets a specific scene override it with its own. -----
+  const openGlobalMusic = () => {
+    setMusicTarget('global')
+    if (globalMusic) {
+      setTrimSong({ title: globalMusic.title, artist: globalMusic.artist, artworkUrl: globalMusic.artworkUrl, previewUrl: globalMusic.url })
+    } else {
+      setShowMusicPicker(true)
+    }
+  }
+
+  const openSeparateSong = (sceneId: string) => {
+    setMusicTarget(sceneId)
+    const scene = scenes.find((s) => s.id === sceneId)
+    if (scene?.musicUrl) {
+      setTrimSong({ title: scene.musicTitle || '', artist: scene.musicArtist || '', artworkUrl: scene.musicArtworkUrl || '', previewUrl: scene.musicUrl })
+    } else {
+      setShowMusicPicker(true)
+    }
+  }
+
   // --- Inline preview: cycles through scenes right in this canvas -------
   const stopPreview = () => {
     previewAudioRef.current?.pause()
     previewAudioRef.current = null
-    if (previewLoopRef.current) clearInterval(previewLoopRef.current)
+    previewAudioUrlRef.current = null
     setPreviewing(false)
   }
 
@@ -181,12 +219,21 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
 
     setPreviewProgress(0)
 
-    previewAudioRef.current?.pause()
-    if (scene.musicUrl) {
-      const audio = new Audio(scene.musicUrl)
-      audio.currentTime = scene.musicStart ?? 0
-      audio.play().catch(() => {})
-      previewAudioRef.current = audio
+    // Only (re)start audio if the song actually changed - this is what lets
+    // the global song keep playing continuously across scenes instead of
+    // restarting every time, exactly like it will after posting.
+    const music = effectiveMusicFor(scene, globalMusic)
+    if (music?.url !== previewAudioUrlRef.current) {
+      previewAudioRef.current?.pause()
+      previewAudioUrlRef.current = music?.url ?? null
+      if (music?.url) {
+        const audio = new Audio(music.url)
+        audio.currentTime = music.start
+        audio.play().catch(() => {})
+        previewAudioRef.current = audio
+      } else {
+        previewAudioRef.current = null
+      }
     }
 
     const start = Date.now()
@@ -212,6 +259,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
 
   if (previewing) {
     const scene = scenes[previewIndex]
+    const music = effectiveMusicFor(scene, globalMusic)
     return (
       <div className="fixed inset-0 bg-black z-[100] flex flex-col">
         {/* Segmented progress bars - the only "story-viewer-like" touch,
@@ -248,11 +296,11 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           >
             {scene.text}
           </p>
-          {scene.musicTitle && (
+          {music?.title && (
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={scene.musicArtworkUrl} alt={scene.musicTitle} className="h-7 w-7 rounded-full object-cover shrink-0" />
-              <span className="text-white text-xs font-medium truncate">{scene.musicTitle} &middot; {scene.musicArtist}</span>
+              <img src={music.artworkUrl} alt={music.title} className="h-7 w-7 rounded-full object-cover shrink-0" />
+              <span className="text-white text-xs font-medium truncate">{music.title} &middot; {music.artist}</span>
             </div>
           )}
         </div>
@@ -364,18 +412,9 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         onEditText={() => textareaRef.current?.focus()}
         onChangeTextColor={() => { colorBeforePicker.current = activeScene.textColor; setColorPanel('text') }}
         onChangeBackground={() => { colorBeforePicker.current = activeScene.backgroundColor; setColorPanel('bg') }}
-        onOpenMusic={() => {
-          if (activeScene.musicUrl && activeScene.musicTitle) {
-            setTrimSong({
-              title: activeScene.musicTitle,
-              artist: activeScene.musicArtist || '',
-              artworkUrl: activeScene.musicArtworkUrl || '',
-              previewUrl: activeScene.musicUrl,
-            })
-          } else {
-            setShowMusicPicker(true)
-          }
-        }}
+        onSeparateSong={openSeparateSong}
+        globalMusic={globalMusic}
+        onOpenGlobalMusic={openGlobalMusic}
       />
 
       {/* Footer: emoji + font + preview + share */}
@@ -415,10 +454,14 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
       {showMusicPicker && (
         <MusicPicker
           onSelect={(s) => {
-            updateScene(activeSceneId, {
-              musicUrl: s.previewUrl, musicTitle: s.title, musicArtist: s.artist, musicArtworkUrl: s.artworkUrl,
-              musicStart: 0, musicDuration: Math.min(activeScene.duration, 30),
-            })
+            if (musicTarget === 'global') {
+              setGlobalMusic({ url: s.previewUrl, title: s.title, artist: s.artist, artworkUrl: s.artworkUrl, start: 0, duration: Math.min(totalDuration, 30) })
+            } else if (musicTarget) {
+              updateScene(musicTarget, {
+                musicUrl: s.previewUrl, musicTitle: s.title, musicArtist: s.artist, musicArtworkUrl: s.artworkUrl,
+                musicStart: 0, musicDuration: Math.min(scenes.find((sc) => sc.id === musicTarget)?.duration ?? 5, 30),
+              })
+            }
             setShowMusicPicker(false)
             setTrimSong(s)
           }}
@@ -426,19 +469,34 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         />
       )}
 
-      {trimSong && (
+      {trimSong && musicTarget === 'global' && (
         <MusicTrimPanel
           song={trimSong}
-          initialStart={activeScene.musicStart ?? 0}
-          initialDuration={activeScene.musicDuration ?? Math.min(activeScene.duration, 30)}
-          sceneDuration={activeScene.duration}
+          initialStart={globalMusic?.start ?? 0}
+          initialDuration={globalMusic?.duration ?? Math.min(totalDuration, 30)}
+          sceneDuration={totalDuration}
           onCancel={() => setTrimSong(null)}
           onDone={(start, duration) => {
-            updateScene(activeSceneId, { musicStart: start, musicDuration: duration })
+            setGlobalMusic({ url: trimSong.previewUrl, title: trimSong.title, artist: trimSong.artist, artworkUrl: trimSong.artworkUrl, start, duration })
+            setTrimSong(null)
+          }}
+          onRemove={() => { setGlobalMusic(null); setTrimSong(null) }}
+        />
+      )}
+
+      {trimSong && musicTarget && musicTarget !== 'global' && (
+        <MusicTrimPanel
+          song={trimSong}
+          initialStart={scenes.find((s) => s.id === musicTarget)?.musicStart ?? 0}
+          initialDuration={scenes.find((s) => s.id === musicTarget)?.musicDuration ?? Math.min(scenes.find((s) => s.id === musicTarget)?.duration ?? 5, 30)}
+          sceneDuration={scenes.find((s) => s.id === musicTarget)?.duration ?? 5}
+          onCancel={() => setTrimSong(null)}
+          onDone={(start, duration) => {
+            updateScene(musicTarget, { musicStart: start, musicDuration: duration })
             setTrimSong(null)
           }}
           onRemove={() => {
-            updateScene(activeSceneId, {
+            updateScene(musicTarget, {
               musicUrl: undefined, musicTitle: undefined, musicArtist: undefined,
               musicArtworkUrl: undefined, musicStart: undefined, musicDuration: undefined,
             })
