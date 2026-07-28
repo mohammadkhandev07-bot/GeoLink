@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Trash2, Copy, Type, Palette, PaintBucket } from 'lucide-react'
+import { Trash2, Copy, Type, Palette, PaintBucket, Music } from 'lucide-react'
 
 interface SceneMenuProps {
   anchorX: number
@@ -12,11 +12,14 @@ interface SceneMenuProps {
   onEditText: () => void
   onChangeTextColor: () => void
   onChangeBackground: () => void
+  onSeparateSong: () => void
+  hasSeparateSong: boolean
   canDelete: boolean
 }
 
 export function SceneMenu({
-  anchorX, anchorY, onClose, onDelete, onDuplicate, onEditText, onChangeTextColor, onChangeBackground, canDelete,
+  anchorX, anchorY, onClose, onDelete, onDuplicate, onEditText, onChangeTextColor, onChangeBackground,
+  onSeparateSong, hasSeparateSong, canDelete,
 }: SceneMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -50,6 +53,7 @@ export function SceneMenu({
       {item(<Type className="h-4 w-4" />, 'Edit Text', onEditText)}
       {item(<Palette className="h-4 w-4" />, 'Change Text Color', onChangeTextColor)}
       {item(<PaintBucket className="h-4 w-4" />, 'Change Background', onChangeBackground)}
+      {item(<Music className="h-4 w-4" />, hasSeparateSong ? 'Edit Separate Song' : 'Add Separate Song', onSeparateSong)}
       {item(<Copy className="h-4 w-4" />, 'Duplicate Scene', onDuplicate)}
       {canDelete && item(<Trash2 className="h-4 w-4" />, 'Delete Scene', onDelete, true)}
     </div>
