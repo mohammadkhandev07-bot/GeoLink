@@ -43,7 +43,7 @@ export function SceneMenu({
 
   // Fixed to the viewport (not a descendant of the timeline's scrolling
   // track), and opens upward from the 3-dot button's exact position - this
-  // is what actually escapes that track's overflow clipping.
+  // Is what actually escapes that track's overflow clipping.
   return (
     <div
       ref={ref}
