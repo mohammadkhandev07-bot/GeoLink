@@ -137,6 +137,15 @@ export type TextScene = {
   musicDuration?: number     // how many seconds of it to play
 }
 
+export type GlobalMusic = {
+  url: string
+  title: string
+  artist: string
+  artworkUrl: string
+  start: number
+  duration: number
+}
+
 export type Story = {
   id: string
   user_id: string
@@ -157,6 +166,7 @@ export type Story = {
   overlay_text_color: string | null
   overlay_font_family: string | null
   text_scenes: TextScene[] | null
+  global_music: GlobalMusic | null
   created_at: string
   expires_at: string
 }
@@ -197,4 +207,4 @@ export type Database = {
       stories: { Row: Story; Insert: Omit<Story, 'id' | 'created_at' | 'expires_at'> & { id?: string }; Update: Partial<Story> }
     }
   }
-} 
+}
