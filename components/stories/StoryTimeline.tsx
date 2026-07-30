@@ -1,24 +1,26 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Plus, Music as MusicIcon, MoreVertical, Type } from 'lucide-react'
-import type { TextScene, GlobalMusic } from '@/lib/types/database.types'
-import { SceneMenu } from './SceneMenu'
+import { Plus, Music as MusicIcon, MoreVertical } from 'lucide-react'
+import type { GlobalMusic } from '@/lib/types/database.types'
+import { SceneMenu, SceneMenuItem } from './SceneMenu'
 
-interface StoryTimelineProps {
-  scenes: TextScene[]
+interface BaseScene {
+  id: string
+  duration: number
+}
+
+interface StoryTimelineProps<T extends BaseScene> {
+  scenes: T[]
   activeSceneId: string
   onSelectScene: (id: string) => void
   onAddScene: () => void
-  onDeleteScene: (id: string) => void
-  onDuplicateScene: (id: string) => void
   onResizeScene: (id: string, duration: number) => void
-  onEditText: (id: string) => void
-  onChangeTextColor: (id: string) => void
-  onChangeBackground: (id: string) => void
-  onSeparateSong: (id: string) => void
+  renderBlock: (scene: T, index: number) => React.ReactNode
+  getMenuItems: (scene: T) => SceneMenuItem[]
   globalMusic: GlobalMusic | null
   onOpenGlobalMusic: () => void
+  trackIcon: React.ReactNode
 }
 
 const PX_PER_SECOND = 20
@@ -30,18 +32,17 @@ const MAX_SCENE_DURATION = 60
 // duration a lot more, on touch specifically.
 const TOUCH_SENSITIVITY = 4
 
-export function StoryTimeline({
-  scenes, activeSceneId, onSelectScene, onAddScene, onDeleteScene, onDuplicateScene,
-  onResizeScene, onEditText, onChangeTextColor, onChangeBackground, onSeparateSong,
-  globalMusic, onOpenGlobalMusic,
-}: StoryTimelineProps) {
+export function StoryTimeline<T extends BaseScene>({
+  scenes, activeSceneId, onSelectScene, onAddScene, onResizeScene, renderBlock, getMenuItems,
+  globalMusic, onOpenGlobalMusic, trackIcon,
+}: StoryTimelineProps<T>) {
   const [menuFor, setMenuFor] = useState<{ id: string; x: number; y: number } | null>(null)
   const resizing = useRef<{ id: string; startX: number; startDuration: number; isTouch: boolean } | null>(null)
 
   const totalSeconds = scenes.reduce((sum, s) => sum + s.duration, 0)
   const rulerSeconds = Math.max(15, Math.ceil(totalSeconds / 5) * 5 + 5)
 
-  const handleResizeStart = (e: React.PointerEvent, scene: TextScene) => {
+  const handleResizeStart = (e: React.PointerEvent, scene: T) => {
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     resizing.current = { id: scene.id, startX: e.clientX, startDuration: scene.duration, isTouch: e.pointerType === 'touch' }
@@ -54,6 +55,8 @@ export function StoryTimeline({
     onResizeScene(resizing.current.id, next)
   }
   const handleResizeEnd = () => { resizing.current = null }
+
+  const menuScene = menuFor ? scenes.find((s) => s.id === menuFor.id) : null
 
   return (
     <div className="bg-[#111214] border-t border-white/10 px-3 pt-2 pb-3 space-y-1.5">
@@ -68,9 +71,9 @@ export function StoryTimeline({
         </div>
       </div>
 
-      {/* Text scenes track */}
+      {/* Scenes track */}
       <div className="flex items-center gap-2">
-        <Type className="h-3.5 w-3.5 text-white/40 shrink-0" />
+        <span className="shrink-0">{trackIcon}</span>
         <div
           className="flex-1 flex items-center gap-[3px] overflow-x-auto scrollbar-hide"
           onPointerMove={handleResizeMove}
@@ -81,12 +84,11 @@ export function StoryTimeline({
               key={scene.id}
               onClick={() => onSelectScene(scene.id)}
               style={{ width: `${Math.max(scene.duration * PX_PER_SECOND, 50)}px` }}
-              className={`relative h-10 shrink-0 rounded-md flex items-center px-2 cursor-pointer transition-colors ${
-                scene.id === activeSceneId ? 'bg-pink-500 ring-2 ring-white' : 'bg-white/15 hover:bg-white/25'
+              className={`relative h-10 shrink-0 rounded-md flex items-center px-2 cursor-pointer transition-colors overflow-hidden ${
+                scene.id === activeSceneId ? 'ring-2 ring-white bg-pink-500' : 'bg-white/15 hover:bg-white/25'
               }`}
             >
-              {scene.musicUrl && <MusicIcon className="h-3 w-3 text-white/80 shrink-0 mr-1" />}
-              <span className="text-[11px] font-medium text-white truncate flex-1">{scene.text || `Scene ${i + 1}`}</span>
+              {renderBlock(scene, i)}
 
               {scene.id === activeSceneId && (
                 <>
@@ -96,16 +98,16 @@ export function StoryTimeline({
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                       setMenuFor(menuFor?.id === scene.id ? null : { id: scene.id, x: rect.left, y: rect.top })
                     }}
-                    className="h-5 w-5 shrink-0 rounded-full bg-black/30 flex items-center justify-center ml-1"
+                    className="relative z-10 h-5 w-5 shrink-0 rounded-full bg-black/40 flex items-center justify-center ml-1"
                   >
                     <MoreVertical className="h-3 w-3 text-white" />
                   </button>
                   {/* Drag handle to resize this scene's duration - a bigger
                       invisible touch target than it looks, so it's easy to
-                      Grab on a phone. */}
+                      grab on a phone. */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, scene)}
-                    className="absolute -right-2 top-0 h-full w-6 cursor-ew-resize flex items-center justify-center touch-none"
+                    className="absolute -right-2 top-0 h-full w-6 cursor-ew-resize flex items-center justify-center touch-none z-10"
                   >
                     <div className="h-6 w-1.5 rounded-full bg-white" />
                   </div>
@@ -124,8 +126,7 @@ export function StoryTimeline({
       </div>
 
       {/* Music track - one song shared across the whole story. Scenes with
-          their own separate song (little music icon on their block above)
-          override this for just their own duration. */}
+          their own separate song override this for just their own duration. */}
       <div className="flex items-center gap-2">
         <MusicIcon className="h-3.5 w-3.5 text-white/40 shrink-0" />
         {globalMusic ? (
@@ -153,19 +154,12 @@ export function StoryTimeline({
       {/* Rendered fixed to the viewport (not inside the horizontally-
           scrolling track above) so it never gets clipped by that track's
           overflow. */}
-      {menuFor && (
+      {menuFor && menuScene && (
         <SceneMenu
           anchorX={menuFor.x}
           anchorY={menuFor.y}
-          canDelete={scenes.length > 1}
-          hasSeparateSong={!!scenes.find((s) => s.id === menuFor.id)?.musicUrl}
+          items={getMenuItems(menuScene)}
           onClose={() => setMenuFor(null)}
-          onDelete={() => onDeleteScene(menuFor.id)}
-          onDuplicate={() => onDuplicateScene(menuFor.id)}
-          onEditText={() => onEditText(menuFor.id)}
-          onChangeTextColor={() => onChangeTextColor(menuFor.id)}
-          onChangeBackground={() => onChangeBackground(menuFor.id)}
-          onSeparateSong={() => onSeparateSong(menuFor.id)}
         />
       )}
     </div>
