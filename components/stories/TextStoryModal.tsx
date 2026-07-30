@@ -494,12 +494,14 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
           initialStart={globalMusic?.start ?? 0}
           initialDuration={globalMusic?.duration ?? Math.min(totalDuration, 30)}
           sceneDuration={totalDuration}
+          isGlobal
           onCancel={() => setTrimSong(null)}
           onDone={(start, duration) => {
             setGlobalMusic({ url: trimSong.previewUrl, title: trimSong.title, artist: trimSong.artist, artworkUrl: trimSong.artworkUrl, start, duration })
             setTrimSong(null)
           }}
           onRemove={() => { setGlobalMusic(null); setTrimSong(null) }}
+          onChangeSong={() => { setTrimSong(null); setShowMusicPicker(true) }}
         />
       )}
 
@@ -521,6 +523,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
             })
             setTrimSong(null)
           }}
+          onChangeSong={() => { setTrimSong(null); setShowMusicPicker(true) }}
         />
       )}
 
