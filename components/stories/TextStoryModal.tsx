@@ -40,7 +40,7 @@ function newScene(): TextScene {
 }
 
 // Whichever song/font should actually apply to a given scene right now -
-// its own separate one if it has one, otherwise the one shared across the
+// Its own separate one if it has one, otherwise the one shared across the
 // whole story.
 function effectiveMusicFor(scene: TextScene, globalMusic: GlobalMusic | null) {
   if (scene.musicUrl) {
