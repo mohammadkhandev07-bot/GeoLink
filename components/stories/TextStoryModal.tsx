@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, ArrowLeft, Smile, Loader2, Type, Play, Minus, Plus, Move } from 'lucide-react'
+import { X, ArrowLeft, Smile, Loader2, Type, Play, Minus, Plus, Move, Trash2, Copy, Palette, PaintBucket, Music } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmojiPicker } from './EmojiPicker'
 import { MusicPicker, SelectedSong } from './MusicPicker'
@@ -10,6 +10,7 @@ import { DiscardConfirmDialog } from './DiscardConfirmDialog'
 import { FontPicker } from './FontPicker'
 import { ColorPickerPanel } from './ColorPickerPanel'
 import { StoryTimeline } from './StoryTimeline'
+import { SceneMenuItem } from './SceneMenu'
 import { useCreateStory } from '@/lib/hooks/useStories'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 import type { TextScene, GlobalMusic } from '@/lib/types/database.types'
@@ -38,8 +39,8 @@ function newScene(): TextScene {
   }
 }
 
-// Whichever song should actually be heard for a given scene right now - its
-// own separate song if it has one, otherwise the one song shared across the
+// Whichever song/font should actually apply to a given scene right now -
+// its own separate one if it has one, otherwise the one shared across the
 // whole story.
 function effectiveMusicFor(scene: TextScene, globalMusic: GlobalMusic | null) {
   if (scene.musicUrl) {
@@ -55,16 +56,20 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
   const [scenes, setScenes] = useState<TextScene[]>([newScene()])
   const [activeSceneId, setActiveSceneId] = useState(scenes[0].id)
   const [globalMusic, setGlobalMusic] = useState<GlobalMusic | null>(null)
+  const [globalFont, setGlobalFont] = useState<string | null>(null)
 
   const [colorPanel, setColorPanel] = useState<'bg' | 'text' | null>(null)
   const colorBeforePicker = useRef('')
 
   const [showEmoji, setShowEmoji] = useState(false)
-  const [showFontPicker, setShowFontPicker] = useState(false)
-  const fontBeforePicker = useRef('')
 
-  // Which song session is currently open: the one global song, or a
-  // specific scene's own separate song.
+  // Which font session is open: 'global' (applies to every scene) or a
+  // specific scene id (that scene's own separate font).
+  const [fontTarget, setFontTarget] = useState<'global' | string | null>(null)
+  const fontBeforePicker = useRef<string | null | undefined>(null)
+
+  // Which song session is open: 'global' (applies to every scene) or a
+  // specific scene id (that scene's own separate song).
   const [musicTarget, setMusicTarget] = useState<'global' | string | null>(null)
   const [showMusicPicker, setShowMusicPicker] = useState(false)
   const [trimSong, setTrimSong] = useState<SelectedSong | null>(null)
@@ -169,6 +174,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         userId,
         scenes: scenes.filter((s) => s.text.trim()).map((s) => ({ ...s, text: s.text.trim() })),
         globalMusic,
+        globalFont,
       })
       onClose()
     } catch {
@@ -176,8 +182,8 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     }
   }
 
-  // --- Music: one global song is the default; "Add Separate Song" (3-dot
-  // menu on a scene) lets a specific scene override it with its own. -----
+  // --- Music: one global song by default, "Add Separate Song" on a scene
+  // lets it override with its own. ----------------------------------------
   const openGlobalMusic = () => {
     setMusicTarget('global')
     if (globalMusic) {
@@ -186,7 +192,6 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
       setShowMusicPicker(true)
     }
   }
-
   const openSeparateSong = (sceneId: string) => {
     setMusicTarget(sceneId)
     const scene = scenes.find((s) => s.id === sceneId)
@@ -195,6 +200,14 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     } else {
       setShowMusicPicker(true)
     }
+  }
+
+  // --- Font: same pattern as music - one global font, or a scene's own. --
+  const openGlobalFont = () => { fontBeforePicker.current = globalFont; setFontTarget('global') }
+  const openSeparateFont = (sceneId: string) => {
+    const scene = scenes.find((s) => s.id === sceneId)
+    fontBeforePicker.current = scene?.fontFamily
+    setFontTarget(sceneId)
   }
 
   // --- Inline preview: cycles through scenes right in this canvas -------
@@ -257,14 +270,22 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
 
   useEffect(() => () => { previewAudioRef.current?.pause() }, [])
 
+  const getMenuItems = (scene: TextScene): SceneMenuItem[] => [
+    { icon: <Type className="h-4 w-4" />, label: 'Edit Text', onClick: () => textareaRef.current?.focus() },
+    { icon: <Palette className="h-4 w-4" />, label: 'Change Text Color', onClick: () => { colorBeforePicker.current = scene.textColor; setActiveSceneId(scene.id); setColorPanel('text') } },
+    { icon: <PaintBucket className="h-4 w-4" />, label: 'Change Background', onClick: () => { colorBeforePicker.current = scene.backgroundColor; setActiveSceneId(scene.id); setColorPanel('bg') } },
+    { icon: <Type className="h-4 w-4" />, label: scene.fontFamily ? 'Edit Separate Font' : 'Add Separate Font', onClick: () => openSeparateFont(scene.id) },
+    { icon: <Music className="h-4 w-4" />, label: scene.musicUrl ? 'Edit Separate Song' : 'Add Separate Song', onClick: () => openSeparateSong(scene.id) },
+    { icon: <Copy className="h-4 w-4" />, label: 'Duplicate Scene', onClick: () => handleDuplicateScene(scene.id) },
+    ...(scenes.length > 1 ? [{ icon: <Trash2 className="h-4 w-4" />, label: 'Delete Scene', onClick: () => handleDeleteScene(scene.id), danger: true }] : []),
+  ]
+
   if (previewing) {
     const scene = scenes[previewIndex]
     const music = effectiveMusicFor(scene, globalMusic)
+    const font = scene.fontFamily || globalFont
     return (
       <div className="fixed inset-0 bg-black z-[100] flex flex-col">
-        {/* Segmented progress bars - the only "story-viewer-like" touch,
-            everything else stays inside this editor so it's obvious this
-            hasn't been posted yet. */}
         <div className="flex gap-1 p-3 pt-4">
           {scenes.map((_, i) => (
             <div key={i} className="flex-1 h-1 bg-white/25 rounded-full overflow-hidden">
@@ -289,7 +310,7 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
             style={{
               position: 'absolute', left: `${scene.textX}%`, top: `${scene.textY}%`, transform: 'translate(-50%, -50%)',
               ...getTextFillStyle(scene.textColor),
-              fontFamily: scene.fontFamily ? `'${scene.fontFamily}', sans-serif` : undefined,
+              fontFamily: font ? `'${font}', sans-serif` : undefined,
               fontSize: `${scene.textSize}px`,
             }}
             className="text-center font-semibold break-words max-w-[85%]"
@@ -380,12 +401,11 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
             rows={3}
             style={{
               ...getTextFillStyle(activeScene.textColor),
-              fontFamily: activeScene.fontFamily ? `'${activeScene.fontFamily}', sans-serif` : undefined,
+              fontFamily: (activeScene.fontFamily || globalFont) ? `'${activeScene.fontFamily || globalFont}', sans-serif` : undefined,
               fontSize: `${activeScene.textSize}px`,
             }}
             className="bg-transparent text-center font-semibold outline-none resize-none w-full"
           />
-          {/* Drag handle + size controls */}
           <div className="flex items-center justify-center gap-2 mt-1">
             <button onPointerDown={handleDragStart} className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center cursor-grab active:cursor-grabbing">
               <Move className="h-3.5 w-3.5 text-white" />
@@ -406,27 +426,26 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         activeSceneId={activeSceneId}
         onSelectScene={setActiveSceneId}
         onAddScene={handleAddScene}
-        onDeleteScene={handleDeleteScene}
-        onDuplicateScene={handleDuplicateScene}
         onResizeScene={(id, duration) => updateScene(id, { duration })}
-        onEditText={() => textareaRef.current?.focus()}
-        onChangeTextColor={() => { colorBeforePicker.current = activeScene.textColor; setColorPanel('text') }}
-        onChangeBackground={() => { colorBeforePicker.current = activeScene.backgroundColor; setColorPanel('bg') }}
-        onSeparateSong={openSeparateSong}
+        trackIcon={<Type className="h-3.5 w-3.5 text-white/40" />}
+        renderBlock={(scene, i) => (
+          <span className="text-[11px] font-medium text-white truncate flex-1">{scene.text || `Scene ${i + 1}`}</span>
+        )}
+        getMenuItems={getMenuItems}
         globalMusic={globalMusic}
         onOpenGlobalMusic={openGlobalMusic}
       />
 
-      {/* Footer: emoji + font + preview + share */}
+      {/* Footer: emoji + global font + preview + share */}
       <div className="relative p-4 flex items-center gap-2 border-t border-white/10">
         {showEmoji && <EmojiPicker onSelect={insertEmoji} onClose={() => setShowEmoji(false)} />}
         <button onClick={() => setShowEmoji((s) => !s)} className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
           <Smile className="h-5 w-5" />
         </button>
         <button
-          onClick={() => { fontBeforePicker.current = activeScene.fontFamily || ''; setShowFontPicker(true) }}
+          onClick={openGlobalFont}
           className="h-11 w-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-          title="Choose font"
+          title="Font for the whole story"
         >
           <Type className="h-5 w-5" />
         </button>
@@ -505,12 +524,20 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         />
       )}
 
-      {showFontPicker && (
+      {fontTarget === 'global' && (
         <FontPicker
-          currentFont={activeScene.fontFamily || ''}
-          onSelect={(f) => updateScene(activeSceneId, { fontFamily: f || undefined })}
-          onCancel={() => { updateScene(activeSceneId, { fontFamily: fontBeforePicker.current || undefined }); setShowFontPicker(false) }}
-          onDone={() => setShowFontPicker(false)}
+          currentFont={globalFont || ''}
+          onSelect={(f) => setGlobalFont(f || null)}
+          onCancel={() => { setGlobalFont(fontBeforePicker.current ?? null); setFontTarget(null) }}
+          onDone={() => setFontTarget(null)}
+        />
+      )}
+      {fontTarget && fontTarget !== 'global' && (
+        <FontPicker
+          currentFont={scenes.find((s) => s.id === fontTarget)?.fontFamily || ''}
+          onSelect={(f) => updateScene(fontTarget, { fontFamily: f || undefined })}
+          onCancel={() => { updateScene(fontTarget, { fontFamily: fontBeforePicker.current || undefined }); setFontTarget(null) }}
+          onDone={() => setFontTarget(null)}
         />
       )}
 
