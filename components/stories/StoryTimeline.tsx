@@ -28,7 +28,7 @@ const MIN_SCENE_DURATION = 1
 const MAX_SCENE_DURATION = 60
 // Touch drags report much smaller pixel deltas than mouse drags for the
 // same physical finger movement on most phones, so the resize handle felt
-// almost unresponsive - this multiplier makes a small finger drag move the
+// Almost unresponsive - this multiplier makes a small finger drag move the
 // duration a lot more, on touch specifically.
 const TOUCH_SENSITIVITY = 4
 
