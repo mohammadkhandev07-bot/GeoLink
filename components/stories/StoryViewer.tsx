@@ -8,7 +8,7 @@ import { useDeleteStory } from '@/lib/hooks/useStories'
 import type { StoryGroup } from '@/lib/hooks/useStories'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
-import type { TextScene } from '@/lib/types/database.types'
+import type { TextScene, PhotoScene } from '@/lib/types/database.types'
 
 interface StoryViewerProps {
   groups: StoryGroup[]
@@ -19,8 +19,9 @@ interface StoryViewerProps {
 
 // Figures out which scene should be showing right now, given how far into
 // the story's total duration we are - mirrors how the timeline strip laid
-// scenes out one after another in the composer.
-function getActiveScene(scenes: TextScene[] | null, elapsedSeconds: number): TextScene | null {
+// scenes out one after another in the composer. Works for either text or
+// photo scenes since both just need { duration }.
+function getActiveScene<T extends { duration: number }>(scenes: T[] | null, elapsedSeconds: number): T | null {
   if (!scenes || scenes.length === 0) return null
   let cursor = 0
   for (const scene of scenes) {
@@ -111,32 +112,45 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
   const isOwn = currentUserId === story.user_id
 
-  // For multi-scene text stories, figure out which scene should be showing
-  // right now, and pull that scene's own background/text style/position/
-  // size/music from it. Falls back to the story's top-level fields for
-  // photo/video stories, or text stories that only ever had one scene.
+  // For multi-scene stories, figure out which scene should be showing right
+  // now, and pull that scene's own style/position/music from it. Falls
+  // back to the story's top-level fields for single-scene or legacy posts.
   const totalDuration = story.duration_seconds || 5
   const elapsedSeconds = (progress / 100) * totalDuration
-  const activeScene = story.story_type === 'text' ? getActiveScene(story.text_scenes, elapsedSeconds) : null
+  const activeScene = story.story_type === 'text' ? getActiveScene<TextScene>(story.text_scenes, elapsedSeconds) : null
+  const activePhotoScene = story.story_type === 'photo' ? getActiveScene<PhotoScene>(story.photo_scenes, elapsedSeconds) : null
 
   const displayText = activeScene ? activeScene.text : story.text_content
   const displayBackground = activeScene ? activeScene.backgroundColor : story.background_color
   const displayTextColor = activeScene ? activeScene.textColor : story.text_color
-  const displayFont = activeScene ? activeScene.fontFamily : story.font_family
+  const displayFont = activeScene ? (activeScene.fontFamily || story.global_font_family) : story.font_family
   const displayTextX = activeScene?.textX ?? 50
   const displayTextY = activeScene?.textY ?? 50
   const displayTextSize = activeScene?.textSize ?? 32
 
-  const activeMusicUrl = activeScene?.musicUrl || (story.story_type === 'text' ? story.global_music?.url : story.music_url) || null
-  const activeMusicTitle = activeScene?.musicUrl ? activeScene.musicTitle : (story.story_type === 'text' ? story.global_music?.title : story.music_title)
-  const activeMusicArtist = activeScene?.musicUrl ? activeScene.musicArtist : (story.story_type === 'text' ? story.global_music?.artist : story.music_artist)
-  const activeMusicArtwork = activeScene?.musicUrl ? activeScene.musicArtworkUrl : (story.story_type === 'text' ? story.global_music?.artworkUrl : story.music_artwork_url)
-  const musicStart = activeScene?.musicUrl ? (activeScene.musicStart ?? 0) : (story.global_music?.start ?? 0)
-  const musicClipDuration = activeScene?.musicUrl ? activeScene.musicDuration : story.global_music?.duration
+  const displayImageUrl = activePhotoScene ? activePhotoScene.imageUrl : story.media_url
+  const displayOverlayText = activePhotoScene ? activePhotoScene.overlayText : story.overlay_text
+  const displayOverlayColor = activePhotoScene ? activePhotoScene.overlayTextColor : story.overlay_text_color
+  const displayOverlayFont = activePhotoScene ? (activePhotoScene.overlayFontFamily || story.global_font_family) : story.overlay_font_family
+  const displayOverlayX = activePhotoScene?.overlayX ?? story.overlay_x
+  const displayOverlayY = activePhotoScene?.overlayY ?? story.overlay_y
+
+  const sceneMusicUrl = activeScene?.musicUrl || activePhotoScene?.musicUrl
+  const activeMusicUrl = sceneMusicUrl || (story.story_type !== 'video' ? story.global_music?.url : undefined) || story.music_url || null
+  const musicSource = sceneMusicUrl
+    ? { title: activeScene?.musicTitle ?? activePhotoScene?.musicTitle, artist: activeScene?.musicArtist ?? activePhotoScene?.musicArtist, artwork: activeScene?.musicArtworkUrl ?? activePhotoScene?.musicArtworkUrl, start: (activeScene?.musicStart ?? activePhotoScene?.musicStart) ?? 0, clipDuration: activeScene?.musicDuration ?? activePhotoScene?.musicDuration }
+    : story.global_music
+      ? { title: story.global_music.title, artist: story.global_music.artist, artwork: story.global_music.artworkUrl, start: story.global_music.start, clipDuration: story.global_music.duration }
+      : { title: story.music_title, artist: story.music_artist, artwork: story.music_artwork_url, start: 0, clipDuration: undefined }
+  const activeMusicTitle = musicSource.title
+  const activeMusicArtist = musicSource.artist
+  const activeMusicArtwork = musicSource.artwork
+  const musicStart = musicSource.start
+  const musicClipDuration = musicSource.clipDuration
 
   // Load whichever font this particular scene/story needs (only fetched
   // once per font, cached after that - see loadGoogleFont).
-  const activeFont = story.story_type === 'text' ? displayFont : story.overlay_font_family
+  const activeFont = story.story_type === 'text' ? displayFont : (story.story_type === 'photo' ? displayOverlayFont : story.overlay_font_family)
   if (activeFont) loadGoogleFont(activeFont)
 
   // Play whichever song is active right now. Deliberately keyed on the
@@ -257,7 +271,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
           {story.story_type === 'photo' && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={story.media_url || ''} alt="Story" className="max-w-full max-h-full object-contain" />
+            <img src={displayImageUrl || ''} alt="Story" className="max-w-full max-h-full object-contain" />
           )}
 
           {story.story_type === 'video' && (
@@ -273,20 +287,20 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
             />
           )}
 
-          {story.overlay_text && story.story_type !== 'text' && (
+          {displayOverlayText && story.story_type !== 'text' && (
             <div
-              style={{ left: `${story.overlay_x}%`, top: `${story.overlay_y}%`, transform: 'translate(-50%, -50%)' }}
+              style={{ left: `${displayOverlayX}%`, top: `${displayOverlayY}%`, transform: 'translate(-50%, -50%)' }}
               className="absolute max-w-[85%] text-center px-2"
             >
               <p
                 className="text-xl font-bold break-words"
                 style={{
-                  ...getTextFillStyle(story.overlay_text_color),
-                  textShadow: story.overlay_text_color?.startsWith('gradient:') ? undefined : '0 1px 6px rgba(0,0,0,0.6)',
-                  fontFamily: story.overlay_font_family ? `'${story.overlay_font_family}', sans-serif` : undefined,
+                  ...getTextFillStyle(displayOverlayColor),
+                  textShadow: displayOverlayColor?.startsWith('gradient:') ? undefined : '0 1px 6px rgba(0,0,0,0.6)',
+                  fontFamily: displayOverlayFont ? `'${displayOverlayFont}', sans-serif` : undefined,
                 }}
               >
-                {story.overlay_text}
+                {displayOverlayText}
               </p>
             </div>
           )}
