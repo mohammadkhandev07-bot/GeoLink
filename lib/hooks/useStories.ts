@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { StoryWithProfile, TextScene, GlobalMusic } from '@/lib/types/database.types'
+import { StoryWithProfile, TextScene, PhotoScene, GlobalMusic } from '@/lib/types/database.types'
 
 export interface StoryGroup {
   userId: string
@@ -68,6 +68,7 @@ interface CreateTextStoryInput {
   userId: string
   scenes: TextScene[]
   globalMusic?: GlobalMusic | null
+  globalFont?: string | null
 }
 
 interface CreateMediaStoryInput {
@@ -86,6 +87,19 @@ interface CreateMediaStoryInput {
   overlayFontFamily?: string
 }
 
+// A photo scene still holding a local File (not uploaded yet) - used while
+// editing, before "Share to Story" actually uploads everything.
+export interface DraftPhotoScene extends Omit<PhotoScene, 'imageUrl'> {
+  file: File
+}
+
+interface CreatePhotoStoryInput {
+  userId: string
+  scenes: DraftPhotoScene[]
+  globalMusic?: GlobalMusic | null
+  globalFont?: string | null
+}
+
 export function useCreateStory() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -95,7 +109,7 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, scenes, globalMusic }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreateTextStoryInput) => {
       const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
       const first = scenes[0]
       // Legacy top-level music_* fields mirror whichever song plays first -
@@ -111,6 +125,7 @@ export function useCreateStory() {
         text_content: first?.text || '',
         text_scenes: scenes,
         global_music: globalMusic || null,
+        global_font_family: globalFont || null,
         background_color: first?.backgroundColor || null,
         music_url: legacyMusic.url || null,
         music_title: legacyMusic.title || null,
@@ -118,7 +133,7 @@ export function useCreateStory() {
         music_artwork_url: legacyMusic.artworkUrl || null,
         duration_seconds: totalDuration,
         text_color: first?.textColor || null,
-        font_family: first?.fontFamily || null,
+        font_family: first?.fontFamily || globalFont || null,
       })
       if (error) throw error
     },
@@ -155,7 +170,52 @@ export function useCreateStory() {
     onSuccess: (_, { userId }) => invalidate(userId),
   })
 
-  return { createTextStory, createMediaStory }
+  // Multi-photo ("multi-scene") story: uploads every scene's image first,
+  // then saves one story row with a photo_scenes array - same overall shape
+  // as the text story's scene system.
+  const createPhotoStory = useMutation({
+    mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreatePhotoStoryInput) => {
+      const uploaded: PhotoScene[] = []
+      for (const scene of scenes) {
+        const ext = scene.file.name.split('.').pop()
+        const path = `${userId}/${Date.now()}-${uploaded.length}.${ext}`
+        const { error: uploadError } = await supabase.storage.from('stories').upload(path, scene.file)
+        if (uploadError) throw uploadError
+        const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path)
+        const { file, ...rest } = scene
+        uploaded.push({ ...rest, imageUrl: urlData.publicUrl })
+      }
+
+      const totalDuration = uploaded.reduce((sum, s) => sum + s.duration, 0) || 5
+      const first = uploaded[0]
+      const legacyMusic = globalMusic
+        ? { url: globalMusic.url, title: globalMusic.title, artist: globalMusic.artist, artworkUrl: globalMusic.artworkUrl }
+        : { url: first?.musicUrl, title: first?.musicTitle, artist: first?.musicArtist, artworkUrl: first?.musicArtworkUrl }
+
+      const { error } = await supabase.from('stories').insert({
+        user_id: userId,
+        story_type: 'photo',
+        media_url: first?.imageUrl || null,
+        photo_scenes: uploaded,
+        global_music: globalMusic || null,
+        global_font_family: globalFont || null,
+        overlay_text: first?.overlayText || null,
+        overlay_x: first?.overlayX ?? 50,
+        overlay_y: first?.overlayY ?? 50,
+        overlay_text_color: first?.overlayTextColor || null,
+        overlay_font_family: first?.overlayFontFamily || globalFont || null,
+        music_url: legacyMusic.url || null,
+        music_title: legacyMusic.title || null,
+        music_artist: legacyMusic.artist || null,
+        music_artwork_url: legacyMusic.artworkUrl || null,
+        duration_seconds: totalDuration,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_, { userId }) => invalidate(userId),
+  })
+
+  return { createTextStory, createMediaStory, createPhotoStory }
 }
 
 export function useDeleteStory() {
