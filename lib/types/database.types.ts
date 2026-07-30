@@ -146,6 +146,23 @@ export type GlobalMusic = {
   duration: number
 }
 
+export type PhotoScene = {
+  id: string
+  imageUrl: string
+  duration: number
+  overlayText?: string
+  overlayTextColor?: string
+  overlayFontFamily?: string
+  overlayX: number
+  overlayY: number
+  musicUrl?: string
+  musicTitle?: string
+  musicArtist?: string
+  musicArtworkUrl?: string
+  musicStart?: number
+  musicDuration?: number
+}
+
 export type Story = {
   id: string
   user_id: string
@@ -166,7 +183,9 @@ export type Story = {
   overlay_text_color: string | null
   overlay_font_family: string | null
   text_scenes: TextScene[] | null
+  photo_scenes: PhotoScene[] | null
   global_music: GlobalMusic | null
+  global_font_family: string | null
   created_at: string
   expires_at: string
 }
