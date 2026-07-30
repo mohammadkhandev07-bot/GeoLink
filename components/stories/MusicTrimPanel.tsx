@@ -16,7 +16,7 @@ interface MusicTrimPanelProps {
   onChangeSong: () => void
 }
 
-const CLIP_LENGTH = 30 // iTunes preview clips are ~30 seconds
+const CLIP_LENGTH = 30 // ITunes preview clips are ~30 seconds
 // Purely decorative bar heights to look like a waveform (we don't have real
 // amplitude data from the preview clip, this just needs to look right).
 const BAR_HEIGHTS = Array.from({ length: 46 }, (_, i) => 30 + Math.abs(Math.sin(i * 0.7)) * 60 + (i % 3) * 5)
