@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Type, ImageIcon, Video } from 'lucide-react'
 import { TextStoryModal } from './TextStoryModal'
+import { PhotoStoryModal } from './PhotoStoryModal'
 import { MediaStoryModal } from './MediaStoryModal'
 
 interface CreateStoryModalProps {
@@ -19,7 +20,7 @@ export function CreateStoryModal({ userId, onClose }: CreateStoryModalProps) {
     return <TextStoryModal userId={userId} onClose={onClose} onBack={() => setStep('select')} />
   }
   if (step === 'photo') {
-    return <MediaStoryModal userId={userId} mode="photo" onClose={onClose} onBack={() => setStep('select')} />
+    return <PhotoStoryModal userId={userId} onClose={onClose} onBack={() => setStep('select')} />
   }
   if (step === 'video') {
     return <MediaStoryModal userId={userId} mode="video" onClose={onClose} onBack={() => setStep('select')} />
@@ -86,4 +87,4 @@ export function CreateStoryModal({ userId, onClose }: CreateStoryModalProps) {
       </div>
     </div>
   )
-} 
+}
