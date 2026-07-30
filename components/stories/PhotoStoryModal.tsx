@@ -306,7 +306,7 @@ export function PhotoStoryModal({ userId, onClose, onBack }: PhotoStoryModalProp
           <span className="text-white/60 text-xs font-medium">Previewing draft - not posted yet</span>
           <button onClick={stopPreview} className="text-white p-1"><X className="h-6 w-6" /></button>
         </div>
-        <div className="flex-1 relative flex items-center justify-center bg-black">
+        <div className="flex-1 min-h-0 relative flex items-center justify-center bg-black">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={scene.previewUrl} alt="Story" className="max-w-full max-h-full object-contain" />
           {scene.overlayText && (
@@ -345,7 +345,7 @@ export function PhotoStoryModal({ userId, onClose, onBack }: PhotoStoryModalProp
       {/* Canvas */}
       <div
         ref={canvasRef}
-        className="flex-1 relative overflow-hidden touch-none flex items-center justify-center bg-black"
+        className="flex-1 min-h-0 relative overflow-hidden touch-none flex items-center justify-center bg-black"
         onPointerMove={handleDragMove}
         onPointerUp={handleDragEnd}
       >
@@ -474,9 +474,11 @@ export function PhotoStoryModal({ userId, onClose, onBack }: PhotoStoryModalProp
           initialStart={globalMusic?.start ?? 0}
           initialDuration={globalMusic?.duration ?? Math.min(totalDuration, 30)}
           sceneDuration={totalDuration}
+          isGlobal
           onCancel={() => setTrimSong(null)}
           onDone={(start, duration) => { setGlobalMusic({ url: trimSong.previewUrl, title: trimSong.title, artist: trimSong.artist, artworkUrl: trimSong.artworkUrl, start, duration }); setTrimSong(null) }}
           onRemove={() => { setGlobalMusic(null); setTrimSong(null) }}
+          onChangeSong={() => { setTrimSong(null); setShowMusicPicker(true) }}
         />
       )}
       {trimSong && musicTarget && musicTarget !== 'global' && (
@@ -488,6 +490,7 @@ export function PhotoStoryModal({ userId, onClose, onBack }: PhotoStoryModalProp
           onCancel={() => setTrimSong(null)}
           onDone={(start, duration) => { updateScene(musicTarget, { musicStart: start, musicDuration: duration }); setTrimSong(null) }}
           onRemove={() => { updateScene(musicTarget, { musicUrl: undefined, musicTitle: undefined, musicArtist: undefined, musicArtworkUrl: undefined, musicStart: undefined, musicDuration: undefined }); setTrimSong(null) }}
+          onChangeSong={() => { setTrimSong(null); setShowMusicPicker(true) }}
         />
       )}
 
