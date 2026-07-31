@@ -21,6 +21,7 @@ interface StoryTimelineProps<T extends BaseScene> {
   globalMusic: GlobalMusic | null
   onOpenGlobalMusic: () => void
   trackIcon: React.ReactNode
+  resizable?: boolean
 }
 
 const PX_PER_SECOND = 20
@@ -28,13 +29,13 @@ const MIN_SCENE_DURATION = 1
 const MAX_SCENE_DURATION = 60
 // Touch drags report much smaller pixel deltas than mouse drags for the
 // same physical finger movement on most phones, so the resize handle felt
-// Almost unresponsive - this multiplier makes a small finger drag move the
+// almost unresponsive - this multiplier makes a small finger drag move the
 // duration a lot more, on touch specifically.
 const TOUCH_SENSITIVITY = 4
 
 export function StoryTimeline<T extends BaseScene>({
   scenes, activeSceneId, onSelectScene, onAddScene, onResizeScene, renderBlock, getMenuItems,
-  globalMusic, onOpenGlobalMusic, trackIcon,
+  globalMusic, onOpenGlobalMusic, trackIcon, resizable = true,
 }: StoryTimelineProps<T>) {
   const [menuFor, setMenuFor] = useState<{ id: string; x: number; y: number } | null>(null)
   const resizing = useRef<{ id: string; startX: number; startDuration: number; isTouch: boolean } | null>(null)
@@ -104,13 +105,16 @@ export function StoryTimeline<T extends BaseScene>({
                   </button>
                   {/* Drag handle to resize this scene's duration - a bigger
                       invisible touch target than it looks, so it's easy to
-                      grab on a phone. */}
-                  <div
-                    onPointerDown={(e) => handleResizeStart(e, scene)}
-                    className="absolute -right-2 top-0 h-full w-6 cursor-ew-resize flex items-center justify-center touch-none z-10"
-                  >
-                    <div className="h-6 w-1.5 rounded-full bg-white" />
-                  </div>
+                      grab on a phone. Hidden when duration is fixed by the
+                      media itself (e.g. a video clip's own length). */}
+                  {resizable && (
+                    <div
+                      onPointerDown={(e) => handleResizeStart(e, scene)}
+                      className="absolute -right-2 top-0 h-full w-6 cursor-ew-resize flex items-center justify-center touch-none z-10"
+                    >
+                      <div className="h-6 w-1.5 rounded-full bg-white" />
+                    </div>
+                  )}
                 </>
               )}
             </div>
