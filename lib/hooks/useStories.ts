@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { StoryWithProfile, TextScene, PhotoScene, GlobalMusic } from '@/lib/types/database.types'
+import { StoryWithProfile, TextScene, PhotoScene, VideoScene, GlobalMusic } from '@/lib/types/database.types'
 
 export interface StoryGroup {
   userId: string
@@ -93,9 +93,20 @@ export interface DraftPhotoScene extends Omit<PhotoScene, 'imageUrl'> {
   file: File
 }
 
+export interface DraftVideoScene extends Omit<VideoScene, 'videoUrl'> {
+  file: File
+}
+
 interface CreatePhotoStoryInput {
   userId: string
   scenes: DraftPhotoScene[]
+  globalMusic?: GlobalMusic | null
+  globalFont?: string | null
+}
+
+interface CreateVideoStoryInput {
+  userId: string
+  scenes: DraftVideoScene[]
   globalMusic?: GlobalMusic | null
   globalFont?: string | null
 }
@@ -215,7 +226,51 @@ export function useCreateStory() {
     onSuccess: (_, { userId }) => invalidate(userId),
   })
 
-  return { createTextStory, createMediaStory, createPhotoStory }
+  // Multi-clip ("multi-scene") video story: uploads every scene's video
+  // first, then saves one story row with a video_scenes array - same shape
+  // as the photo story's scene system.
+  const createVideoStory = useMutation({
+    mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreateVideoStoryInput) => {
+      const uploaded: VideoScene[] = []
+      for (const scene of scenes) {
+        const ext = scene.file.name.split('.').pop()
+        const path = `${userId}/${Date.now()}-${uploaded.length}.${ext}`
+        const { error: uploadError } = await supabase.storage.from('stories').upload(path, scene.file)
+        if (uploadError) throw uploadError
+        const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path)
+        const { file, ...rest } = scene
+        uploaded.push({ ...rest, videoUrl: urlData.publicUrl })
+      }
+
+      const totalDuration = uploaded.reduce((sum, s) => sum + s.duration, 0) || 5
+      const first = uploaded[0]
+      const legacyMusic = globalMusic
+        ? { url: globalMusic.url, title: globalMusic.title, artist: globalMusic.artist, artworkUrl: globalMusic.artworkUrl }
+        : { url: first?.musicUrl, title: first?.musicTitle, artist: first?.musicArtist, artworkUrl: first?.musicArtworkUrl }
+
+      const { error } = await supabase.from('stories').insert({
+        user_id: userId,
+        story_type: 'video',
+        media_url: first?.videoUrl || null,
+        video_scenes: uploaded,
+        global_music: globalMusic || null,
+        global_font_family: globalFont || null,
+        overlay_text: first?.overlayText || null,
+        overlay_x: first?.overlayX ?? 50,
+        overlay_y: first?.overlayY ?? 50,
+        overlay_font_family: first?.overlayFontFamily || globalFont || null,
+        music_url: legacyMusic.url || null,
+        music_title: legacyMusic.title || null,
+        music_artist: legacyMusic.artist || null,
+        music_artwork_url: legacyMusic.artworkUrl || null,
+        duration_seconds: totalDuration,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_, { userId }) => invalidate(userId),
+  })
+
+  return { createTextStory, createMediaStory, createPhotoStory, createVideoStory }
 }
 
 export function useDeleteStory() {
