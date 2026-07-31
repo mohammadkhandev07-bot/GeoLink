@@ -163,6 +163,22 @@ export type PhotoScene = {
   musicDuration?: number
 }
 
+export type VideoScene = {
+  id: string
+  videoUrl: string
+  duration: number
+  overlayText?: string
+  overlayFontFamily?: string
+  overlayX: number
+  overlayY: number
+  musicUrl?: string
+  musicTitle?: string
+  musicArtist?: string
+  musicArtworkUrl?: string
+  musicStart?: number
+  musicDuration?: number
+}
+
 export type Story = {
   id: string
   user_id: string
@@ -184,6 +200,7 @@ export type Story = {
   overlay_font_family: string | null
   text_scenes: TextScene[] | null
   photo_scenes: PhotoScene[] | null
+  video_scenes: VideoScene[] | null
   global_music: GlobalMusic | null
   global_font_family: string | null
   created_at: string
