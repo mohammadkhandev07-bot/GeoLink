@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { StoryWithProfile, TextScene, PhotoScene, VideoScene, GlobalMusic } from '@/lib/types/database.types'
+import { compressImageIfNeeded, LONG_CACHE_CONTROL } from '@/lib/utils/imageCompression'
 
 export interface StoryGroup {
   userId: string
@@ -153,10 +154,13 @@ export function useCreateStory() {
 
   const createMediaStory = useMutation({
     mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds, overlayTextColor, overlayFontFamily }: CreateMediaStoryInput) => {
-      const ext = file.name.split('.').pop()
+      const fileToUpload = storyType === 'photo' ? await compressImageIfNeeded(file) : file
+      const ext = fileToUpload.name.split('.').pop()
       const path = `${userId}/${Date.now()}.${ext}`
 
-      const { error: uploadError } = await supabase.storage.from('stories').upload(path, file)
+      const { error: uploadError } = await supabase.storage.from('stories').upload(path, fileToUpload, {
+        cacheControl: LONG_CACHE_CONTROL,
+      })
       if (uploadError) throw uploadError
 
       const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path)
@@ -188,9 +192,12 @@ export function useCreateStory() {
     mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreatePhotoStoryInput) => {
       const uploaded: PhotoScene[] = []
       for (const scene of scenes) {
-        const ext = scene.file.name.split('.').pop()
+        const fileToUpload = await compressImageIfNeeded(scene.file)
+        const ext = fileToUpload.name.split('.').pop()
         const path = `${userId}/${Date.now()}-${uploaded.length}.${ext}`
-        const { error: uploadError } = await supabase.storage.from('stories').upload(path, scene.file)
+        const { error: uploadError } = await supabase.storage.from('stories').upload(path, fileToUpload, {
+          cacheControl: LONG_CACHE_CONTROL,
+        })
         if (uploadError) throw uploadError
         const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path)
         const { file, ...rest } = scene
@@ -235,7 +242,9 @@ export function useCreateStory() {
       for (const scene of scenes) {
         const ext = scene.file.name.split('.').pop()
         const path = `${userId}/${Date.now()}-${uploaded.length}.${ext}`
-        const { error: uploadError } = await supabase.storage.from('stories').upload(path, scene.file)
+        const { error: uploadError } = await supabase.storage.from('stories').upload(path, scene.file, {
+          cacheControl: LONG_CACHE_CONTROL,
+        })
         if (uploadError) throw uploadError
         const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path)
         const { file, ...rest } = scene
