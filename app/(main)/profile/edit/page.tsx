@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { compressImageIfNeeded } from '@/lib/utils/imageCompression'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 
 interface EditProfileForm {
@@ -48,15 +49,17 @@ export default function EditProfilePage() {
       let cover_photo_url = profile.cover_photo_url
 
       if (avatarFile) {
-        const path = `${user.id}/avatar.${avatarFile.name.split('.').pop()}`
-        await supabase.storage.from('avatars').upload(path, avatarFile, { upsert: true })
+        const compressedAvatar = await compressImageIfNeeded(avatarFile)
+        const path = `${user.id}/avatar.${compressedAvatar.name.split('.').pop()}`
+        await supabase.storage.from('avatars').upload(path, compressedAvatar, { upsert: true })
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
         avatar_url = urlData.publicUrl
       }
 
       if (coverFile) {
-        const path = `${user.id}/cover.${coverFile.name.split('.').pop()}`
-        await supabase.storage.from('covers').upload(path, coverFile, { upsert: true })
+        const compressedCover = await compressImageIfNeeded(coverFile)
+        const path = `${user.id}/cover.${compressedCover.name.split('.').pop()}`
+        await supabase.storage.from('covers').upload(path, compressedCover, { upsert: true })
         const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
         cover_photo_url = urlData.publicUrl
       }
@@ -144,4 +147,4 @@ export default function EditProfilePage() {
       </Card>
     </div>
   )
-} 
+}
