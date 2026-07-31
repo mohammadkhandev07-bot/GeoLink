@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const ext = file.name.split('.').pop()
   const path = `${user.id}/${Date.now()}.${ext}`
 
-  const { error } = await supabase.storage.from(bucket).upload(path, file)
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { cacheControl: '31536000' })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)
