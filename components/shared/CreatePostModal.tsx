@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { compressImageIfNeeded, LONG_CACHE_CONTROL } from '@/lib/utils/imageCompression'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface CreatePostModalProps {
@@ -220,10 +221,14 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
     try {
       let media_url: string | null = null
       if (mediaFile) {
+        setUploadProgress(20)
+        const fileToUpload = await compressImageIfNeeded(mediaFile)
         setUploadProgress(30)
-        const ext = mediaFile.name.split('.').pop()
+        const ext = fileToUpload.name.split('.').pop()
         const path = `${user.id}/${Date.now()}.${ext}`
-        const { error } = await supabase.storage.from('posts').upload(path, mediaFile)
+        const { error } = await supabase.storage.from('posts').upload(path, fileToUpload, {
+          cacheControl: LONG_CACHE_CONTROL,
+        })
         if (error) throw error
         setUploadProgress(80)
         const { data: urlData } = supabase.storage.from('posts').getPublicUrl(path)
