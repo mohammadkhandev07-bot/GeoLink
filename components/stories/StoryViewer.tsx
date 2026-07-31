@@ -8,7 +8,7 @@ import { useDeleteStory } from '@/lib/hooks/useStories'
 import type { StoryGroup } from '@/lib/hooks/useStories'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
-import type { TextScene, PhotoScene } from '@/lib/types/database.types'
+import type { TextScene, PhotoScene, VideoScene } from '@/lib/types/database.types'
 
 interface StoryViewerProps {
   groups: StoryGroup[]
@@ -35,6 +35,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const [groupIndex, setGroupIndex] = useState(startGroupIndex)
   const [storyIndex, setStoryIndex] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [videoSceneIndex, setVideoSceneIndex] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -88,16 +89,32 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIndex, storyIndex])
 
-  // Progress for video stories, driven by actual playback time.
+  // Progress for video stories, driven by actual playback time. Advances
+  // through each clip in a multi-scene video story before moving on to the
+  // next story post.
+  useEffect(() => {
+    setVideoSceneIndex(0)
+  }, [groupIndex, storyIndex])
+
   useEffect(() => {
     if (!story || story.story_type !== 'video') return
     const video = videoRef.current
     if (!video) return
 
+    const scenes = story.video_scenes
+    const priorDuration = scenes ? scenes.slice(0, videoSceneIndex).reduce((s, x) => s + x.duration, 0) : 0
+
     const onTimeUpdate = () => {
-      if (video.duration) setProgress((video.currentTime / video.duration) * 100)
+      const total = story.duration_seconds || video.duration || 1
+      setProgress(Math.min(100, ((priorDuration + video.currentTime) / total) * 100))
     }
-    const onEnded = () => goNextStory()
+    const onEnded = () => {
+      if (scenes && videoSceneIndex < scenes.length - 1) {
+        setVideoSceneIndex((i) => i + 1)
+      } else {
+        goNextStory()
+      }
+    }
 
     video.addEventListener('timeupdate', onTimeUpdate)
     video.addEventListener('ended', onEnded)
@@ -106,7 +123,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
       video.removeEventListener('ended', onEnded)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupIndex, storyIndex])
+  }, [groupIndex, storyIndex, videoSceneIndex])
 
   if (!group || !story) return null
 
@@ -119,6 +136,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const elapsedSeconds = (progress / 100) * totalDuration
   const activeScene = story.story_type === 'text' ? getActiveScene<TextScene>(story.text_scenes, elapsedSeconds) : null
   const activePhotoScene = story.story_type === 'photo' ? getActiveScene<PhotoScene>(story.photo_scenes, elapsedSeconds) : null
+  const activeVideoScene: VideoScene | null = story.story_type === 'video' && story.video_scenes ? (story.video_scenes[videoSceneIndex] ?? null) : null
 
   const displayText = activeScene ? activeScene.text : story.text_content
   const displayBackground = activeScene ? activeScene.backgroundColor : story.background_color
@@ -129,16 +147,27 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const displayTextSize = activeScene?.textSize ?? 32
 
   const displayImageUrl = activePhotoScene ? activePhotoScene.imageUrl : story.media_url
-  const displayOverlayText = activePhotoScene ? activePhotoScene.overlayText : story.overlay_text
+  const displayVideoUrl = activeVideoScene ? activeVideoScene.videoUrl : story.media_url
+  const displayOverlayText = activePhotoScene ? activePhotoScene.overlayText : (activeVideoScene ? activeVideoScene.overlayText : story.overlay_text)
   const displayOverlayColor = activePhotoScene ? activePhotoScene.overlayTextColor : story.overlay_text_color
-  const displayOverlayFont = activePhotoScene ? (activePhotoScene.overlayFontFamily || story.global_font_family) : story.overlay_font_family
-  const displayOverlayX = activePhotoScene?.overlayX ?? story.overlay_x
-  const displayOverlayY = activePhotoScene?.overlayY ?? story.overlay_y
+  const displayOverlayFont = activePhotoScene
+    ? (activePhotoScene.overlayFontFamily || story.global_font_family)
+    : activeVideoScene
+      ? (activeVideoScene.overlayFontFamily || story.global_font_family)
+      : story.overlay_font_family
+  const displayOverlayX = activePhotoScene?.overlayX ?? activeVideoScene?.overlayX ?? story.overlay_x
+  const displayOverlayY = activePhotoScene?.overlayY ?? activeVideoScene?.overlayY ?? story.overlay_y
 
-  const sceneMusicUrl = activeScene?.musicUrl || activePhotoScene?.musicUrl
+  const sceneMusicUrl = activeScene?.musicUrl || activePhotoScene?.musicUrl || activeVideoScene?.musicUrl
   const activeMusicUrl = sceneMusicUrl || (story.story_type !== 'video' ? story.global_music?.url : undefined) || story.music_url || null
   const musicSource = sceneMusicUrl
-    ? { title: activeScene?.musicTitle ?? activePhotoScene?.musicTitle, artist: activeScene?.musicArtist ?? activePhotoScene?.musicArtist, artwork: activeScene?.musicArtworkUrl ?? activePhotoScene?.musicArtworkUrl, start: (activeScene?.musicStart ?? activePhotoScene?.musicStart) ?? 0, clipDuration: activeScene?.musicDuration ?? activePhotoScene?.musicDuration }
+    ? {
+        title: activeScene?.musicTitle ?? activePhotoScene?.musicTitle ?? activeVideoScene?.musicTitle,
+        artist: activeScene?.musicArtist ?? activePhotoScene?.musicArtist ?? activeVideoScene?.musicArtist,
+        artwork: activeScene?.musicArtworkUrl ?? activePhotoScene?.musicArtworkUrl ?? activeVideoScene?.musicArtworkUrl,
+        start: (activeScene?.musicStart ?? activePhotoScene?.musicStart ?? activeVideoScene?.musicStart) ?? 0,
+        clipDuration: activeScene?.musicDuration ?? activePhotoScene?.musicDuration ?? activeVideoScene?.musicDuration,
+      }
     : story.global_music
       ? { title: story.global_music.title, artist: story.global_music.artist, artwork: story.global_music.artworkUrl, start: story.global_music.start, clipDuration: story.global_music.duration }
       : { title: story.music_title, artist: story.music_artist, artwork: story.music_artwork_url, start: 0, clipDuration: undefined }
@@ -150,7 +179,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
   // Load whichever font this particular scene/story needs (only fetched
   // once per font, cached after that - see loadGoogleFont).
-  const activeFont = story.story_type === 'text' ? displayFont : (story.story_type === 'photo' ? displayOverlayFont : story.overlay_font_family)
+  const activeFont = story.story_type === 'text' ? displayFont : (story.story_type === 'photo' || story.story_type === 'video' ? displayOverlayFont : story.overlay_font_family)
   if (activeFont) loadGoogleFont(activeFont)
 
   // Play whichever song is active right now. Deliberately keyed on the
@@ -276,14 +305,15 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
           {story.story_type === 'video' && (
             <video
+              key={activeVideoScene?.id || story.id}
               ref={videoRef}
-              src={story.media_url || ''}
+              src={displayVideoUrl || ''}
               className="max-w-full max-h-full object-contain"
               autoPlay
               playsInline
-              // If a song was picked, the video's own sound is muted so the
+              // If a song was picked, the clip's own sound is muted so the
               // chosen song plays instead - same as Instagram/Reels behavior.
-              muted={!!story.music_url}
+              muted={!!activeMusicUrl}
             />
           )}
 
