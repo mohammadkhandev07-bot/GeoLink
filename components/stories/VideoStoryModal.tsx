@@ -10,7 +10,8 @@ import { FontPicker } from './FontPicker'
 import { StoryTimeline } from './StoryTimeline'
 import { SceneMenuItem } from './SceneMenu'
 import { useCreateStory, DraftVideoScene } from '@/lib/hooks/useStories'
-import type { GlobalMusic } from '@/lib/types/database.types'
+import { StoryAudienceModal } from './StoryAudienceModal'
+import type { GlobalMusic, StoryVisibility } from '@/lib/types/database.types'
 
 interface VideoStoryModalProps {
   userId: string
@@ -157,14 +158,21 @@ export function VideoStoryModal({ userId, onClose, onBack }: VideoStoryModalProp
     if (discardAction === 'back') onBack(); else onClose()
   }
 
-  const handleShare = async () => {
+  const [showAudiencePicker, setShowAudiencePicker] = useState(false)
+
+  const handleShare = () => {
     if (scenes.length === 0) return
+    setShowAudiencePicker(true)
+  }
+
+  const doShare = async (visibility: StoryVisibility, selectedIds: string[]) => {
     try {
       const payload: DraftVideoScene[] = scenes.map(({ previewUrl, overlayText, ...rest }) => ({
         ...rest,
         overlayText: overlayText || undefined,
       }))
-      await createVideoStory.mutateAsync({ userId, scenes: payload, globalMusic, globalFont })
+      await createVideoStory.mutateAsync({ userId, scenes: payload, globalMusic, globalFont, visibility, visibilitySelectedIds: selectedIds })
+      setShowAudiencePicker(false)
       onClose()
     } catch {
       // surfaced via createVideoStory.isError below
@@ -473,6 +481,15 @@ export function VideoStoryModal({ userId, onClose, onBack }: VideoStoryModalProp
 
       {showDiscardConfirm && (
         <DiscardConfirmDialog onContinueEditing={() => setShowDiscardConfirm(false)} onDiscard={confirmDiscard} />
+      )}
+
+      {showAudiencePicker && (
+        <StoryAudienceModal
+          userId={userId}
+          isPending={createVideoStory.isPending}
+          onClose={() => setShowAudiencePicker(false)}
+          onConfirm={doShare}
+        />
       )}
     </div>
   )
