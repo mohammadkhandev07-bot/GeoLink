@@ -20,7 +20,7 @@ const AUDIENCE_LABEL: Record<StoryVisibility, { label: string; icon: typeof Glob
 
 // Reached from a story's 3-dot menu -> "Edit". Editing the underlying photo
 // or video itself isn't supported (that stays a delete-and-repost flow) -
-// this covers the text layered on top of it, and who can see it.
+// This covers the text layered on top of it, and who can see it.
 export function StoryEditModal({ story, onClose }: StoryEditModalProps) {
   const updateStory = useUpdateStory()
   const [showAudiencePicker, setShowAudiencePicker] = useState(false)
