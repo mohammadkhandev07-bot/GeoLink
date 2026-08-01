@@ -52,7 +52,7 @@ export function useToggleStoryLike() {
 }
 
 // ------------------------------------------------------------------
-// Reactions - one mood emoji per person per story
+// Reactions - One mood emoji per person per story
 // ------------------------------------------------------------------
 export function useStoryReaction(storyId?: string, userId?: string) {
   const supabase = createClient()
