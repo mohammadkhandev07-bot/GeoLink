@@ -11,8 +11,9 @@ import { ColorPickerPanel } from './ColorPickerPanel'
 import { StoryTimeline } from './StoryTimeline'
 import { SceneMenuItem } from './SceneMenu'
 import { useCreateStory, DraftPhotoScene } from '@/lib/hooks/useStories'
+import { StoryAudienceModal } from './StoryAudienceModal'
 import { getTextFillStyle } from '@/lib/utils/storyStyle'
-import type { GlobalMusic } from '@/lib/types/database.types'
+import type { GlobalMusic, StoryVisibility } from '@/lib/types/database.types'
 
 interface PhotoStoryModalProps {
   userId: string
@@ -173,15 +174,22 @@ export function PhotoStoryModal({ userId, onClose, onBack }: PhotoStoryModalProp
     if (discardAction === 'back') onBack(); else onClose()
   }
 
-  const handleShare = async () => {
+  const [showAudiencePicker, setShowAudiencePicker] = useState(false)
+
+  const handleShare = () => {
     if (scenes.length === 0) return
+    setShowAudiencePicker(true)
+  }
+
+  const doShare = async (visibility: StoryVisibility, selectedIds: string[]) => {
     try {
       const payload: DraftPhotoScene[] = scenes.map(({ previewUrl, overlayText, overlayTextColor, ...rest }) => ({
         ...rest,
         overlayText: overlayText || undefined,
         overlayTextColor: overlayText ? overlayTextColor : undefined,
       }))
-      await createPhotoStory.mutateAsync({ userId, scenes: payload, globalMusic, globalFont })
+      await createPhotoStory.mutateAsync({ userId, scenes: payload, globalMusic, globalFont, visibility, visibilitySelectedIds: selectedIds })
+      setShowAudiencePicker(false)
       onClose()
     } catch {
       // surfaced via createPhotoStory.isError below
@@ -513,6 +521,15 @@ export function PhotoStoryModal({ userId, onClose, onBack }: PhotoStoryModalProp
 
       {showDiscardConfirm && (
         <DiscardConfirmDialog onContinueEditing={() => setShowDiscardConfirm(false)} onDiscard={confirmDiscard} />
+      )}
+
+      {showAudiencePicker && (
+        <StoryAudienceModal
+          userId={userId}
+          isPending={createPhotoStory.isPending}
+          onClose={() => setShowAudiencePicker(false)}
+          onConfirm={doShare}
+        />
       )}
     </div>
   )
