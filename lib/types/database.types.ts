@@ -290,4 +290,4 @@ export type Database = {
       story_hidden_viewers: { Row: StoryHiddenViewer; Insert: Omit<StoryHiddenViewer, 'id' | 'created_at'>; Update: Partial<StoryHiddenViewer> }
     }
   }
-}
+} 
