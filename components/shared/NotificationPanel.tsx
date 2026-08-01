@@ -16,6 +16,7 @@ interface Notification {
   created_at: string
   message: string | null
   post_id: string | null
+  story_id: string | null
   actor: { id: string; username: string; avatar_url: string | null }
 }
 
@@ -54,8 +55,8 @@ export function NotificationPanel() {
 
   const getNotifText = (n: Notification) => {
     switch (n.type) {
-      case 'like': return 'liked your post'
-      case 'comment': return `commented: "${n.message?.slice(0, 40)}"`
+      case 'like': return n.story_id ? 'liked your story' : 'liked your post'
+      case 'comment': return n.story_id ? `commented on your story: "${n.message?.slice(0, 40)}"` : `commented: "${n.message?.slice(0, 40)}"`
       case 'follow': return 'started following you'
       case 'unfollow': return 'unfollowed you'
       case 'message': return `sent you a message`
@@ -65,6 +66,8 @@ export function NotificationPanel() {
 
   const getNotifLink = (n: Notification) => {
     switch (n.type) {
+      // Stories live at the top of the feed - there's no separate story URL,
+      // so this opens the feed where the person can tap the story ring.
       case 'like': case 'comment': return '/feed'
       case 'follow': case 'unfollow': return `/profile/${n.actor?.username}`
       case 'message': return '/chat'
