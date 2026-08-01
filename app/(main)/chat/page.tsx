@@ -191,6 +191,7 @@ export default function ChatPage() {
     if (!chat.last_message) return ''
     if (chat.last_message_type === 'post') return '📎 Shared a post'
     if (chat.last_message_type === 'reel') return '🎬 Shared a reel'
+    if (chat.last_message_type === 'story') return `💬 Replied to a story: ${chat.last_message}`
     return chat.last_message
   }
 
@@ -332,4 +333,4 @@ export default function ChatPage() {
       )}
     </div>
   )
-} 
+}
