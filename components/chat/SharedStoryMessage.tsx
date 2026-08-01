@@ -14,7 +14,7 @@ interface SharedStoryMessageProps {
 // Renders a "Replied to your story" chat bubble - the small story preview
 // on top, the actual typed reply underneath, same layout as Instagram.
 // Stories expire after 24h, so the story itself may be gone by the time
-// this message is read - that's handled gracefully below.
+// This message is read - that's handled gracefully below.
 export function SharedStoryMessage({ storyId, content, isOwn }: SharedStoryMessageProps) {
   const [story, setStory] = useState<Story | null | undefined>(undefined)
   const supabase = createClient()
