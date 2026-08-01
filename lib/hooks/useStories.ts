@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { StoryWithProfile, TextScene, PhotoScene, VideoScene, GlobalMusic } from '@/lib/types/database.types'
+import { StoryWithProfile, TextScene, PhotoScene, VideoScene, GlobalMusic, StoryVisibility, StoryHiddenViewer } from '@/lib/types/database.types'
 import { compressImageIfNeeded, LONG_CACHE_CONTROL } from '@/lib/utils/imageCompression'
 
 export interface StoryGroup {
@@ -65,14 +65,22 @@ export function useActiveStories(userId?: string) {
   })
 }
 
-interface CreateTextStoryInput {
+// Every story-creation input takes the audience choice made in the "Who can
+// see this?" popup shown right before posting - defaults to 'everyone' if
+// somehow skipped, so a story never accidentally ends up unviewable.
+interface StoryAudienceInput {
+  visibility?: StoryVisibility
+  visibilitySelectedIds?: string[]
+}
+
+interface CreateTextStoryInput extends StoryAudienceInput {
   userId: string
   scenes: TextScene[]
   globalMusic?: GlobalMusic | null
   globalFont?: string | null
 }
 
-interface CreateMediaStoryInput {
+interface CreateMediaStoryInput extends StoryAudienceInput {
   userId: string
   file: File
   storyType: 'photo' | 'video'
@@ -98,14 +106,14 @@ export interface DraftVideoScene extends Omit<VideoScene, 'videoUrl'> {
   file: File
 }
 
-interface CreatePhotoStoryInput {
+interface CreatePhotoStoryInput extends StoryAudienceInput {
   userId: string
   scenes: DraftPhotoScene[]
   globalMusic?: GlobalMusic | null
   globalFont?: string | null
 }
 
-interface CreateVideoStoryInput {
+interface CreateVideoStoryInput extends StoryAudienceInput {
   userId: string
   scenes: DraftVideoScene[]
   globalMusic?: GlobalMusic | null
@@ -121,7 +129,7 @@ export function useCreateStory() {
   }
 
   const createTextStory = useMutation({
-    mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreateTextStoryInput) => {
+    mutationFn: async ({ userId, scenes, globalMusic, globalFont, visibility, visibilitySelectedIds }: CreateTextStoryInput) => {
       const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0) || 5
       const first = scenes[0]
       // Legacy top-level music_* fields mirror whichever song plays first -
@@ -146,6 +154,8 @@ export function useCreateStory() {
         duration_seconds: totalDuration,
         text_color: first?.textColor || null,
         font_family: first?.fontFamily || globalFont || null,
+        visibility: visibility || 'everyone',
+        visibility_selected_ids: visibility === 'selected' ? (visibilitySelectedIds || []) : [],
       })
       if (error) throw error
     },
@@ -153,7 +163,7 @@ export function useCreateStory() {
   })
 
   const createMediaStory = useMutation({
-    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds, overlayTextColor, overlayFontFamily }: CreateMediaStoryInput) => {
+    mutationFn: async ({ userId, file, storyType, overlayText, overlayX, overlayY, musicUrl, musicTitle, musicArtist, musicArtworkUrl, durationSeconds, overlayTextColor, overlayFontFamily, visibility, visibilitySelectedIds }: CreateMediaStoryInput) => {
       const fileToUpload = storyType === 'photo' ? await compressImageIfNeeded(file) : file
       const ext = fileToUpload.name.split('.').pop()
       const path = `${userId}/${Date.now()}.${ext}`
@@ -179,6 +189,8 @@ export function useCreateStory() {
         duration_seconds: storyType === 'photo' ? (durationSeconds ?? 5) : 5,
         overlay_text_color: overlayTextColor || null,
         overlay_font_family: overlayFontFamily || null,
+        visibility: visibility || 'everyone',
+        visibility_selected_ids: visibility === 'selected' ? (visibilitySelectedIds || []) : [],
       })
       if (error) throw error
     },
@@ -189,7 +201,7 @@ export function useCreateStory() {
   // then saves one story row with a photo_scenes array - same overall shape
   // as the text story's scene system.
   const createPhotoStory = useMutation({
-    mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreatePhotoStoryInput) => {
+    mutationFn: async ({ userId, scenes, globalMusic, globalFont, visibility, visibilitySelectedIds }: CreatePhotoStoryInput) => {
       const uploaded: PhotoScene[] = []
       for (const scene of scenes) {
         const fileToUpload = await compressImageIfNeeded(scene.file)
@@ -227,6 +239,8 @@ export function useCreateStory() {
         music_artist: legacyMusic.artist || null,
         music_artwork_url: legacyMusic.artworkUrl || null,
         duration_seconds: totalDuration,
+        visibility: visibility || 'everyone',
+        visibility_selected_ids: visibility === 'selected' ? (visibilitySelectedIds || []) : [],
       })
       if (error) throw error
     },
@@ -237,7 +251,7 @@ export function useCreateStory() {
   // first, then saves one story row with a video_scenes array - same shape
   // as the photo story's scene system.
   const createVideoStory = useMutation({
-    mutationFn: async ({ userId, scenes, globalMusic, globalFont }: CreateVideoStoryInput) => {
+    mutationFn: async ({ userId, scenes, globalMusic, globalFont, visibility, visibilitySelectedIds }: CreateVideoStoryInput) => {
       const uploaded: VideoScene[] = []
       for (const scene of scenes) {
         const ext = scene.file.name.split('.').pop()
@@ -273,6 +287,8 @@ export function useCreateStory() {
         music_artist: legacyMusic.artist || null,
         music_artwork_url: legacyMusic.artworkUrl || null,
         duration_seconds: totalDuration,
+        visibility: visibility || 'everyone',
+        visibility_selected_ids: visibility === 'selected' ? (visibilitySelectedIds || []) : [],
       })
       if (error) throw error
     },
@@ -302,6 +318,88 @@ export function useDeleteStory() {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['active-stories'] })
+    },
+  })
+}
+
+// Story edit - lets an owner change the text on each scene (or the legacy
+// flat fields for older single-scene stories), and the audience it's
+// visible to, on an already-posted story. Re-uploading the underlying
+// photo/video isn't supported here (that stays a "delete and repost" flow),
+// only the text layered on top of it plus who can see it.
+interface UpdateStoryInput {
+  storyId: string
+  text?: string
+  overlayText?: string
+  textScenes?: TextScene[]
+  photoScenes?: PhotoScene[]
+  videoScenes?: VideoScene[]
+  visibility?: StoryVisibility
+  visibilitySelectedIds?: string[]
+}
+
+export function useUpdateStory() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ storyId, text, overlayText, textScenes, photoScenes, videoScenes, visibility, visibilitySelectedIds }: UpdateStoryInput) => {
+      const patch: Record<string, any> = {}
+      if (text !== undefined) patch.text_content = text
+      if (overlayText !== undefined) patch.overlay_text = overlayText
+      if (textScenes !== undefined) patch.text_scenes = textScenes
+      if (photoScenes !== undefined) patch.photo_scenes = photoScenes
+      if (videoScenes !== undefined) patch.video_scenes = videoScenes
+      if (visibility !== undefined) {
+        patch.visibility = visibility
+        patch.visibility_selected_ids = visibility === 'selected' ? (visibilitySelectedIds || []) : []
+      }
+      const { error } = await supabase.from('stories').update(patch).eq('id', storyId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['active-stories'] })
+    },
+  })
+}
+
+// The owner's persistent "hide my story from" list - stays in effect across
+// every story they post until they remove someone from it again.
+export function useHiddenViewers(ownerId?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['story-hidden-viewers', ownerId],
+    queryFn: async () => {
+      if (!ownerId) return []
+      const { data, error } = await supabase
+        .from('story_hidden_viewers')
+        .select('*, profiles!story_hidden_viewers_hidden_user_id_fkey(*)')
+        .eq('owner_id', ownerId)
+      if (error) throw error
+      return (data || []) as (StoryHiddenViewer & { profiles: any })[]
+    },
+    enabled: !!ownerId,
+  })
+}
+
+export function useToggleHiddenViewer() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ ownerId, hiddenUserId, hide }: { ownerId: string; hiddenUserId: string; hide: boolean }) => {
+      if (hide) {
+        const { error } = await supabase.from('story_hidden_viewers').insert({ owner_id: ownerId, hidden_user_id: hiddenUserId })
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('story_hidden_viewers').delete().eq('owner_id', ownerId).eq('hidden_user_id', hiddenUserId)
+        if (error) throw error
+      }
+    },
+    onSuccess: (_, { ownerId }) => {
+      queryClient.invalidateQueries({ queryKey: ['story-hidden-viewers', ownerId] })
       queryClient.invalidateQueries({ queryKey: ['active-stories'] })
     },
   })
