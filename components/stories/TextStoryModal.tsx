@@ -12,8 +12,9 @@ import { ColorPickerPanel } from './ColorPickerPanel'
 import { StoryTimeline } from './StoryTimeline'
 import { SceneMenuItem } from './SceneMenu'
 import { useCreateStory } from '@/lib/hooks/useStories'
+import { StoryAudienceModal } from './StoryAudienceModal'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
-import type { TextScene, GlobalMusic } from '@/lib/types/database.types'
+import type { TextScene, GlobalMusic, StoryVisibility } from '@/lib/types/database.types'
 
 interface TextStoryModalProps {
   userId: string
@@ -167,15 +168,24 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
     if (discardAction === 'back') onBack(); else onClose()
   }
 
-  const handleShare = async () => {
+  const [showAudiencePicker, setShowAudiencePicker] = useState(false)
+
+  const handleShare = () => {
     if (!scenes.some((s) => s.text.trim())) return
+    setShowAudiencePicker(true)
+  }
+
+  const doShare = async (visibility: StoryVisibility, selectedIds: string[]) => {
     try {
       await createTextStory.mutateAsync({
         userId,
         scenes: scenes.filter((s) => s.text.trim()).map((s) => ({ ...s, text: s.text.trim() })),
         globalMusic,
         globalFont,
+        visibility,
+        visibilitySelectedIds: selectedIds,
       })
+      setShowAudiencePicker(false)
       onClose()
     } catch {
       // surfaced via createTextStory.isError below
@@ -548,6 +558,15 @@ export function TextStoryModal({ userId, onClose, onBack }: TextStoryModalProps)
         <DiscardConfirmDialog
           onContinueEditing={() => setShowDiscardConfirm(false)}
           onDiscard={confirmDiscard}
+        />
+      )}
+
+      {showAudiencePicker && (
+        <StoryAudienceModal
+          userId={userId}
+          isPending={createTextStory.isPending}
+          onClose={() => setShowAudiencePicker(false)}
+          onConfirm={doShare}
         />
       )}
     </div>
