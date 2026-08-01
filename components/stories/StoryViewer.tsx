@@ -1,11 +1,25 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Trash2, Music } from 'lucide-react'
+import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { getAvatarUrl, formatTimeAgo, cn } from '@/lib/utils/helpers'
 import { useDeleteStory } from '@/lib/hooks/useStories'
 import type { StoryGroup } from '@/lib/hooks/useStories'
+import {
+  STORY_REACTION_EMOJIS,
+  useStoryLike,
+  useToggleStoryLike,
+  useStoryReaction,
+  useSetStoryReaction,
+  useRemoveStoryReaction,
+  useStoryComments,
+  useAddStoryComment,
+  useDeleteStoryComment,
+  useReplyToStory,
+} from '@/lib/hooks/useStoryInteractions'
+import { StoryEditModal } from './StoryEditModal'
+import { StoryHideViewersModal } from './StoryHideViewersModal'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 import type { TextScene, PhotoScene, VideoScene } from '@/lib/types/database.types'
@@ -42,8 +56,47 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const loopCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const deleteStory = useDeleteStory()
 
+  // --- Interaction UI state -------------------------------------------
+  const [showMenu, setShowMenu] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showHideViewers, setShowHideViewers] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [showReactionBar, setShowReactionBar] = useState(false)
+  const [messageText, setMessageText] = useState('')
+  const [commentText, setCommentText] = useState('')
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [messageSent, setMessageSent] = useState(false)
+
   const group = groups[groupIndex]
   const story = group?.stories[storyIndex]
+  const isOwn = currentUserId === story?.user_id
+
+  // Anything that opens a panel or has the person actively typing pauses
+  // the auto-advance timer/video, same as Instagram.
+  const paused = showMenu || showEditModal || showHideViewers || showComments || showReactionBar || messageText.length > 0
+  const pausedRef = useRef(paused)
+  useEffect(() => { pausedRef.current = paused }, [paused])
+
+  // Reset all per-story interaction UI whenever the story being shown changes.
+  useEffect(() => {
+    setShowMenu(false)
+    setShowComments(false)
+    setShowReactionBar(false)
+    setMessageText('')
+    setCommentText('')
+    setSendError(null)
+    setMessageSent(false)
+  }, [groupIndex, storyIndex])
+
+  const { data: likeData } = useStoryLike(story?.id, currentUserId)
+  const toggleLike = useToggleStoryLike()
+  const { data: myReaction } = useStoryReaction(story?.id, currentUserId)
+  const setReaction = useSetStoryReaction()
+  const removeReaction = useRemoveStoryReaction()
+  const { data: comments = [] } = useStoryComments(story?.id)
+  const addComment = useAddStoryComment()
+  const deleteComment = useDeleteStoryComment()
+  const replyToStory = useReplyToStory()
 
   const goNextStory = () => {
     if (!group) return
@@ -68,16 +121,24 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     }
   }
 
-  // Progress + auto-advance timer for text/photo stories.
+  // Progress + auto-advance timer for text/photo stories. Tracks elapsed
+  // time itself (rather than just diffing against a fixed start) so that
+  // pausing (typing a reply, opening comments/menu, etc.) truly freezes the
+  // clock instead of the bar jumping ahead once resumed.
   useEffect(() => {
     setProgress(0)
     if (timerRef.current) clearInterval(timerRef.current)
     if (!story || story.story_type === 'video') return
 
-    const start = Date.now()
+    let elapsed = 0
+    let last = Date.now()
     const durationMs = (story.duration_seconds || 5) * 1000
     timerRef.current = setInterval(() => {
-      const pct = Math.min(100, ((Date.now() - start) / durationMs) * 100)
+      const now = Date.now()
+      const delta = now - last
+      last = now
+      if (!pausedRef.current) elapsed += delta
+      const pct = Math.min(100, (elapsed / durationMs) * 100)
       setProgress(pct)
       if (pct >= 100) {
         if (timerRef.current) clearInterval(timerRef.current)
@@ -125,9 +186,23 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIndex, storyIndex, videoSceneIndex])
 
-  if (!group || !story) return null
+  // Pause/resume the video element itself when a panel opens/closes or the
+  // person starts typing.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !story || story.story_type !== 'video') return
+    if (paused) video.pause()
+    else video.play().catch(() => {})
+  }, [paused, story])
 
-  const isOwn = currentUserId === story.user_id
+  // Pause/resume the background music the same way.
+  useEffect(() => {
+    if (!audioRef.current) return
+    if (paused) audioRef.current.pause()
+    else audioRef.current.play().catch(() => {})
+  }, [paused])
+
+  if (!group || !story) return null
 
   // For multi-scene stories, figure out which scene should be showing right
   // now, and pull that scene's own style/position/music from it. Falls
@@ -223,12 +298,52 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   }, [groupIndex, storyIndex, activeMusicUrl])
 
   const handleDelete = async () => {
+    setShowMenu(false)
     audioRef.current?.pause()
     await deleteStory.mutateAsync({ storyId: story.id, mediaUrl: story.media_url })
     if (group.stories.length <= 1) {
       onClose()
     } else {
       goNextStory()
+    }
+  }
+
+  const handleLike = () => {
+    if (!currentUserId || !likeData) return
+    toggleLike.mutate({ storyId: story.id, userId: currentUserId, liked: likeData.liked })
+  }
+
+  const handleReact = (emoji: string) => {
+    if (!currentUserId) return
+    if (myReaction === emoji) {
+      removeReaction.mutate({ storyId: story.id, userId: currentUserId })
+    } else {
+      setReaction.mutate({ storyId: story.id, userId: currentUserId, emoji })
+    }
+    setShowReactionBar(false)
+  }
+
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !currentUserId) return
+    await addComment.mutateAsync({ storyId: story.id, userId: currentUserId, content: commentText.trim() })
+    setCommentText('')
+  }
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !currentUserId) return
+    try {
+      await replyToStory.mutateAsync({
+        storyId: story.id,
+        storyOwnerId: story.user_id,
+        senderId: currentUserId,
+        content: messageText.trim(),
+      })
+      setMessageText('')
+      setMessageSent(true)
+      setTimeout(() => setMessageSent(false), 2000)
+    } catch (e: any) {
+      setSendError(e?.message || 'Message could not be sent.')
+      setTimeout(() => setSendError(null), 3000)
     }
   }
 
@@ -264,9 +379,36 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
           </div>
           <div className="flex items-center gap-3">
             {isOwn && (
-              <button onClick={handleDelete} className="text-white/80 hover:text-white">
-                <Trash2 className="h-5 w-5" />
-              </button>
+              <div className="relative">
+                <button onClick={() => setShowMenu((v) => !v)} className="text-white/80 hover:text-white">
+                  <MoreVertical className="h-5 w-5" />
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-8 bg-card rounded-xl shadow-xl overflow-hidden w-48 z-30 text-foreground">
+                      <button
+                        onClick={() => { setShowMenu(false); setShowEditModal(true) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm hover:bg-muted transition-colors"
+                      >
+                        <Pencil className="h-4 w-4" /> Edit Story
+                      </button>
+                      <button
+                        onClick={() => { setShowMenu(false); setShowHideViewers(true) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm hover:bg-muted transition-colors"
+                      >
+                        <EyeOff className="h-4 w-4" /> Hide Story from...
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" /> Delete Story
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
             <button onClick={onClose} className="text-white/80 hover:text-white">
               <X className="h-6 w-6" />
@@ -336,7 +478,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
           )}
 
           {activeMusicTitle && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%] z-10">
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full pl-1.5 pr-4 py-1.5 max-w-[85%] z-10">
               {activeMusicArtwork ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={activeMusicArtwork} alt={activeMusicTitle} className="h-7 w-7 rounded-full object-cover shrink-0" />
@@ -350,10 +492,145 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
           )}
         </div>
 
-        {/* Tap zones for prev/next */}
-        <button onClick={goPrevStory} className="absolute left-0 top-0 h-full w-1/3 z-10" aria-label="Previous story" />
-        <button onClick={goNextStory} className="absolute right-0 top-0 h-full w-2/3 z-10" aria-label="Next story" />
+        {/* Tap zones for prev/next - kept short of the bottom action bar so
+            taps there don't get swallowed as a "next story" tap. */}
+        <button onClick={goPrevStory} className="absolute left-0 top-0 h-[calc(100%-84px)] w-1/3 z-10" aria-label="Previous story" />
+        <button onClick={goNextStory} className="absolute right-0 top-0 h-[calc(100%-84px)] w-2/3 z-10" aria-label="Next story" />
+
+        {/* Bottom action bar */}
+        <div className="absolute bottom-0 left-0 right-0 z-30 px-3 pb-4 pt-3 bg-gradient-to-t from-black/60 to-transparent">
+          {showReactionBar && (
+            <div className="flex justify-center gap-2.5 mb-3 bg-black/40 backdrop-blur-sm rounded-full py-2 px-3 mx-auto w-fit">
+              {STORY_REACTION_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleReact(emoji)}
+                  className={cn('text-2xl transition-transform hover:scale-125', myReaction === emoji && 'scale-125')}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {sendError && (
+            <p className="text-center text-xs text-red-400 mb-2">{sendError}</p>
+          )}
+          {messageSent && (
+            <p className="text-center text-xs text-green-400 mb-2">Message sent!</p>
+          )}
+
+          {isOwn ? (
+            <button
+              onClick={() => setShowComments(true)}
+              className="w-full flex items-center justify-center gap-4 text-white/90 text-sm py-1"
+            >
+              <span className="flex items-center gap-1.5"><Heart className="h-4 w-4" /> {likeData?.count ?? 0}</span>
+              <span className="flex items-center gap-1.5"><MessageCircle className="h-4 w-4" /> {comments.length}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage() }}
+                placeholder="Send message"
+                className="flex-1 min-w-0 bg-white/10 backdrop-blur-sm border border-white/30 rounded-full px-4 py-2.5 text-white text-sm placeholder-white/60 outline-none"
+              />
+              {messageText.trim() ? (
+                <button
+                  onClick={handleSendMessage}
+                  disabled={replyToStory.isPending}
+                  className="text-white shrink-0"
+                >
+                  {replyToStory.isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+                </button>
+              ) : (
+                <>
+                  <button onClick={handleLike} className="text-white shrink-0">
+                    <Heart className={cn('h-6 w-6', likeData?.liked && 'fill-red-500 text-red-500')} />
+                  </button>
+                  <button onClick={() => setShowReactionBar((v) => !v)} className="text-2xl leading-none shrink-0">
+                    {myReaction || '😊'}
+                  </button>
+                  <button onClick={() => setShowComments(true)} className="text-white shrink-0">
+                    <MessageCircle className="h-6 w-6" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Comments panel */}
+        {showComments && (
+          <div className="absolute inset-0 z-40 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowComments(false)} />
+            <div className="relative bg-card rounded-t-2xl max-h-[60%] flex flex-col text-foreground">
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+                <h3 className="font-bold">Comments</h3>
+                <button onClick={() => setShowComments(false)} className="p-1 rounded-full hover:bg-muted">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-3 space-y-3">
+                {comments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No comments yet.</p>
+                ) : (
+                  comments.map((c) => (
+                    <div key={c.id} className="flex items-start gap-2.5">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                        <AvatarFallback>{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm">
+                          <span className="font-medium">{c.profiles?.username}</span>{' '}
+                          <span className="text-muted-foreground">{c.content}</span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{formatTimeAgo(c.created_at)}</p>
+                      </div>
+                      {(isOwn || c.user_id === currentUserId) && (
+                        <button
+                          onClick={() => deleteComment.mutate({ commentId: c.id, storyId: story.id })}
+                          className="text-muted-foreground hover:text-red-500 shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+              {!isOwn && (
+                <div className="p-3 border-t border-border flex items-center gap-2 shrink-0">
+                  <input
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment() }}
+                    placeholder="Add a comment..."
+                    className="flex-1 bg-muted rounded-full px-4 py-2 text-sm outline-none"
+                  />
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!commentText.trim() || addComment.isPending}
+                    className="text-pink-500 disabled:opacity-40 shrink-0"
+                  >
+                    <Send className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {showEditModal && (
+        <StoryEditModal story={story} onClose={() => setShowEditModal(false)} />
+      )}
+      {showHideViewers && (
+        <StoryHideViewersModal ownerId={story.user_id} onClose={() => setShowHideViewers(false)} />
+      )}
     </div>
   )
 }
