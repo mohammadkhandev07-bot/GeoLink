@@ -71,7 +71,7 @@ export type Chat = {
   participant2_id: string
   last_message: string | null
   last_message_time: string | null
-  last_message_type: 'text' | 'post' | 'reel' | null
+  last_message_type: 'text' | 'post' | 'reel' | 'story' | null
   created_at: string
 }
 
@@ -81,6 +81,7 @@ export type Message = {
   sender_id: string
   content: string
   post_id: string | null
+  story_id: string | null
   is_read: boolean
   created_at: string
 }
@@ -179,6 +180,8 @@ export type VideoScene = {
   musicDuration?: number
 }
 
+export type StoryVisibility = 'everyone' | 'followers' | 'following' | 'selected'
+
 export type Story = {
   id: string
   user_id: string
@@ -203,12 +206,52 @@ export type Story = {
   video_scenes: VideoScene[] | null
   global_music: GlobalMusic | null
   global_font_family: string | null
+  visibility: StoryVisibility
+  visibility_selected_ids: string[] | null
   created_at: string
   expires_at: string
 }
 
 export type StoryWithProfile = Story & {
   profiles: Profile
+}
+
+export type StoryLike = {
+  id: string
+  story_id: string
+  user_id: string
+  created_at: string
+}
+
+export type StoryReaction = {
+  id: string
+  story_id: string
+  user_id: string
+  emoji: string
+  created_at: string
+}
+
+export type StoryReactionWithProfile = StoryReaction & {
+  profiles: Profile
+}
+
+export type StoryComment = {
+  id: string
+  story_id: string
+  user_id: string
+  content: string
+  created_at: string
+}
+
+export type StoryCommentWithProfile = StoryComment & {
+  profiles: Profile
+}
+
+export type StoryHiddenViewer = {
+  id: string
+  owner_id: string
+  hidden_user_id: string
+  created_at: string
 }
 
 export type PostWithProfile = Post & {
@@ -241,6 +284,10 @@ export type Database = {
       saved_folders: { Row: SavedFolder; Insert: Omit<SavedFolder, 'id' | 'created_at'>; Update: Partial<SavedFolder> }
       saved_posts: { Row: SavedPost; Insert: Omit<SavedPost, 'id' | 'created_at'>; Update: Partial<SavedPost> }
       stories: { Row: Story; Insert: Omit<Story, 'id' | 'created_at' | 'expires_at'> & { id?: string }; Update: Partial<Story> }
+      story_likes: { Row: StoryLike; Insert: Omit<StoryLike, 'id' | 'created_at'>; Update: Partial<StoryLike> }
+      story_reactions: { Row: StoryReaction; Insert: Omit<StoryReaction, 'id' | 'created_at'>; Update: Partial<StoryReaction> }
+      story_comments: { Row: StoryComment; Insert: Omit<StoryComment, 'id' | 'created_at'>; Update: Partial<StoryComment> }
+      story_hidden_viewers: { Row: StoryHiddenViewer; Insert: Omit<StoryHiddenViewer, 'id' | 'created_at'>; Update: Partial<StoryHiddenViewer> }
     }
   }
 }
