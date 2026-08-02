@@ -121,7 +121,7 @@ export function useStoryComments(storyId?: string) {
         .eq('story_id', storyId)
         .order('created_at', { ascending: true })
       if (error) throw error
-      return data as StoryCommentWithProfile[]
+      return data as unknown as StoryCommentWithProfile[]
     },
     enabled: !!storyId,
   })
@@ -258,7 +258,7 @@ export function useStoryViews(storyId?: string, enabled = true) {
         .eq('story_id', storyId)
         .order('viewed_at', { ascending: false })
       if (error) throw error
-      return (data || []) as { viewer_id: string; viewed_at: string; profiles: Profile }[]
+      return (data || []) as unknown as { viewer_id: string; viewed_at: string; profiles: Profile }[]
     },
     enabled: !!storyId && enabled,
   })
@@ -280,7 +280,7 @@ export function useStoryLikers(storyId?: string, enabled = true) {
         .eq('story_id', storyId)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data || []) as { user_id: string; created_at: string; profiles: Profile }[]
+      return (data || []) as unknown as { user_id: string; created_at: string; profiles: Profile }[]
     },
     enabled: !!storyId && enabled,
   })
