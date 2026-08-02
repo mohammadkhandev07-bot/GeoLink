@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   // Grab expired stories first so we know which storage files to remove.
   const { data: expired, error: fetchError } = await supabase
     .from('stories')
-    .select('id, media_url')
+    .select('id, media_url, photo_scenes, video_scenes')
     .lte('expires_at', new Date().toISOString())
 
   if (fetchError) {
@@ -31,11 +31,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ deleted: 0 })
   }
 
+  // Collect every media URL that might exist on a story - the single legacy
+  // `media_url` field, plus every scene's own URL for multi-photo/video
+  // stories. Without the scene URLs, a multi-scene story's actual image/
+  // video files would never get cleaned up and storage usage would keep
+  // growing even though the story row itself is gone.
+  const allUrls: string[] = []
+  for (const s of expired) {
+    if (s.media_url) allUrls.push(s.media_url)
+    if (Array.isArray(s.photo_scenes)) {
+      for (const scene of s.photo_scenes as any[]) {
+        if (scene?.imageUrl) allUrls.push(scene.imageUrl)
+      }
+    }
+    if (Array.isArray(s.video_scenes)) {
+      for (const scene of s.video_scenes as any[]) {
+        if (scene?.videoUrl) allUrls.push(scene.videoUrl)
+      }
+    }
+  }
+
   // Extract storage paths ("<userId>/<filename>") from each public URL and
   // delete the actual files from the "stories" bucket.
-  const paths = expired
-    .map((s) => s.media_url)
-    .filter((url): url is string => !!url)
+  const paths = allUrls
     .map((url) => {
       const marker = '/storage/v1/object/public/stories/'
       const idx = url.indexOf(marker)
