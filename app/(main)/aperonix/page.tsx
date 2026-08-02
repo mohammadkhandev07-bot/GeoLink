@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Send, Menu, Plus, Trash2, X, Sparkles } from 'lucide-react'
+import { Send, Menu, Plus, Trash2, X, Sparkles, Copy, RefreshCw, ThumbsUp, ThumbsDown, Forward, Check } from 'lucide-react'
 import { useAperonixChats, AperonixMessage } from '@/lib/hooks/useAperonixChats'
+import { AperonixShareModal } from '@/components/aperonix/AperonixShareModal'
 
 export default function AperonixPage() {
   const {
@@ -14,12 +15,17 @@ export default function AperonixPage() {
     createConversation,
     deleteConversation,
     addMessage,
+    replaceMessageContent,
+    setMessageFeedback,
     loaded,
   } = useAperonixChats()
 
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
+  const [shareText, setShareText] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -60,7 +66,7 @@ export default function AperonixPage() {
     setInput('')
     setSending(true)
 
-    const userMessage: AperonixMessage = { role: 'user', content: text, timestamp: Date.now() }
+    const userMessage: Omit<AperonixMessage, 'id'> = { role: 'user', content: text, timestamp: Date.now() }
     addMessage(conversationId, userMessage)
 
     try {
@@ -88,6 +94,54 @@ export default function AperonixPage() {
   const handleNewChat = () => {
     createConversation()
     setShowHistory(false)
+  }
+
+  const handleCopy = async (msg: AperonixMessage) => {
+    try {
+      await navigator.clipboard.writeText(msg.content)
+      setCopiedMessageId(msg.id)
+      setTimeout(() => setCopiedMessageId(null), 1500)
+    } catch {
+      // Clipboard API can be blocked in some browsers/contexts - not
+      // critical enough to show an error for.
+    }
+  }
+
+  const handleFeedback = (msg: AperonixMessage, type: 'like' | 'dislike') => {
+    if (!activeId) return
+    // Tapping the same reaction again clears it, same as a normal toggle.
+    setMessageFeedback(activeId, msg.id, msg.feedback === type ? null : type)
+  }
+
+  // Regenerating asks Aperonix again using the same conversation up to (but
+  // not including) this reply, then swaps this message's text in place
+  // rather than adding a new one - so the reply position and any share/copy
+  // history around it stays put.
+  const handleRegenerate = async (msg: AperonixMessage) => {
+    if (!activeId || !activeConversation || regeneratingId) return
+    const idx = activeConversation.messages.findIndex(m => m.id === msg.id)
+    if (idx === -1) return
+    const priorUserMsg = [...activeConversation.messages.slice(0, idx)].reverse().find(m => m.role === 'user')
+    if (!priorUserMsg) return
+
+    const priorUserIdx = activeConversation.messages.findIndex(m => m.id === priorUserMsg.id)
+    const history = activeConversation.messages.slice(0, priorUserIdx).map(m => ({ role: m.role, content: m.content }))
+
+    setRegeneratingId(msg.id)
+    try {
+      const res = await fetch('/api/aperonix/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: history, newMessage: priorUserMsg.content }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Something went wrong')
+      replaceMessageContent(activeId, msg.id, data.reply)
+    } catch {
+      replaceMessageContent(activeId, msg.id, 'Try again later.')
+    } finally {
+      setRegeneratingId(null)
+    }
   }
 
   return (
@@ -160,15 +214,63 @@ export default function AperonixPage() {
             </div>
           )}
 
-          {activeConversation?.messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          {activeConversation?.messages.map((msg) => (
+            <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
                 msg.role === 'user'
                   ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
                   : 'bg-muted'
               }`}>
-                {msg.content}
+                {regeneratingId === msg.id ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" />
+                  </span>
+                ) : msg.content}
               </div>
+
+              {/* Copy / Regenerate / Like / Dislike / Share - only on
+                  Aperonix's own replies, once it's done regenerating. */}
+              {msg.role === 'model' && regeneratingId !== msg.id && (
+                <div className="flex items-center gap-1 mt-1 px-1 text-muted-foreground">
+                  <button
+                    onClick={() => handleCopy(msg)}
+                    title="Copy"
+                    className="p-1.5 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    {copiedMessageId === msg.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => handleRegenerate(msg)}
+                    title="Regenerate"
+                    className="p-1.5 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleFeedback(msg, 'like')}
+                    title="Good response"
+                    className={`p-1.5 rounded-lg hover:bg-muted transition-colors ${msg.feedback === 'like' ? 'text-pink-500' : 'hover:text-foreground'}`}
+                  >
+                    <ThumbsUp className={`h-3.5 w-3.5 ${msg.feedback === 'like' ? 'fill-current' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => handleFeedback(msg, 'dislike')}
+                    title="Bad response"
+                    className={`p-1.5 rounded-lg hover:bg-muted transition-colors ${msg.feedback === 'dislike' ? 'text-pink-500' : 'hover:text-foreground'}`}
+                  >
+                    <ThumbsDown className={`h-3.5 w-3.5 ${msg.feedback === 'dislike' ? 'fill-current' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => setShareText(msg.content)}
+                    title="Share"
+                    className="p-1.5 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <Forward className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
 
@@ -208,6 +310,10 @@ export default function AperonixPage() {
           </button>
         </form>
       </div>
+
+      {shareText && (
+        <AperonixShareModal replyText={shareText} onClose={() => setShareText(null)} />
+      )}
     </div>
   )
 }
