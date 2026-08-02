@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2 } from 'lucide-react'
+import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2, Eye } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo, cn } from '@/lib/utils/helpers'
 import { useDeleteStory } from '@/lib/hooks/useStories'
@@ -17,6 +17,9 @@ import {
   useAddStoryComment,
   useDeleteStoryComment,
   useReplyToStory,
+  useRecordStoryView,
+  useStoryViews,
+  useStoryLikers,
 } from '@/lib/hooks/useStoryInteractions'
 import { StoryEditModal } from './StoryEditModal'
 import { StoryHideViewersModal } from './StoryHideViewersModal'
@@ -62,6 +65,8 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const [showHideViewers, setShowHideViewers] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showReactionBar, setShowReactionBar] = useState(false)
+  const [showViews, setShowViews] = useState(false)
+  const [showLikers, setShowLikers] = useState(false)
   const [messageText, setMessageText] = useState('')
   const [commentText, setCommentText] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
@@ -73,7 +78,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
   // Anything that opens a panel or has the person actively typing pauses
   // the auto-advance timer/video, same as Instagram.
-  const paused = showMenu || showEditModal || showHideViewers || showComments || showReactionBar || messageText.length > 0
+  const paused = showMenu || showEditModal || showHideViewers || showComments || showReactionBar || showViews || showLikers || messageText.length > 0
   const pausedRef = useRef(paused)
   useEffect(() => { pausedRef.current = paused }, [paused])
 
@@ -82,6 +87,8 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     setShowMenu(false)
     setShowComments(false)
     setShowReactionBar(false)
+    setShowViews(false)
+    setShowLikers(false)
     setMessageText('')
     setCommentText('')
     setSendError(null)
@@ -97,6 +104,18 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const addComment = useAddStoryComment()
   const deleteComment = useDeleteStoryComment()
   const replyToStory = useReplyToStory()
+  const recordView = useRecordStoryView()
+  const { data: views = [] } = useStoryViews(story?.id, isOwn)
+  const { data: likers = [] } = useStoryLikers(story?.id, showLikers)
+
+  // Log a view the moment a non-owner lands on this story (once per story,
+  // guarded server-side too via the unique story_id+viewer_id constraint).
+  useEffect(() => {
+    if (story && currentUserId && !isOwn) {
+      recordView.mutate({ storyId: story.id, viewerId: currentUserId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [story?.id, currentUserId, isOwn])
 
   const goNextStory = () => {
     if (!group) return
@@ -521,13 +540,19 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
           )}
 
           {isOwn ? (
-            <button
-              onClick={() => setShowComments(true)}
-              className="w-full flex items-center justify-center gap-4 text-white/90 text-sm py-1"
-            >
-              <span className="flex items-center gap-1.5"><Heart className="h-4 w-4" /> {likeData?.count ?? 0}</span>
-              <span className="flex items-center gap-1.5"><MessageCircle className="h-4 w-4" /> {comments.length}</span>
-            </button>
+            <div className="w-full flex items-center justify-between text-white/90 text-sm py-1">
+              <button onClick={() => setShowViews(true)} className="flex items-center gap-1.5">
+                <Eye className="h-4 w-4" /> {views.length}
+              </button>
+              <div className="flex items-center gap-4">
+                <button onClick={() => setShowLikers(true)} className="flex items-center gap-1.5">
+                  <Heart className="h-4 w-4" /> {likeData?.count ?? 0}
+                </button>
+                <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5">
+                  <MessageCircle className="h-4 w-4" /> {comments.length}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <input
@@ -561,6 +586,72 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
             </div>
           )}
         </div>
+
+        {/* Views panel (owner only) */}
+        {showViews && (
+          <div className="absolute inset-0 z-40 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowViews(false)} />
+            <div className="relative bg-card rounded-t-2xl max-h-[60%] flex flex-col text-foreground">
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+                <h3 className="font-bold">Viewed by {views.length}</h3>
+                <button onClick={() => setShowViews(false)} className="p-1 rounded-full hover:bg-muted">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-3 space-y-3">
+                {views.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No views yet.</p>
+                ) : (
+                  views.map((v) => (
+                    <div key={v.viewer_id} className="flex items-center gap-2.5">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarImage src={getAvatarUrl(v.profiles?.avatar_url)} />
+                        <AvatarFallback>{v.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{v.profiles?.username}</p>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground shrink-0">{formatTimeAgo(v.viewed_at)}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Likers panel (owner only) */}
+        {showLikers && (
+          <div className="absolute inset-0 z-40 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowLikers(false)} />
+            <div className="relative bg-card rounded-t-2xl max-h-[60%] flex flex-col text-foreground">
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+                <h3 className="font-bold">Liked by {likers.length}</h3>
+                <button onClick={() => setShowLikers(false)} className="p-1 rounded-full hover:bg-muted">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-3 space-y-3">
+                {likers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No likes yet.</p>
+                ) : (
+                  likers.map((l) => (
+                    <div key={l.user_id} className="flex items-center gap-2.5">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarImage src={getAvatarUrl(l.profiles?.avatar_url)} />
+                        <AvatarFallback>{l.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{l.profiles?.username}</p>
+                      </div>
+                      <Heart className="h-4 w-4 fill-red-500 text-red-500 shrink-0" />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Comments panel */}
         {showComments && (
