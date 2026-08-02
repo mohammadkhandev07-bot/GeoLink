@@ -71,7 +71,7 @@ export type Chat = {
   participant2_id: string
   last_message: string | null
   last_message_time: string | null
-  last_message_type: 'text' | 'post' | 'reel' | 'story' | null
+  last_message_type: 'text' | 'post' | 'reel' | 'story' | 'aperonix' | null
   created_at: string
 }
 
@@ -82,6 +82,7 @@ export type Message = {
   content: string
   post_id: string | null
   story_id: string | null
+  is_aperonix_reply: boolean
   is_read: boolean
   created_at: string
 }
@@ -290,4 +291,4 @@ export type Database = {
       story_hidden_viewers: { Row: StoryHiddenViewer; Insert: Omit<StoryHiddenViewer, 'id' | 'created_at'>; Update: Partial<StoryHiddenViewer> }
     }
   }
-} 
+}
