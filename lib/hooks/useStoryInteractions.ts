@@ -235,12 +235,18 @@ export function useRecordStoryView() {
 
   return useMutation({
     mutationFn: async ({ storyId, viewerId }: { storyId: string; viewerId: string }) => {
-      // onConflict + ignoreDuplicates: re-opening the same story doesn't
-      // create a second view record or bump the timestamp.
       const { error } = await supabase
         .from('story_views')
-        .upsert({ story_id: storyId, viewer_id: viewerId }, { onConflict: 'story_id,viewer_id', ignoreDuplicates: true })
-      if (error) throw error
+        .insert({ story_id: storyId, viewer_id: viewerId })
+      // 23505 = unique_violation - they've already viewed this story before,
+      // that's expected and fine, not a real error.
+      if (error && (error as any).code !== '23505') {
+        // Logged so it's visible in the browser console (F12) if something
+        // like an RLS policy is blocking this - a silently-swallowed
+        // mutation error is otherwise impossible to debug from the UI.
+        console.error('Failed to record story view:', error)
+        throw error
+      }
     },
   })
 }
