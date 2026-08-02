@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { StoryCommentWithProfile } from '@/lib/types/database.types'
+import { StoryCommentWithProfile, Profile } from '@/lib/types/database.types'
 
 // Quick-pick mood emojis shown directly on the React button, one tap each -
 // same idea as Instagram/Facebook's reaction bar. "More" opens the full
@@ -52,7 +52,7 @@ export function useToggleStoryLike() {
 }
 
 // ------------------------------------------------------------------
-// Reactions - One mood emoji per person per story
+// Reactions - one mood emoji per person per story
 // ------------------------------------------------------------------
 export function useStoryReaction(storyId?: string, userId?: string) {
   const supabase = createClient()
@@ -224,5 +224,64 @@ export function useReplyToStory() {
 
       return chatId
     },
+  })
+}
+
+// ------------------------------------------------------------------
+// Views - who has watched this story (owner-only, Instagram-style).
+// ------------------------------------------------------------------
+export function useRecordStoryView() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ storyId, viewerId }: { storyId: string; viewerId: string }) => {
+      // onConflict + ignoreDuplicates: re-opening the same story doesn't
+      // create a second view record or bump the timestamp.
+      const { error } = await supabase
+        .from('story_views')
+        .upsert({ story_id: storyId, viewer_id: viewerId }, { onConflict: 'story_id,viewer_id', ignoreDuplicates: true })
+      if (error) throw error
+    },
+  })
+}
+
+export function useStoryViews(storyId?: string, enabled = true) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['story-views', storyId],
+    queryFn: async () => {
+      if (!storyId) return []
+      const { data, error } = await supabase
+        .from('story_views')
+        .select('viewer_id, viewed_at, profiles(*)')
+        .eq('story_id', storyId)
+        .order('viewed_at', { ascending: false })
+      if (error) throw error
+      return (data || []) as { viewer_id: string; viewed_at: string; profiles: Profile }[]
+    },
+    enabled: !!storyId && enabled,
+  })
+}
+
+// ------------------------------------------------------------------
+// Who liked - shown to the owner when they tap the like count.
+// ------------------------------------------------------------------
+export function useStoryLikers(storyId?: string, enabled = true) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['story-likers', storyId],
+    queryFn: async () => {
+      if (!storyId) return []
+      const { data, error } = await supabase
+        .from('story_likes')
+        .select('user_id, created_at, profiles(*)')
+        .eq('story_id', storyId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data || []) as { user_id: string; created_at: string; profiles: Profile }[]
+    },
+    enabled: !!storyId && enabled,
   })
 }
