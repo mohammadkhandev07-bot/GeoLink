@@ -208,7 +208,7 @@ export default function ChatPage() {
         </button>
       </div>
 
-      {/* Aperonix AI - always pinned at the top */}
+      {/* Aperonix AI - Always pinned at the top */}
       <Link
         href="/aperonix"
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors border-b text-left"
