@@ -285,3 +285,26 @@ export function useStoryLikers(storyId?: string, enabled = true) {
     enabled: !!storyId && enabled,
   })
 }
+
+// ------------------------------------------------------------------
+// Who reacted (and with what emoji) - shown to the owner next to the
+// like-viewers button.
+// ------------------------------------------------------------------
+export function useStoryReactors(storyId?: string, enabled = true) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['story-reactors', storyId],
+    queryFn: async () => {
+      if (!storyId) return []
+      const { data, error } = await supabase
+        .from('story_reactions')
+        .select('user_id, emoji, created_at, profiles(*)')
+        .eq('story_id', storyId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data || []) as unknown as { user_id: string; emoji: string; created_at: string; profiles: Profile }[]
+    },
+    enabled: !!storyId && enabled,
+  })
+}
