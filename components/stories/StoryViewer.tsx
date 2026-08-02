@@ -20,6 +20,7 @@ import {
   useRecordStoryView,
   useStoryViews,
   useStoryLikers,
+  useStoryReactors,
 } from '@/lib/hooks/useStoryInteractions'
 import { StoryEditModal } from './StoryEditModal'
 import { StoryHideViewersModal } from './StoryHideViewersModal'
@@ -67,6 +68,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const [showReactionBar, setShowReactionBar] = useState(false)
   const [showViews, setShowViews] = useState(false)
   const [showLikers, setShowLikers] = useState(false)
+  const [showReactors, setShowReactors] = useState(false)
   const [messageText, setMessageText] = useState('')
   const [commentText, setCommentText] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
@@ -78,7 +80,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
   // Anything that opens a panel or has the person actively typing pauses
   // the auto-advance timer/video, same as Instagram.
-  const paused = showMenu || showEditModal || showHideViewers || showComments || showReactionBar || showViews || showLikers || messageText.length > 0
+  const paused = showMenu || showEditModal || showHideViewers || showComments || showReactionBar || showViews || showLikers || showReactors || messageText.length > 0
   const pausedRef = useRef(paused)
   useEffect(() => { pausedRef.current = paused }, [paused])
 
@@ -89,6 +91,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     setShowReactionBar(false)
     setShowViews(false)
     setShowLikers(false)
+    setShowReactors(false)
     setMessageText('')
     setCommentText('')
     setSendError(null)
@@ -107,6 +110,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const recordView = useRecordStoryView()
   const { data: views = [] } = useStoryViews(story?.id, isOwn)
   const { data: likers = [] } = useStoryLikers(story?.id, showLikers)
+  const { data: reactors = [] } = useStoryReactors(story?.id, showReactors)
 
   // Log a view the moment a non-owner lands on this story (once per story,
   // guarded server-side too via the unique story_id+viewer_id constraint).
@@ -548,6 +552,9 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                 <button onClick={() => setShowLikers(true)} className="flex items-center gap-1.5">
                   <Heart className="h-4 w-4" /> {likeData?.count ?? 0}
                 </button>
+                <button onClick={() => setShowReactors(true)} className="flex items-center gap-1.5">
+                  <span className="text-base leading-none">😊</span> {reactors.length}
+                </button>
                 <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5">
                   <MessageCircle className="h-4 w-4" /> {comments.length}
                 </button>
@@ -645,6 +652,39 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                         <p className="text-sm font-medium truncate">{l.profiles?.username}</p>
                       </div>
                       <Heart className="h-4 w-4 fill-red-500 text-red-500 shrink-0" />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reactors panel (owner only) */}
+        {showReactors && (
+          <div className="absolute inset-0 z-40 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setShowReactors(false)} />
+            <div className="relative bg-card rounded-t-2xl max-h-[60%] flex flex-col text-foreground">
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+                <h3 className="font-bold">Reactions ({reactors.length})</h3>
+                <button onClick={() => setShowReactors(false)} className="p-1 rounded-full hover:bg-muted">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-3 space-y-3">
+                {reactors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No reactions yet.</p>
+                ) : (
+                  reactors.map((r) => (
+                    <div key={r.user_id} className="flex items-center gap-2.5">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
+                        <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{r.profiles?.username}</p>
+                      </div>
+                      <span className="text-xl leading-none shrink-0">{r.emoji}</span>
                     </div>
                   ))
                 )}
