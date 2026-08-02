@@ -72,4 +72,4 @@ export function ChatMessage({ message, isOwn, onDelete }: ChatMessageProps) {
       </div>
     </div>
   )
-}
+} 
