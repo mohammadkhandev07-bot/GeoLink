@@ -8,7 +8,7 @@ export interface AperonixMessage {
   content: string
   timestamp: number
   // Like/dislike is purely a local, on-device signal - it's never sent to
-  // Supabase or anywhere else, so it lives right here next to the message.
+  // Supabase or Anywhere else, so it lives right here next to the message.
   feedback?: 'like' | 'dislike' | null
 }
 
