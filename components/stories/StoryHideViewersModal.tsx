@@ -20,7 +20,7 @@ interface StoryHideViewersModalProps {
 }
 
 // Reached from a story's 3-dot menu -> "Hide story from...". Whoever gets
-// toggled on here stops seeing ANY of this person's stories, until removed
+// Toggled on here stops seeing ANY of this person's stories, until removed
 // from the list again - it isn't tied to a single story.
 export function StoryHideViewersModal({ ownerId, onClose }: StoryHideViewersModalProps) {
   const [people, setPeople] = useState<Person[]>([])
