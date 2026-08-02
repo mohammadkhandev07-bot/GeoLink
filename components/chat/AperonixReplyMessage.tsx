@@ -10,8 +10,8 @@ interface AperonixReplyMessageProps {
 }
 
 // Renders a shared Aperonix reply as its own kind of chat bubble - Aperonix
-// branding up top, only 3 lines of the reply shown, and a "See more" button
-// that pops up the full text for longer replies.
+// Branding up top, only 3 lines of the reply shown, and a "See more" button
+// That pops up the full text for longer replies.
 export function AperonixReplyMessage({ content, isOwn }: AperonixReplyMessageProps) {
   const [showFull, setShowFull] = useState(false)
 
