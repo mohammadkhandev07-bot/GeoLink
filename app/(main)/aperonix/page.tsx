@@ -21,6 +21,21 @@ export default function AperonixPage() {
   const [sending, setSending] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Grows the box to fit whatever's been typed (up to a cap, then it
+  // scrolls internally) instead of the text scrolling sideways in a
+  // single-line input.
+  const resizeTextarea = () => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }
+
+  useEffect(() => {
+    resizeTextarea()
+  }, [input])
 
   useEffect(() => {
     if (loaded && !activeId) {
@@ -169,12 +184,20 @@ export default function AperonixPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSend} className="p-3 border-t flex items-center gap-2">
-          <input
+        <form onSubmit={handleSend} className="p-3 border-t flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
             value={input}
             onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSend(e as unknown as React.FormEvent)
+              }
+            }}
             placeholder="Message Aperonix..."
-            className="flex-1 bg-muted rounded-full px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500"
+            rows={1}
+            className="flex-1 bg-muted rounded-2xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500 resize-none overflow-y-auto leading-relaxed"
           />
           <button
             type="submit"
