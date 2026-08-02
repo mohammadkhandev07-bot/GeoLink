@@ -192,6 +192,7 @@ export default function ChatPage() {
     if (chat.last_message_type === 'post') return '📎 Shared a post'
     if (chat.last_message_type === 'reel') return '🎬 Shared a reel'
     if (chat.last_message_type === 'story') return `💬 Replied to a story: ${chat.last_message}`
+    if (chat.last_message_type === 'aperonix') return '✨ Shared an Aperonix reply'
     return chat.last_message
   }
 
