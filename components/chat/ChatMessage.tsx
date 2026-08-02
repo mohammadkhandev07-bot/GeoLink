@@ -2,6 +2,7 @@
 
 import { SharedPostMessage } from './SharedPostMessage'
 import { SharedStoryMessage } from './SharedStoryMessage'
+import { AperonixReplyMessage } from './AperonixReplyMessage'
 import { Message } from '@/lib/types/database.types'
 import { formatTimeAgo } from '@/lib/utils/helpers'
 import { cn } from '@/lib/utils/helpers'
@@ -32,6 +33,20 @@ export function ChatMessage({ message, isOwn, onDelete }: ChatMessageProps) {
       <div className={cn('flex gap-2 mb-3', isOwn && 'flex-row-reverse')}>
         <div>
           <SharedStoryMessage storyId={(message as any).story_id} content={message.content} isOwn={isOwn} />
+          <p className={cn('text-[10px] mt-1', isOwn ? 'text-right text-muted-foreground' : 'text-muted-foreground')}>
+            {formatTimeAgo(message.created_at)}
+            {isOwn && (message.is_read ? ' · Seen' : ' · Sent')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if ((message as any).is_aperonix_reply) {
+    return (
+      <div className={cn('flex gap-2 mb-3', isOwn && 'flex-row-reverse')}>
+        <div>
+          <AperonixReplyMessage content={message.content} isOwn={isOwn} />
           <p className={cn('text-[10px] mt-1', isOwn ? 'text-right text-muted-foreground' : 'text-muted-foreground')}>
             {formatTimeAgo(message.created_at)}
             {isOwn && (message.is_read ? ' · Seen' : ' · Sent')}
