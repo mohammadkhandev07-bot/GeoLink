@@ -20,28 +20,35 @@ interface StoryHideViewersModalProps {
 }
 
 // Reached from a story's 3-dot menu -> "Hide story from...". Whoever gets
-// Toggled on here stops seeing ANY of this person's stories, until removed
+// toggled on here stops seeing ANY of this person's stories, until removed
 // from the list again - it isn't tied to a single story.
 export function StoryHideViewersModal({ ownerId, onClose }: StoryHideViewersModalProps) {
-  const [followers, setFollowers] = useState<Person[]>([])
+  const [people, setPeople] = useState<Person[]>([])
   const [search, setSearch] = useState('')
   const supabase = createClient()
   const { data: hidden = [] } = useHiddenViewers(ownerId)
   const toggleHidden = useToggleHiddenViewer()
 
   useEffect(() => {
-    const fetchFollowers = async () => {
-      const { data } = await supabase
+    const fetchPeople = async () => {
+      const { data: f1 } = await supabase
         .from('follows')
         .select('profiles!follows_follower_id_fkey(id,username,avatar_url,full_name)')
         .eq('following_id', ownerId).eq('status', 'accepted')
-      setFollowers((data || []).map((d: any) => d.profiles).filter(Boolean))
+      const { data: f2 } = await supabase
+        .from('follows')
+        .select('profiles!follows_following_id_fkey(id,username,avatar_url,full_name)')
+        .eq('follower_id', ownerId).eq('status', 'accepted')
+      const l1 = (f1 || []).map((d: any) => d.profiles).filter(Boolean)
+      const l2 = (f2 || []).map((d: any) => d.profiles).filter(Boolean)
+      const merged = [...l1, ...l2.filter((p: Person) => !l1.find((x: Person) => x.id === p.id))]
+      setPeople(merged)
     }
-    fetchFollowers()
+    fetchPeople()
   }, [ownerId])
 
   const hiddenIds = hidden.map((h) => h.hidden_user_id)
-  const filtered = followers.filter((p) =>
+  const filtered = people.filter((p) =>
     p.username.toLowerCase().includes(search.toLowerCase()) || (p.full_name || '').toLowerCase().includes(search.toLowerCase())
   )
 
@@ -64,7 +71,7 @@ export function StoryHideViewersModal({ ownerId, onClose }: StoryHideViewersModa
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search followers"
+              placeholder="Search people"
               className="w-full bg-muted rounded-lg pl-9 pr-3 py-2 text-sm outline-none"
             />
           </div>
@@ -72,7 +79,7 @@ export function StoryHideViewersModal({ ownerId, onClose }: StoryHideViewersModa
 
         <div className="overflow-y-auto flex-1 p-2">
           {filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No followers found.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No one found.</p>
           ) : (
             filtered.map((p) => {
               const isHidden = hiddenIds.includes(p.id)
