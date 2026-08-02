@@ -378,7 +378,7 @@ export function useHiddenViewers(ownerId?: string) {
         .select('*, profiles!story_hidden_viewers_hidden_user_id_fkey(*)')
         .eq('owner_id', ownerId)
       if (error) throw error
-      return (data || []) as (StoryHiddenViewer & { profiles: any })[]
+      return (data || []) as unknown as (StoryHiddenViewer & { profiles: any })[]
     },
     enabled: !!ownerId,
   })
