@@ -4,9 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 // Called on a schedule by Vercel Cron (see vercel.json - runs hourly).
 // Stories already stop being *shown* to anyone the instant they pass 24h
 // (the database RLS policy filters `expires_at > NOW()`), so this route's
-// only job is the actual cleanup: remove expired rows from the database and
-// delete their matching files from the "stories" storage bucket, so
-// storage usage doesn't grow forever.
+// Only job is the actual cleanup: remove expired rows from the database and
+// Delete their matching files from the "stories" storage bucket, so
+// Storage usage doesn't grow forever.
 export async function GET(request: NextRequest) {
   // Protect the endpoint so randoms on the internet can't spam-trigger it.
   const authHeader = request.headers.get('authorization')
