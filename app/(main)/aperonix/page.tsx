@@ -207,7 +207,7 @@ export default function AperonixPage() {
     setSpeakingMessageId(null)
   }, [activeId])
 
-
+  return (
     <div className="flex h-[calc(100vh-56px)]">
       {/* History panel */}
       <div className={`
