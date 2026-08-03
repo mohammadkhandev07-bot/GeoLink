@@ -1,1 +1,205 @@
+'use client'
 
+// Read-aloud tries ElevenLabs first (via /api/aperonix/speak, rotating
+// across 5 free accounts server-side) for a warm, natural voice, and falls
+// back to the browser's own built-in Web Speech API voice if that's ever
+// unavailable - so Aperonix can always speak, one way or another.
+// Voice input (speech-to-text) always uses the browser's native API -
+// support varies: best in Chrome/Edge, not available in Firefox.
+
+let cachedVoices: SpeechSynthesisVoice[] = []
+
+function loadVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      resolve([])
+      return
+    }
+    const existing = window.speechSynthesis.getVoices()
+    if (existing.length > 0) {
+      cachedVoices = existing
+      resolve(existing)
+      return
+    }
+    // Voices often load asynchronously on first page load.
+    window.speechSynthesis.onvoiceschanged = () => {
+      cachedVoices = window.speechSynthesis.getVoices()
+      resolve(cachedVoices)
+    }
+    // Fallback in case the event never fires (some browsers/OSes).
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500)
+  })
+}
+
+// Strips emojis and stray markdown symbols before speaking - without this,
+// some voice engines literally announce emojis ("grinning face", "star",
+// etc.) or read out "asterisk asterisk" around bold text, which sounds
+// nothing like a real person talking.
+function cleanTextForSpeech(text: string): string {
+  return text
+    // Emoji + pictograph + symbol + flag ranges, plus the invisible
+    // variation-selector/zero-width-joiner characters emoji sequences use.
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{2190}-\u{21FF}]/gu, '')
+    // Markdown formatting characters that would otherwise get spoken aloud.
+    .replace(/[*_~`#]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// Picks the nicest-sounding female English voice available on this device,
+// so Aperonix always speaks in a warm, "sweet girl" tone rather than
+// whatever the system default happens to be. Google's network voices sound
+// dramatically more natural than the offline OS voices (Microsoft David/
+// Zira on Windows, etc.), so those are tried first wherever available.
+function pickAperonixVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  const preferredNames = [
+    'Google UK English Female', 'Google US English', 'Google हिन्दी',
+    'Samantha', 'Microsoft Aria Online', 'Microsoft Jenny Online', 'Microsoft Zira',
+    'Victoria', 'Karen', 'Moira', 'Tessa',
+  ]
+  for (const name of preferredNames) {
+    const match = voices.find(v => v.name.includes(name))
+    if (match) return match
+  }
+  // Any other Google voice at all still sounds better than most local ones.
+  const anyGoogle = voices.find(v => v.name.startsWith('Google') && v.lang.startsWith('en'))
+  if (anyGoogle) return anyGoogle
+  // Fall back to anything explicitly flagged/named "female".
+  const femaleMatch = voices.find(v => /female/i.test(v.name))
+  if (femaleMatch) return femaleMatch
+  // Last resort - any English voice at all.
+  return voices.find(v => v.lang.startsWith('en')) || voices[0]
+}
+
+interface SpeakHandle {
+  stop: () => void
+}
+
+// The original browser Web Speech API path - kept as the guaranteed
+// fallback so Aperonix can always speak something even if ElevenLabs is
+// completely unreachable (all 5 accounts out of quota, network down, etc.).
+async function speakWithBrowserVoice(cleaned: string, onEnd: () => void): Promise<SpeakHandle> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    onEnd()
+    return { stop: () => {} }
+  }
+
+  window.speechSynthesis.cancel()
+  const voices = cachedVoices.length ? cachedVoices : await loadVoices()
+  const utterance = new SpeechSynthesisUtterance(cleaned)
+  const voice = pickAperonixVoice(voices)
+  if (voice) {
+    utterance.voice = voice
+    utterance.lang = voice.lang
+  }
+  // Natural pitch (not exaggerated) reads as an actual person rather than a
+  // cartoonish robot voice, with a slightly slower pace for clarity.
+  utterance.pitch = 1.02
+  utterance.rate = 0.93
+  utterance.onend = onEnd
+  utterance.onerror = onEnd
+
+  window.speechSynthesis.speak(utterance)
+  return { stop: () => window.speechSynthesis.cancel() }
+}
+
+// Tries the ElevenLabs voice (server-side, rotating across 5 accounts)
+// first for a genuinely warm, natural-sounding reply. If that route can't
+// produce audio for any reason - all 5 accounts out of quota, a network
+// hiccup, a slow response - it falls straight through to the browser's own
+// voice with no visible error, so the person always hears something.
+export async function speakText(
+  text: string,
+  onEnd: () => void
+): Promise<SpeakHandle> {
+  const cleaned = cleanTextForSpeech(text)
+  if (!cleaned) {
+    onEnd()
+    return { stop: () => {} }
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
+    const res = await fetch('/api/aperonix/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: cleaned }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    if (res.ok) {
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audio.onended = () => { URL.revokeObjectURL(url); onEnd() }
+      audio.onerror = () => { URL.revokeObjectURL(url); onEnd() }
+      await audio.play()
+      return { stop: () => { audio.pause(); URL.revokeObjectURL(url) } }
+    }
+  } catch {
+    // Network error, timeout, etc. - fall through to the browser voice below.
+  }
+
+  return speakWithBrowserVoice(cleaned, onEnd)
+}
+
+export function stopSpeaking() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+  }
+}
+
+export function isSpeechRecognitionSupported(): boolean {
+  if (typeof window === 'undefined') return false
+  return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+}
+
+interface VoiceInputHandlers {
+  onInterim: (transcript: string) => void
+  onFinal: (transcript: string) => void
+  onEnd: () => void
+  onError?: () => void
+}
+
+// Wraps the browser's SpeechRecognition object (typed loosely as `any`
+// since it isn't part of the standard TS DOM lib) into a simple
+// start/stop control the UI can drive directly.
+export function createVoiceInput(handlers: VoiceInputHandlers) {
+  const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SpeechRecognitionCtor) return null
+
+  const recognition = new SpeechRecognitionCtor()
+  recognition.lang = navigator.language || 'en-US'
+  recognition.interimResults = true
+  recognition.continuous = false
+  recognition.maxAlternatives = 1
+
+  let finalTranscript = ''
+
+  recognition.onresult = (event: any) => {
+    let interim = ''
+    finalTranscript = ''
+    for (let i = 0; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript
+      if (event.results[i].isFinal) finalTranscript += transcript
+      else interim += transcript
+    }
+    handlers.onInterim(finalTranscript + interim)
+  }
+
+  recognition.onerror = () => {
+    handlers.onError?.()
+  }
+
+  recognition.onend = () => {
+    handlers.onFinal(finalTranscript.trim())
+    handlers.onEnd()
+  }
+
+  return {
+    start: () => recognition.start(),
+    stop: () => recognition.stop(),
+  }
+}
