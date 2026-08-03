@@ -19,7 +19,7 @@ const API_KEYS = [
 
 const VOICE_ID = 'tIb1FHpzlwSiTGg6JxF0'
 
-async function tryKey(apiKey: string, text: string): Promise<Response | null> {
+async function tryKey(apiKey: string, text: string, keyLabel: string): Promise<Response | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 15000)
 
@@ -46,9 +46,17 @@ async function tryKey(apiKey: string, text: string): Promise<Response | null> {
 
     // 401/429 usually mean this specific key is out of quota or
     // rate-limited - move on to the next account rather than giving up.
-    if (!res.ok) return null
+    if (!res.ok) {
+      // Logged so the real reason (bad key, quota_exceeded, wrong voice id,
+      // etc.) shows up in Vercel's Function Logs instead of just a generic
+      // 503 on the client with no way to tell what actually went wrong.
+      const body = await res.text().catch(() => '')
+      console.error(`[aperonix/speak] ${keyLabel} failed: ${res.status} ${body.slice(0, 300)}`)
+      return null
+    }
     return res
-  } catch {
+  } catch (err: any) {
+    console.error(`[aperonix/speak] ${keyLabel} threw: ${err?.message || err}`)
     return null
   } finally {
     clearTimeout(timeout)
@@ -56,6 +64,7 @@ async function tryKey(apiKey: string, text: string): Promise<Response | null> {
 }
 
 export async function POST(req: NextRequest) {
+  console.error(`[aperonix/speak] ${API_KEYS.length}/5 ElevenLabs keys configured`)
   try {
     const { text } = await req.json()
     if (!text || typeof text !== 'string' || !text.trim()) {
@@ -68,13 +77,14 @@ export async function POST(req: NextRequest) {
     const trimmedText = text.slice(0, 2000)
 
     if (API_KEYS.length === 0) {
-      // No keys configured at all - let the frontend fall back to the
-      // browser's built-in voice immediately instead of erroring out.
+      // No keys configured at all (env vars missing, or added without a
+      // redeploy - Vercel only picks up new env vars on the next deploy).
+      console.error('[aperonix/speak] No ELEVENLABS_API_KEY_1..5 env vars found')
       return NextResponse.json({ error: 'TTS not configured' }, { status: 503 })
     }
 
-    for (const key of API_KEYS) {
-      const res = await tryKey(key, trimmedText)
+    for (let i = 0; i < API_KEYS.length; i++) {
+      const res = await tryKey(API_KEYS[i], trimmedText, `Key ${i + 1}`)
       if (res) {
         const audioBuffer = await res.arrayBuffer()
         return new NextResponse(audioBuffer, {
