@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Send, Menu, Plus, Trash2, X, Sparkles, Copy, RefreshCw, ThumbsUp, ThumbsDown, Forward, Check } from 'lucide-react'
+import { Send, Menu, Plus, Trash2, X, Sparkles, Copy, RefreshCw, ThumbsUp, ThumbsDown, Forward, Check, Volume2, Square, Mic, MicOff } from 'lucide-react'
 import { useAperonixChats, AperonixMessage } from '@/lib/hooks/useAperonixChats'
 import { AperonixShareModal } from '@/components/aperonix/AperonixShareModal'
+import { speakText, stopSpeaking, isSpeechRecognitionSupported, createVoiceInput } from '@/lib/utils/voice'
 
 export default function AperonixPage() {
   const {
@@ -26,8 +27,12 @@ export default function AperonixPage() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [shareText, setShareText] = useState<string | null>(null)
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const speakHandleRef = useRef<{ stop: () => void } | null>(null)
+  const voiceInputRef = useRef<{ start: () => void; stop: () => void } | null>(null)
 
   // Grows the box to fit whatever's been typed (up to a cap, then it
   // scrolls internally) instead of the text scrolling sideways in a
@@ -53,9 +58,8 @@ export default function AperonixPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [activeConversation?.messages.length, sending])
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const text = input.trim()
+  const sendMessage = async (text: string, viaVoice: boolean) => {
+    text = text.trim()
     if (!text || sending) return
 
     let conversationId = activeId
@@ -79,7 +83,14 @@ export default function AperonixPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
 
-      addMessage(conversationId, { role: 'model', content: data.reply, timestamp: Date.now() })
+      const modelMsgId = addMessage(conversationId, { role: 'model', content: data.reply, timestamp: Date.now() })
+      // A message sent by voice gets its reply read back out loud
+      // automatically - that's what makes it feel like an actual spoken
+      // conversation instead of just dictating into a text box.
+      if (viaVoice) {
+        setSpeakingMessageId(modelMsgId)
+        speakHandleRef.current = await speakText(data.reply, () => setSpeakingMessageId(null))
+      }
     } catch (err: any) {
       addMessage(conversationId, {
         role: 'model',
@@ -89,6 +100,11 @@ export default function AperonixPage() {
     } finally {
       setSending(false)
     }
+  }
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage(input, false)
   }
 
   const handleNewChat = () => {
@@ -144,7 +160,54 @@ export default function AperonixPage() {
     }
   }
 
-  return (
+  // Toggles reading a reply out loud - tapping the same message again (or
+  // starting a different one) stops whatever's currently playing first, so
+  // only ever one reply is being read at a time.
+  const handleReadAloud = async (msg: AperonixMessage) => {
+    if (speakingMessageId === msg.id) {
+      stopSpeaking()
+      setSpeakingMessageId(null)
+      return
+    }
+    stopSpeaking()
+    setSpeakingMessageId(msg.id)
+    speakHandleRef.current = await speakText(msg.content, () => setSpeakingMessageId(null))
+  }
+
+  const handleMicClick = () => {
+    if (isListening) {
+      voiceInputRef.current?.stop()
+      return
+    }
+    if (!isSpeechRecognitionSupported()) {
+      alert('Voice input is not supported in this browser. Try Chrome or Edge.')
+      return
+    }
+    const controller = createVoiceInput({
+      onInterim: (transcript) => setInput(transcript),
+      onFinal: (transcript) => {
+        if (transcript) sendMessage(transcript, true)
+      },
+      onEnd: () => setIsListening(false),
+      onError: () => setIsListening(false),
+    })
+    if (!controller) return
+    voiceInputRef.current = controller
+    setIsListening(true)
+    controller.start()
+  }
+
+  // Leaving the page (or switching conversations) shouldn't leave Aperonix
+  // talking in the background.
+  useEffect(() => {
+    return () => stopSpeaking()
+  }, [])
+  useEffect(() => {
+    stopSpeaking()
+    setSpeakingMessageId(null)
+  }, [activeId])
+
+
     <div className="flex h-[calc(100vh-56px)]">
       {/* History panel */}
       <div className={`
@@ -249,6 +312,13 @@ export default function AperonixPage() {
                     <RefreshCw className="h-3.5 w-3.5" />
                   </button>
                   <button
+                    onClick={() => handleReadAloud(msg)}
+                    title={speakingMessageId === msg.id ? 'Stop' : 'Read aloud'}
+                    className={`p-1.5 rounded-lg hover:bg-muted transition-colors ${speakingMessageId === msg.id ? 'text-pink-500' : 'hover:text-foreground'}`}
+                  >
+                    {speakingMessageId === msg.id ? <Square className="h-3.5 w-3.5 fill-current" /> : <Volume2 className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
                     onClick={() => handleFeedback(msg, 'like')}
                     title="Good response"
                     className={`p-1.5 rounded-lg hover:bg-muted transition-colors ${msg.feedback === 'like' ? 'text-pink-500' : 'hover:text-foreground'}`}
@@ -297,10 +367,20 @@ export default function AperonixPage() {
                 handleSend(e as unknown as React.FormEvent)
               }
             }}
-            placeholder="Message Aperonix..."
+            placeholder={isListening ? 'Listening...' : 'Message Aperonix...'}
             rows={1}
             className="flex-1 bg-muted rounded-2xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500 resize-none overflow-y-auto leading-relaxed"
           />
+          <button
+            type="button"
+            onClick={handleMicClick}
+            title={isListening ? 'Stop listening' : 'Speak to Aperonix'}
+            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+              isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
           <button
             type="submit"
             disabled={!input.trim() || sending}
