@@ -28,18 +28,39 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   })
 }
 
+// Strips emojis and stray markdown symbols before speaking - without this,
+// some voice engines literally announce emojis ("grinning face", "star",
+// etc.) or read out "asterisk asterisk" around bold text, which sounds
+// nothing like a real person talking.
+function cleanTextForSpeech(text: string): string {
+  return text
+    // Emoji + pictograph + symbol + flag ranges, plus the invisible
+    // variation-selector/zero-width-joiner characters emoji sequences use.
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{2190}-\u{21FF}]/gu, '')
+    // Markdown formatting characters that would otherwise get spoken aloud.
+    .replace(/[*_~`#]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 // Picks the nicest-sounding female English voice available on this device,
 // so Aperonix always speaks in a warm, "sweet girl" tone rather than
-// whatever the system default happens to be.
+// whatever the system default happens to be. Google's network voices sound
+// dramatically more natural than the offline OS voices (Microsoft David/
+// Zira on Windows, etc.), so those are tried first wherever available.
 function pickAperonixVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
   const preferredNames = [
-    'Google US English Female', 'Google UK English Female', 'Samantha', 'Zira',
-    'Microsoft Zira', 'Microsoft Aria', 'Victoria', 'Karen', 'Moira', 'Tessa',
+    'Google UK English Female', 'Google US English', 'Google हिन्दी',
+    'Samantha', 'Microsoft Aria Online', 'Microsoft Jenny Online', 'Microsoft Zira',
+    'Victoria', 'Karen', 'Moira', 'Tessa',
   ]
   for (const name of preferredNames) {
     const match = voices.find(v => v.name.includes(name))
     if (match) return match
   }
+  // Any other Google voice at all still sounds better than most local ones.
+  const anyGoogle = voices.find(v => v.name.startsWith('Google') && v.lang.startsWith('en'))
+  if (anyGoogle) return anyGoogle
   // Fall back to anything explicitly flagged/named "female".
   const femaleMatch = voices.find(v => /female/i.test(v.name))
   if (femaleMatch) return femaleMatch
@@ -60,18 +81,24 @@ export async function speakText(
     return { stop: () => {} }
   }
 
+  const cleaned = cleanTextForSpeech(text)
+  if (!cleaned) {
+    onEnd()
+    return { stop: () => {} }
+  }
+
   window.speechSynthesis.cancel()
   const voices = cachedVoices.length ? cachedVoices : await loadVoices()
-  const utterance = new SpeechSynthesisUtterance(text)
+  const utterance = new SpeechSynthesisUtterance(cleaned)
   const voice = pickAperonixVoice(voices)
   if (voice) {
     utterance.voice = voice
     utterance.lang = voice.lang
   }
-  // Slightly higher pitch + a touch slower than default reads as warmer and
-  // friendlier rather than robotic.
-  utterance.pitch = 1.15
-  utterance.rate = 0.98
+  // Natural pitch (not exaggerated) reads as an actual person rather than a
+  // cartoonish robot voice, with a slightly slower pace for clarity.
+  utterance.pitch = 1.02
+  utterance.rate = 0.93
   utterance.onend = onEnd
   utterance.onerror = onEnd
 
