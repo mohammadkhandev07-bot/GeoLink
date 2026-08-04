@@ -8,7 +8,7 @@ export interface AperonixMessage {
   content: string
   timestamp: number
   // Like/dislike is purely a local, on-device signal - it's never sent to
-  // Supabase or Anywhere else, so it lives right here next to the message.
+  // Supabase or anywhere else, so it lives right here next to the message.
   feedback?: 'like' | 'dislike' | null
 }
 
@@ -18,6 +18,7 @@ export interface AperonixConversation {
   messages: AperonixMessage[]
   createdAt: number
   updatedAt: number
+  pinned?: boolean
 }
 
 const STORAGE_KEY = 'aperonix-chats'
@@ -32,6 +33,7 @@ function loadConversations(): AperonixConversation[] {
     // load so every message can still be targeted for feedback/regenerate.
     return parsed.map(c => ({
       ...c,
+      pinned: c.pinned || false,
       messages: c.messages.map(m => ({ ...m, id: m.id || crypto.randomUUID() })),
     }))
   } catch {
@@ -70,6 +72,7 @@ export function useAperonixChats() {
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      pinned: false,
     }
     persist([newConvo, ...conversations])
     setActiveId(newConvo.id)
@@ -81,6 +84,42 @@ export function useAperonixChats() {
     persist(next)
     if (activeId === id) setActiveId(null)
   }, [conversations, persist, activeId])
+
+  const renameConversation = useCallback((id: string, title: string) => {
+    const trimmed = title.trim()
+    if (!trimmed) return
+    const next = conversations.map(c => c.id === id ? { ...c, title: trimmed } : c)
+    persist(next)
+  }, [conversations, persist])
+
+  const togglePinConversation = useCallback((id: string) => {
+    const next = conversations.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c)
+    persist(next)
+  }, [conversations, persist])
+
+  // "Connect with new chat" - starts a brand new conversation that's
+  // pre-loaded with a copy of an older one's full message history, so
+  // Aperonix carries that old context forward (it's built into every reply
+  // from the same `messages` array the model already reads), while the
+  // original chat stays untouched in the sidebar. Message ids are
+  // regenerated on the copies so feedback/regenerate stay scoped to
+  // whichever conversation the person is actually acting in.
+  const connectAsNewConversation = useCallback((sourceId: string) => {
+    const source = conversations.find(c => c.id === sourceId)
+    if (!source) return null
+
+    const newConvo: AperonixConversation = {
+      id: crypto.randomUUID(),
+      title: `${source.title} (continued)`,
+      messages: source.messages.map(m => ({ ...m, id: crypto.randomUUID(), feedback: null })),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      pinned: false,
+    }
+    persist([newConvo, ...conversations])
+    setActiveId(newConvo.id)
+    return newConvo.id
+  }, [conversations, persist])
 
   const addMessage = useCallback((conversationId: string, message: Omit<AperonixMessage, 'id'> & { id?: string }) => {
     const withId: AperonixMessage = { ...message, id: message.id || crypto.randomUUID() }
@@ -130,13 +169,23 @@ export function useAperonixChats() {
 
   const activeConversation = conversations.find(c => c.id === activeId) ?? null
 
+  // Pinned chats always float to the top (most-recently-updated pinned
+  // chat first), then everything else by most-recently-updated.
+  const sortedConversations = [...conversations].sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1
+    return b.updatedAt - a.updatedAt
+  })
+
   return {
-    conversations: [...conversations].sort((a, b) => b.updatedAt - a.updatedAt),
+    conversations: sortedConversations,
     activeId,
     setActiveId,
     activeConversation,
     createConversation,
     deleteConversation,
+    renameConversation,
+    togglePinConversation,
+    connectAsNewConversation,
     addMessage,
     replaceMessageContent,
     setMessageFeedback,
