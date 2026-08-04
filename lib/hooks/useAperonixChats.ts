@@ -19,6 +19,11 @@ export interface AperonixConversation {
   createdAt: number
   updatedAt: number
   pinned?: boolean
+  // Inherited history from a "connect with new chat" - Aperonix reads this
+  // as context for every reply, but it's never rendered in the chat itself,
+  // so the screen only ever shows what's actually been said in THIS chat -
+  // like starting a new branch in ChatGPT that still remembers the parent.
+  contextMessages?: AperonixMessage[]
 }
 
 const STORAGE_KEY = 'aperonix-chats'
@@ -97,21 +102,22 @@ export function useAperonixChats() {
     persist(next)
   }, [conversations, persist])
 
-  // "Connect with new chat" - starts a brand new conversation that's
-  // pre-loaded with a copy of an older one's full message history, so
-  // Aperonix carries that old context forward (it's built into every reply
-  // from the same `messages` array the model already reads), while the
-  // original chat stays untouched in the sidebar. Message ids are
-  // regenerated on the copies so feedback/regenerate stay scoped to
-  // whichever conversation the person is actually acting in.
+  // "Connect with new chat" - starts a brand new, visually empty chat (like
+  // a fresh branch), but carries the old conversation's full history along
+  // as hidden context so Aperonix still remembers everything that was
+  // discussed - it just doesn't clutter the screen by re-showing it. The
+  // original chat stays untouched in the sidebar.
   const connectAsNewConversation = useCallback((sourceId: string) => {
     const source = conversations.find(c => c.id === sourceId)
     if (!source) return null
 
+    const inheritedContext = [...(source.contextMessages ?? []), ...source.messages]
+
     const newConvo: AperonixConversation = {
       id: crypto.randomUUID(),
       title: `${source.title} (continued)`,
-      messages: source.messages.map(m => ({ ...m, id: crypto.randomUUID(), feedback: null })),
+      messages: [],
+      contextMessages: inheritedContext,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       pinned: false,
@@ -127,7 +133,7 @@ export function useAperonixChats() {
       const next = prev.map(c => {
         if (c.id !== conversationId) return c
         const messages = [...c.messages, withId]
-        const title = c.messages.length === 0 && message.role === 'user'
+        const title = c.messages.length === 0 && message.role === 'user' && c.title === 'New chat'
           ? message.content.slice(0, 40) + (message.content.length > 40 ? '…' : '')
           : c.title
         return { ...c, messages, title, updatedAt: Date.now() }
