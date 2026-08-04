@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Send, Menu, Plus, Trash2, X, Sparkles, Copy, RefreshCw, ThumbsUp, ThumbsDown, Forward, Check, Volume2, Square, Mic, MicOff } from 'lucide-react'
+import { Send, Menu, Plus, Trash2, X, Sparkles, Copy, RefreshCw, ThumbsUp, ThumbsDown, Forward, Check, Volume2, Square, Mic, MicOff, MoreVertical, Pin, PencilLine, Link2 } from 'lucide-react'
 import { useAperonixChats, AperonixMessage } from '@/lib/hooks/useAperonixChats'
 import { AperonixShareModal } from '@/components/aperonix/AperonixShareModal'
 import { speakText, stopSpeaking, isSpeechRecognitionSupported, createVoiceInput } from '@/lib/utils/voice'
@@ -15,6 +15,9 @@ export default function AperonixPage() {
     activeConversation,
     createConversation,
     deleteConversation,
+    renameConversation,
+    togglePinConversation,
+    connectAsNewConversation,
     addMessage,
     replaceMessageContent,
     setMessageFeedback,
@@ -29,6 +32,9 @@ export default function AperonixPage() {
   const [shareText, setShareText] = useState<string | null>(null)
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const speakHandleRef = useRef<{ stop: () => void } | null>(null)
@@ -109,6 +115,23 @@ export default function AperonixPage() {
 
   const handleNewChat = () => {
     createConversation()
+    setShowHistory(false)
+  }
+
+  const handleStartRename = (convo: { id: string; title: string }) => {
+    setOpenMenuId(null)
+    setRenamingId(convo.id)
+    setRenameValue(convo.title)
+  }
+
+  const handleConfirmRename = (id: string) => {
+    renameConversation(id, renameValue)
+    setRenamingId(null)
+  }
+
+  const handleConnectAsNewChat = (id: string) => {
+    setOpenMenuId(null)
+    connectAsNewConversation(id)
     setShowHistory(false)
   }
 
@@ -232,18 +255,75 @@ export default function AperonixPage() {
           ) : conversations.map(convo => (
             <div
               key={convo.id}
-              onClick={() => { setActiveId(convo.id); setShowHistory(false) }}
-              className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
+              onClick={() => { if (renamingId !== convo.id) { setActiveId(convo.id); setShowHistory(false) } }}
+              className={`group relative flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
                 convo.id === activeId ? 'bg-pink-500/10 text-pink-500' : 'hover:bg-accent'
               }`}
             >
-              <span className="text-sm truncate">{convo.title}</span>
-              <button
-                onClick={e => { e.stopPropagation(); deleteConversation(convo.id) }}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 shrink-0 transition-opacity"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {convo.pinned && <Pin className="h-3 w-3 shrink-0 fill-current" />}
+
+              {renamingId === convo.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleConfirmRename(convo.id)
+                    if (e.key === 'Escape') setRenamingId(null)
+                  }}
+                  onBlur={() => handleConfirmRename(convo.id)}
+                  className="flex-1 min-w-0 bg-background border border-pink-500 rounded-lg px-2 py-0.5 text-sm outline-none"
+                />
+              ) : (
+                <span className="flex-1 min-w-0 text-sm truncate">{convo.title}</span>
+              )}
+
+              {renamingId !== convo.id && (
+                <div className="relative shrink-0">
+                  <button
+                    onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === convo.id ? null : convo.id) }}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-muted transition-opacity text-muted-foreground"
+                  >
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </button>
+
+                  {openMenuId === convo.id && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={e => { e.stopPropagation(); setOpenMenuId(null) }} />
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        className="absolute right-0 top-7 z-40 w-48 bg-card border rounded-xl shadow-xl overflow-hidden text-foreground"
+                      >
+                        <button
+                          onClick={() => { togglePinConversation(convo.id); setOpenMenuId(null) }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted transition-colors"
+                        >
+                          <Pin className="h-3.5 w-3.5" /> {convo.pinned ? 'Unpin' : 'Pin'}
+                        </button>
+                        <button
+                          onClick={() => handleStartRename(convo)}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted transition-colors"
+                        >
+                          <PencilLine className="h-3.5 w-3.5" /> Rename
+                        </button>
+                        <button
+                          onClick={() => handleConnectAsNewChat(convo.id)}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted transition-colors"
+                        >
+                          <Link2 className="h-3.5 w-3.5" /> Connect with new chat
+                        </button>
+                        <button
+                          onClick={() => { deleteConversation(convo.id); setOpenMenuId(null) }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
