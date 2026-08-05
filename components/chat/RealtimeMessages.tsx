@@ -8,9 +8,10 @@ interface RealtimeMessagesProps {
   messages: Message[]
   currentUserId: string
   isTyping: boolean
+  onReply?: (message: Message) => void
 }
 
-export function RealtimeMessages({ messages, currentUserId, isTyping }: RealtimeMessagesProps) {
+export function RealtimeMessages({ messages, currentUserId, isTyping, onReply }: RealtimeMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [localMessages, setLocalMessages] = useState<Message[]>(messages)
 
@@ -22,10 +23,6 @@ export function RealtimeMessages({ messages, currentUserId, isTyping }: Realtime
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [localMessages, isTyping])
 
-  const handleDelete = (messageId: string) => {
-    setLocalMessages(prev => prev.filter(m => m.id !== messageId))
-  }
-
   return (
     <div className="flex-1 overflow-y-auto p-4">
       {localMessages.map((msg) => (
@@ -33,7 +30,8 @@ export function RealtimeMessages({ messages, currentUserId, isTyping }: Realtime
           key={msg.id}
           message={msg}
           isOwn={msg.sender_id === currentUserId}
-          onDelete={handleDelete}
+          currentUserId={currentUserId}
+          onReply={onReply}
         />
       ))}
       {isTyping && (
