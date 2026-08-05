@@ -1,0 +1,170 @@
+'use client'
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { Profile } from '@/lib/types/database.types'
+
+// ------------------------------------------------------------------
+// Unsend - removes the message for both people entirely.
+// ------------------------------------------------------------------
+export function useUnsendMessage() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: string; chatId: string }) => {
+      const { error } = await supabase.from('messages').delete().eq('id', messageId)
+      if (error) throw error
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Delete for me - only the sender stops seeing it, the recipient still
+// does. Enforced by the messages SELECT policy, not by frontend filtering.
+// ------------------------------------------------------------------
+export function useDeleteMessageForMe() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: string; chatId: string }) => {
+      const { error } = await supabase.from('messages').update({ deleted_for_sender: true }).eq('id', messageId)
+      if (error) throw error
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Edit - both people see an "Edited" tag once this has been used.
+// ------------------------------------------------------------------
+export function useEditMessage() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string; chatId: string }) => {
+      const { error } = await supabase.from('messages').update({ content, is_edited: true }).eq('id', messageId)
+      if (error) throw error
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Reactions - any emoji, one per person per message.
+// ------------------------------------------------------------------
+export function useMessageReactions(messageId?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['message-reactions', messageId],
+    queryFn: async () => {
+      if (!messageId) return []
+      const { data, error } = await supabase
+        .from('message_reactions')
+        .select('*, profiles(*)')
+        .eq('message_id', messageId)
+      if (error) throw error
+      return (data || []) as unknown as { id: string; user_id: string; emoji: string; profiles: Profile }[]
+    },
+    enabled: !!messageId,
+  })
+}
+
+export function useSetMessageReaction() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ messageId, userId, emoji }: { messageId: string; userId: string; emoji: string }) => {
+      const { error } = await supabase
+        .from('message_reactions')
+        .upsert({ message_id: messageId, user_id: userId, emoji }, { onConflict: 'message_id,user_id' })
+      if (error) throw error
+    },
+    onSuccess: (_, { messageId }) => {
+      queryClient.invalidateQueries({ queryKey: ['message-reactions', messageId] })
+    },
+  })
+}
+
+export function useRemoveMessageReaction() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ messageId, userId }: { messageId: string; userId: string }) => {
+      const { error } = await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', userId)
+      if (error) throw error
+    },
+    onSuccess: (_, { messageId }) => {
+      queryClient.invalidateQueries({ queryKey: ['message-reactions', messageId] })
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Forward - sends a copy of a message's content to one or more other
+// chats, finding or creating each chat as needed.
+// ------------------------------------------------------------------
+export function useForwardMessage() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({
+      content,
+      senderId,
+      recipientIds,
+    }: {
+      content: string
+      senderId: string
+      recipientIds: string[]
+    }) => {
+      for (const recipientId of recipientIds) {
+        let chatId: string | null = null
+        const { data: existing } = await supabase
+          .from('chats')
+          .select('id')
+          .or(`and(participant1_id.eq.${senderId},participant2_id.eq.${recipientId}),and(participant1_id.eq.${recipientId},participant2_id.eq.${senderId})`)
+          .maybeSingle()
+
+        if (existing) {
+          chatId = existing.id
+        } else {
+          const { data: created } = await supabase
+            .from('chats')
+            .insert({ participant1_id: senderId, participant2_id: recipientId })
+            .select('id').single()
+          chatId = created?.id || null
+        }
+        if (!chatId) continue
+
+        await supabase.from('messages').insert({ chat_id: chatId, sender_id: senderId, content })
+        await supabase.from('chats').update({
+          last_message: content,
+          last_message_time: new Date().toISOString(),
+          last_message_type: 'text',
+        }).eq('id', chatId)
+      }
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Fetches a small preview of whichever message is being replied to, for
+// the quoted snippet shown above a reply bubble.
+// ------------------------------------------------------------------
+export function useReplyPreview(replyToId?: string | null) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['message-reply-preview', replyToId],
+    queryFn: async () => {
+      if (!replyToId) return null
+      const { data } = await supabase
+        .from('messages')
+        .select('id, content, sender_id, profiles:sender_id(username)')
+        .eq('id', replyToId)
+        .maybeSingle()
+      return data as unknown as { id: string; content: string; sender_id: string; profiles: { username: string } } | null
+    },
+    enabled: !!replyToId,
+  })
+}
