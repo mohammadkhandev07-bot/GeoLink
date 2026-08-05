@@ -19,6 +19,7 @@ export default function AperonixPage() {
     togglePinConversation,
     connectAsNewConversation,
     addMessage,
+    editUserMessage,
     replaceMessageContent,
     setMessageFeedback,
     loaded,
@@ -35,6 +36,8 @@ export default function AperonixPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
+  const [editMsgValue, setEditMsgValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const speakHandleRef = useRef<{ stop: () => void } | null>(null)
@@ -144,6 +147,44 @@ export default function AperonixPage() {
     } catch {
       // Clipboard API can be blocked in some browsers/contexts - not
       // critical enough to show an error for.
+    }
+  }
+
+  const handleStartEditMsg = (msg: AperonixMessage) => {
+    setEditingMsgId(msg.id)
+    setEditMsgValue(msg.content)
+  }
+
+  // Editing a message drops everything that came after it (the old reply
+  // included) and asks Aperonix again from that point - same as ChatGPT's
+  // "edit message" behavior.
+  const handleConfirmEditMsg = async (msg: AperonixMessage) => {
+    const newContent = editMsgValue.trim()
+    if (!newContent || !activeId || !activeConversation) { setEditingMsgId(null); return }
+
+    const idx = activeConversation.messages.findIndex(m => m.id === msg.id)
+    if (idx === -1) { setEditingMsgId(null); return }
+
+    const historyBefore = [...(activeConversation.contextMessages ?? []), ...activeConversation.messages.slice(0, idx)]
+      .map(m => ({ role: m.role, content: m.content }))
+
+    editUserMessage(activeId, msg.id, newContent)
+    setEditingMsgId(null)
+    setSending(true)
+
+    try {
+      const res = await fetch('/api/aperonix/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: historyBefore, newMessage: newContent }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Something went wrong')
+      addMessage(activeId, { role: 'model', content: data.reply, timestamp: Date.now() })
+    } catch {
+      addMessage(activeId, { role: 'model', content: 'Try again later.', timestamp: Date.now() })
+    } finally {
+      setSending(false)
     }
   }
 
@@ -361,19 +402,66 @@ export default function AperonixPage() {
 
           {activeConversation?.messages.map((msg) => (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
-                msg.role === 'user'
-                  ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
-                  : 'bg-muted'
-              }`}>
-                {regeneratingId === msg.id ? (
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" />
-                  </span>
-                ) : msg.content}
-              </div>
+              {editingMsgId === msg.id ? (
+                <div className="max-w-[80%] w-full flex flex-col items-end gap-1.5">
+                  <textarea
+                    autoFocus
+                    value={editMsgValue}
+                    onChange={e => setEditMsgValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleConfirmEditMsg(msg) }
+                      if (e.key === 'Escape') setEditingMsgId(null)
+                    }}
+                    rows={2}
+                    className="w-full rounded-2xl px-4 py-2.5 text-sm bg-muted border border-pink-500 outline-none resize-none"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setEditingMsgId(null)} className="text-xs px-3 py-1.5 rounded-full text-muted-foreground hover:bg-muted">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleConfirmEditMsg(msg)}
+                      className="text-xs px-3 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white font-medium"
+                    >
+                      Save & resend
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
+                    : 'bg-muted'
+                }`}>
+                  {regeneratingId === msg.id ? (
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" />
+                    </span>
+                  ) : msg.content}
+                </div>
+              )}
+
+              {/* Copy / Edit - only on the person's own messages. */}
+              {msg.role === 'user' && editingMsgId !== msg.id && (
+                <div className="flex items-center gap-1 mt-1 px-1 text-muted-foreground">
+                  <button
+                    onClick={() => handleCopy(msg)}
+                    title="Copy"
+                    className="p-1.5 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    {copiedMessageId === msg.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => handleStartEditMsg(msg)}
+                    title="Edit"
+                    className="p-1.5 rounded-lg hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
 
               {/* Copy / Regenerate / Like / Dislike / Share - only on
                   Aperonix's own replies, once it's done regenerating. */}
