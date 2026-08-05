@@ -127,6 +127,25 @@ export function useAperonixChats() {
     return newConvo.id
   }, [conversations, persist])
 
+  // Editing a user message truncates everything after it (the old reply and
+  // anything following) since the conversation is about to branch off from
+  // this edited point - same as ChatGPT's "edit message" behavior.
+  const editUserMessage = useCallback((conversationId: string, messageId: string, newContent: string) => {
+    setConversations(prev => {
+      const next = prev.map(c => {
+        if (c.id !== conversationId) return c
+        const idx = c.messages.findIndex(m => m.id === messageId)
+        if (idx === -1) return c
+        const messages = c.messages.slice(0, idx + 1).map((m, i) =>
+          i === idx ? { ...m, content: newContent, timestamp: Date.now() } : m
+        )
+        return { ...c, messages, updatedAt: Date.now() }
+      })
+      saveConversations(next)
+      return next
+    })
+  }, [])
+
   const addMessage = useCallback((conversationId: string, message: Omit<AperonixMessage, 'id'> & { id?: string }) => {
     const withId: AperonixMessage = { ...message, id: message.id || crypto.randomUUID() }
     setConversations(prev => {
@@ -193,6 +212,7 @@ export function useAperonixChats() {
     togglePinConversation,
     connectAsNewConversation,
     addMessage,
+    editUserMessage,
     replaceMessageContent,
     setMessageFeedback,
     loaded,
