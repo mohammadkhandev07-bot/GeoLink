@@ -39,14 +39,15 @@ export default function AperonixPage() {
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editMsgValue, setEditMsgValue] = useState('')
   const [showAttachMenu, setShowAttachMenu] = useState(false)
-  const [attachedFile, setAttachedFile] = useState<File | null>(null)
-  const [attachedPreviewUrl, setAttachedPreviewUrl] = useState<string | null>(null)
-  const [attachedType, setAttachedType] = useState<'image' | 'video' | null>(null)
+  const [attachedItems, setAttachedItems] = useState<{ file: File; type: 'image' | 'video'; previewUrl: string }[]>([])
   const [attachError, setAttachError] = useState<string | null>(null)
   const [checkingVideo, setCheckingVideo] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
+  // Kept intentionally out of any user-facing copy - enforced silently
+  // rather than advertised as a documented limit.
+  const MAX_PHOTOS = 5
   // Max clip length the chat can accept - Vercel's serverless function
   // timeout means Gemini can't realistically process much more than this
   // for a video before the request itself gets killed.
@@ -82,9 +83,8 @@ export default function AperonixPage() {
 
   const sendMessage = async (text: string, viaVoice: boolean) => {
     text = text.trim()
-    const file = attachedFile
-    const fileType = attachedType
-    if ((!text && !file) || sending || attachError) return
+    const items = attachedItems
+    if ((!text && items.length === 0) || sending || attachError) return
 
     let conversationId = activeId
     if (!conversationId) {
@@ -94,19 +94,27 @@ export default function AperonixPage() {
     setInput('')
     setSending(true)
 
-    // Only photos get a stored thumbnail - videos are never persisted to
+    // Only photos get stored thumbnails - a video is never persisted to
     // localStorage (even compressed, one video's worth of base64 would
-    // blow the quota), they just show a simple label in the chat instead.
-    let thumbnailDataUrl: string | undefined
-    if (file && fileType === 'image') {
-      try { thumbnailDataUrl = await compressImage(file) } catch { /* show without thumbnail if this fails */ }
+    // blow the quota), it just shows a simple label in the chat instead.
+    const attachments: { type: 'image' | 'video'; thumbnailDataUrl?: string }[] = []
+    for (const item of items) {
+      if (item.type === 'image') {
+        try {
+          attachments.push({ type: 'image', thumbnailDataUrl: await compressImage(item.file) })
+        } catch {
+          attachments.push({ type: 'image' })
+        }
+      } else {
+        attachments.push({ type: 'video' })
+      }
     }
 
     const userMessage: Omit<AperonixMessage, 'id'> = {
       role: 'user',
       content: text,
       timestamp: Date.now(),
-      attachment: file ? { type: fileType!, thumbnailDataUrl } : null,
+      attachments: attachments.length > 0 ? attachments : null,
     }
     addMessage(conversationId, userMessage)
     clearAttachment()
@@ -115,10 +123,9 @@ export default function AperonixPage() {
       const history = [...(activeConversation?.contextMessages ?? []), ...(activeConversation?.messages ?? [])]
         .map(m => ({ role: m.role, content: m.content }))
 
-      let media: { mimeType: string; data: string } | undefined
-      if (file) {
-        media = { mimeType: file.type, data: await fileToBase64(file) }
-      }
+      const media = items.length > 0
+        ? await Promise.all(items.map(async item => ({ mimeType: item.file.type, data: await fileToBase64(item.file) })))
+        : undefined
 
       const res = await fetch('/api/aperonix/chat', {
         method: 'POST',
@@ -199,22 +206,37 @@ export default function AperonixPage() {
   }
 
   const clearAttachment = () => {
-    if (attachedPreviewUrl) URL.revokeObjectURL(attachedPreviewUrl)
-    setAttachedFile(null)
-    setAttachedPreviewUrl(null)
-    setAttachedType(null)
+    attachedItems.forEach(item => URL.revokeObjectURL(item.previewUrl))
+    setAttachedItems([])
+    setAttachError(null)
+  }
+
+  const removeAttachedItem = (index: number) => {
+    setAttachedItems(prev => {
+      const removed = prev[index]
+      if (removed) URL.revokeObjectURL(removed.previewUrl)
+      return prev.filter((_, i) => i !== index)
+    })
     setAttachError(null)
   }
 
   const handlePhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files || [])
     e.target.value = ''
     setShowAttachMenu(false)
-    if (!file) return
-    clearAttachment()
-    setAttachedFile(file)
-    setAttachedType('image')
-    setAttachedPreviewUrl(URL.createObjectURL(file))
+    if (files.length === 0) return
+
+    setAttachedItems(prev => {
+      // Photos and a video don't mix - picking a photo while a video is
+      // attached starts a fresh photo-only selection instead.
+      const base = prev.some(i => i.type === 'video') ? [] : prev
+      const remainingSlots = Math.max(0, MAX_PHOTOS - base.length)
+      const toAdd = files.slice(0, remainingSlots).map(file => ({
+        file, type: 'image' as const, previewUrl: URL.createObjectURL(file),
+      }))
+      return [...base, ...toAdd]
+    })
+    setAttachError(null)
   }
 
   const handleVideoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,7 +244,7 @@ export default function AperonixPage() {
     e.target.value = ''
     setShowAttachMenu(false)
     if (!file) return
-    clearAttachment()
+
     setCheckingVideo(true)
     try {
       const duration = await getVideoDuration(file)
@@ -231,9 +253,9 @@ export default function AperonixPage() {
         setCheckingVideo(false)
         return
       }
-      setAttachedFile(file)
-      setAttachedType('video')
-      setAttachedPreviewUrl(URL.createObjectURL(file))
+      // Only one video at a time, and it replaces any photos already picked.
+      clearAttachment()
+      setAttachedItems([{ file, type: 'video', previewUrl: URL.createObjectURL(file) }])
     } catch {
       setAttachError('Could not read that video. Try a different file.')
     } finally {
@@ -557,12 +579,18 @@ export default function AperonixPage() {
                     ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
                     : 'bg-muted'
                 }`}>
-                  {msg.attachment && (
-                    msg.attachment.type === 'image' && msg.attachment.thumbnailDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={msg.attachment.thumbnailDataUrl} alt="Attached" className="rounded-xl mb-2 max-h-48 object-cover" />
-                    ) : (
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    msg.attachments[0].type === 'video' ? (
                       <div className="flex items-center gap-1.5 mb-2 text-xs opacity-90">🎥 Video attached</div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {msg.attachments.map((a, i) => (
+                          a.thumbnailDataUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={a.thumbnailDataUrl} alt="Attached" className="rounded-xl w-20 h-20 object-cover" />
+                          ) : null
+                        ))}
+                      </div>
                     )
                   )}
                   {regeneratingId === msg.id ? (
@@ -659,38 +687,37 @@ export default function AperonixPage() {
         </div>
 
         <div className="border-t">
-          {(attachedPreviewUrl || attachError || checkingVideo) && (
-            <div className="px-3 pt-2.5 flex items-start gap-2">
-              {checkingVideo ? (
+          {(attachedItems.length > 0 || attachError || checkingVideo) && (
+            <div className="px-3 pt-2.5 flex items-start gap-2 flex-wrap">
+              {checkingVideo && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Checking video length...
                 </div>
-              ) : attachError ? (
+              )}
+              {attachError && (
                 <div className="flex-1 flex items-center justify-between gap-2 bg-red-500/10 text-red-500 text-xs rounded-xl px-3 py-2">
                   <span>{attachError}</span>
                   <button onClick={() => setAttachError(null)} className="shrink-0"><X className="h-3.5 w-3.5" /></button>
                 </div>
-              ) : attachedPreviewUrl && attachedType === 'image' ? (
-                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={attachedPreviewUrl} alt="Attached" className="w-full h-full object-cover" />
-                  <button onClick={clearAttachment} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+              )}
+              {attachedItems.map((item, i) => (
+                <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-border bg-black shrink-0">
+                  {item.type === 'image' ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.previewUrl} alt="Attached" className="w-full h-full object-cover" />
+                  ) : (
+                    <video src={item.previewUrl} className="w-full h-full object-cover" muted />
+                  )}
+                  <button onClick={() => removeAttachedItem(i)} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
                     <X className="h-3 w-3 text-white" />
                   </button>
                 </div>
-              ) : attachedPreviewUrl && attachedType === 'video' ? (
-                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-border bg-black">
-                  <video src={attachedPreviewUrl} className="w-full h-full object-cover" muted />
-                  <button onClick={clearAttachment} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
-                    <X className="h-3 w-3 text-white" />
-                  </button>
-                </div>
-              ) : null}
+              ))}
             </div>
           )}
 
           <form onSubmit={handleSend} className="p-3 flex items-end gap-2">
-            <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={handlePhotoPicked} />
+            <input ref={photoInputRef} type="file" accept="image/*" multiple hidden onChange={handlePhotoPicked} />
             <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoPicked} />
 
             <div className="relative shrink-0">
@@ -718,7 +745,7 @@ export default function AperonixPage() {
                       onClick={() => videoInputRef.current?.click()}
                       className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted transition-colors"
                     >
-                      🎥 Video <span className="text-muted-foreground text-xs">(max {MAX_VIDEO_SECONDS}s)</span>
+                      🎥 Video
                     </button>
                   </div>
                 </>
@@ -751,7 +778,7 @@ export default function AperonixPage() {
             </button>
             <button
               type="submit"
-              disabled={(!input.trim() && !attachedFile) || sending || !!attachError || checkingVideo}
+              disabled={(!input.trim() && attachedItems.length === 0) || sending || !!attachError || checkingVideo}
               className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white flex items-center justify-center disabled:opacity-40 shrink-0"
             >
               <Send className="h-4 w-4" />
