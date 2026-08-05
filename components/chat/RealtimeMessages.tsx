@@ -44,4 +44,4 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, onReply }:
       <div ref={bottomRef} />
     </div>
   )
-}
+} 
