@@ -9,7 +9,7 @@ import { MessageInput } from '@/components/chat/MessageInput'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { createClient } from '@/lib/supabase/client'
-import { ChatWithProfiles } from '@/lib/types/database.types'
+import { ChatWithProfiles, Message } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import {
@@ -27,6 +27,7 @@ export default function ChatRoomPage() {
   const [deleting, setDeleting] = useState(false)
   const [canSend, setCanSend] = useState(true)
   const [restrictionMessage, setRestrictionMessage] = useState('')
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -151,11 +152,16 @@ export default function ChatRoomPage() {
       </div>
 
       {/* Messages */}
-      <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} />
+      <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} onReply={setReplyingTo} />
 
       {/* Input */}
       {canSend ? (
-        <MessageInput onSend={sendMessage} onTyping={sendTypingIndicator} />
+        <MessageInput
+          onSend={sendMessage}
+          onTyping={sendTypingIndicator}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
       ) : (
         <div className="px-4 py-4 border-t text-center">
           <p className="text-sm text-muted-foreground">{restrictionMessage}</p>
