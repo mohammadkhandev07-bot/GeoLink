@@ -84,6 +84,17 @@ export type Message = {
   story_id: string | null
   is_aperonix_reply: boolean
   is_read: boolean
+  deleted_for_sender: boolean
+  is_edited: boolean
+  reply_to_id: string | null
+  created_at: string
+}
+
+export type MessageReaction = {
+  id: string
+  message_id: string
+  user_id: string
+  emoji: string
   created_at: string
 }
 
