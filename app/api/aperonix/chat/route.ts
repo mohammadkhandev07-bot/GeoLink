@@ -19,12 +19,12 @@ export async function POST(request: NextRequest) {
     const { messages, newMessage, media } = (await request.json()) as {
       messages: ChatHistoryItem[]
       newMessage: string
-      media?: MediaInput
+      media?: MediaInput[]
     }
 
     // A photo/video with no caption is still a valid message - only reject
     // when there's genuinely nothing to send.
-    if (!newMessage?.trim() && !media) {
+    if (!newMessage?.trim() && (!media || media.length === 0)) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
     const trimmedHistory = (messages || []).slice(-20)
 
     const userParts: GeminiPart[] = []
-    if (media) {
-      userParts.push({ inlineData: { mimeType: media.mimeType, data: media.data } })
+    for (const item of media || []) {
+      userParts.push({ inlineData: { mimeType: item.mimeType, data: item.data } })
     }
     userParts.push({ text: newMessage?.trim() || 'Describe what you see in a friendly way.' })
 
