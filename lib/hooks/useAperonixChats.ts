@@ -10,11 +10,11 @@ export interface AperonixMessage {
   // Like/dislike is purely a local, on-device signal - it's never sent to
   // Supabase or anywhere else, so it lives right here next to the message.
   feedback?: 'like' | 'dislike' | null
-  // A photo/video the person attached when sending this message. Only a
-  // small compressed thumbnail is kept for photos (so localStorage doesn't
-  // fill up over time) - videos aren't thumbnailed at all, just labeled,
-  // since even one video's worth of base64 would blow the storage quota.
-  attachment?: { type: 'image' | 'video'; thumbnailDataUrl?: string } | null
+  // Photo(s)/video the person attached when sending this message. Only
+  // small compressed thumbnails are kept for photos (so localStorage
+  // doesn't fill up over time) - videos aren't thumbnailed at all, just
+  // labeled, since even one video's worth of base64 would blow the quota.
+  attachments?: { type: 'image' | 'video'; thumbnailDataUrl?: string }[] | null
 }
 
 export interface AperonixConversation {
