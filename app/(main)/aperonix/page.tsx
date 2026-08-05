@@ -38,6 +38,19 @@ export default function AperonixPage() {
   const [renameValue, setRenameValue] = useState('')
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editMsgValue, setEditMsgValue] = useState('')
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [attachedFile, setAttachedFile] = useState<File | null>(null)
+  const [attachedPreviewUrl, setAttachedPreviewUrl] = useState<string | null>(null)
+  const [attachedType, setAttachedType] = useState<'image' | 'video' | null>(null)
+  const [attachError, setAttachError] = useState<string | null>(null)
+  const [checkingVideo, setCheckingVideo] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
+
+  // Max clip length the chat can accept - Vercel's serverless function
+  // timeout means Gemini can't realistically process much more than this
+  // for a video before the request itself gets killed.
+  const MAX_VIDEO_SECONDS = 20
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const speakHandleRef = useRef<{ stop: () => void } | null>(null)
@@ -69,7 +82,9 @@ export default function AperonixPage() {
 
   const sendMessage = async (text: string, viaVoice: boolean) => {
     text = text.trim()
-    if (!text || sending) return
+    const file = attachedFile
+    const fileType = attachedType
+    if ((!text && !file) || sending || attachError) return
 
     let conversationId = activeId
     if (!conversationId) {
@@ -79,16 +94,36 @@ export default function AperonixPage() {
     setInput('')
     setSending(true)
 
-    const userMessage: Omit<AperonixMessage, 'id'> = { role: 'user', content: text, timestamp: Date.now() }
+    // Only photos get a stored thumbnail - videos are never persisted to
+    // localStorage (even compressed, one video's worth of base64 would
+    // blow the quota), they just show a simple label in the chat instead.
+    let thumbnailDataUrl: string | undefined
+    if (file && fileType === 'image') {
+      try { thumbnailDataUrl = await compressImage(file) } catch { /* show without thumbnail if this fails */ }
+    }
+
+    const userMessage: Omit<AperonixMessage, 'id'> = {
+      role: 'user',
+      content: text,
+      timestamp: Date.now(),
+      attachment: file ? { type: fileType!, thumbnailDataUrl } : null,
+    }
     addMessage(conversationId, userMessage)
+    clearAttachment()
 
     try {
       const history = [...(activeConversation?.contextMessages ?? []), ...(activeConversation?.messages ?? [])]
         .map(m => ({ role: m.role, content: m.content }))
+
+      let media: { mimeType: string; data: string } | undefined
+      if (file) {
+        media = { mimeType: file.type, data: await fileToBase64(file) }
+      }
+
       const res = await fetch('/api/aperonix/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, newMessage: text }),
+        body: JSON.stringify({ messages: history, newMessage: text, media }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
@@ -115,6 +150,95 @@ export default function AperonixPage() {
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     sendMessage(input, false)
+  }
+
+  // Downscales + compresses a photo before it's ever stored, so the chat
+  // history's local thumbnail never meaningfully adds up in localStorage
+  // even after many photos over time.
+  const compressImage = (file: File, maxDim = 480, quality = 0.6): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = document.createElement('img')
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width * scale
+        canvas.height = img.height * scale
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('canvas unavailable')); return }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(url)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
+  const getVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video')
+      const url = URL.createObjectURL(file)
+      video.preload = 'metadata'
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(url)
+        resolve(video.duration)
+      }
+      video.onerror = reject
+      video.src = url
+    })
+  }
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const clearAttachment = () => {
+    if (attachedPreviewUrl) URL.revokeObjectURL(attachedPreviewUrl)
+    setAttachedFile(null)
+    setAttachedPreviewUrl(null)
+    setAttachedType(null)
+    setAttachError(null)
+  }
+
+  const handlePhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    setShowAttachMenu(false)
+    if (!file) return
+    clearAttachment()
+    setAttachedFile(file)
+    setAttachedType('image')
+    setAttachedPreviewUrl(URL.createObjectURL(file))
+  }
+
+  const handleVideoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    setShowAttachMenu(false)
+    if (!file) return
+    clearAttachment()
+    setCheckingVideo(true)
+    try {
+      const duration = await getVideoDuration(file)
+      if (duration > MAX_VIDEO_SECONDS) {
+        setAttachError(`This video is ${Math.round(duration)}s long. Please pick one under ${MAX_VIDEO_SECONDS} seconds.`)
+        setCheckingVideo(false)
+        return
+      }
+      setAttachedFile(file)
+      setAttachedType('video')
+      setAttachedPreviewUrl(URL.createObjectURL(file))
+    } catch {
+      setAttachError('Could not read that video. Try a different file.')
+    } finally {
+      setCheckingVideo(false)
+    }
   }
 
   const handleNewChat = () => {
@@ -433,6 +557,14 @@ export default function AperonixPage() {
                     ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
                     : 'bg-muted'
                 }`}>
+                  {msg.attachment && (
+                    msg.attachment.type === 'image' && msg.attachment.thumbnailDataUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={msg.attachment.thumbnailDataUrl} alt="Attached" className="rounded-xl mb-2 max-h-48 object-cover" />
+                    ) : (
+                      <div className="flex items-center gap-1.5 mb-2 text-xs opacity-90">🎥 Video attached</div>
+                    )
+                  )}
                   {regeneratingId === msg.id ? (
                     <span className="flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
@@ -526,39 +658,106 @@ export default function AperonixPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSend} className="p-3 border-t flex items-end gap-2">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend(e as unknown as React.FormEvent)
-              }
-            }}
-            placeholder={isListening ? 'Listening...' : 'Message Aperonix...'}
-            rows={1}
-            className="flex-1 bg-muted rounded-2xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500 resize-none overflow-y-auto leading-relaxed"
-          />
-          <button
-            type="button"
-            onClick={handleMicClick}
-            title={isListening ? 'Stop listening' : 'Speak to Aperonix'}
-            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-              isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </button>
-          <button
-            type="submit"
-            disabled={!input.trim() || sending}
-            className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white flex items-center justify-center disabled:opacity-40 shrink-0"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        </form>
+        <div className="border-t">
+          {(attachedPreviewUrl || attachError || checkingVideo) && (
+            <div className="px-3 pt-2.5 flex items-start gap-2">
+              {checkingVideo ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted rounded-xl px-3 py-2">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Checking video length...
+                </div>
+              ) : attachError ? (
+                <div className="flex-1 flex items-center justify-between gap-2 bg-red-500/10 text-red-500 text-xs rounded-xl px-3 py-2">
+                  <span>{attachError}</span>
+                  <button onClick={() => setAttachError(null)} className="shrink-0"><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ) : attachedPreviewUrl && attachedType === 'image' ? (
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={attachedPreviewUrl} alt="Attached" className="w-full h-full object-cover" />
+                  <button onClick={clearAttachment} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+                    <X className="h-3 w-3 text-white" />
+                  </button>
+                </div>
+              ) : attachedPreviewUrl && attachedType === 'video' ? (
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-border bg-black">
+                  <video src={attachedPreviewUrl} className="w-full h-full object-cover" muted />
+                  <button onClick={clearAttachment} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+                    <X className="h-3 w-3 text-white" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          <form onSubmit={handleSend} className="p-3 flex items-end gap-2">
+            <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={handlePhotoPicked} />
+            <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={handleVideoPicked} />
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAttachMenu(v => !v)}
+                title="Attach photo or video"
+                className="w-10 h-10 rounded-full bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-transform duration-200"
+                style={{ transform: showAttachMenu ? 'rotate(45deg)' : 'rotate(0deg)' }}
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+
+              {showAttachMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowAttachMenu(false)} />
+                  <div className="absolute bottom-12 left-0 z-40 w-44 bg-card border rounded-xl shadow-xl overflow-hidden">
+                    <button
+                      onClick={() => photoInputRef.current?.click()}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted transition-colors"
+                    >
+                      📷 Photo
+                    </button>
+                    <button
+                      onClick={() => videoInputRef.current?.click()}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted transition-colors"
+                    >
+                      🎥 Video <span className="text-muted-foreground text-xs">(max {MAX_VIDEO_SECONDS}s)</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend(e as unknown as React.FormEvent)
+                }
+              }}
+              placeholder={isListening ? 'Listening...' : 'Message Aperonix...'}
+              rows={1}
+              className="flex-1 bg-muted rounded-2xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500 resize-none overflow-y-auto leading-relaxed"
+            />
+            <button
+              type="button"
+              onClick={handleMicClick}
+              title={isListening ? 'Stop listening' : 'Speak to Aperonix'}
+              className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </button>
+            <button
+              type="submit"
+              disabled={(!input.trim() && !attachedFile) || sending || !!attachError || checkingVideo}
+              className="w-10 h-10 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white flex items-center justify-center disabled:opacity-40 shrink-0"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </form>
+        </div>
       </div>
 
       {shareText && (
