@@ -107,19 +107,36 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
   }, [chatId, currentUserId])
 
   const sendMessage = useCallback(
-    async (content: string, replyToId?: string | null) => {
+    async (payload: {
+      content?: string
+      replyToId?: string | null
+      mediaUrl?: string
+      mediaType?: 'image' | 'video' | 'audio'
+      durationSeconds?: number
+      sticker?: string
+    }) => {
       const { error } = await supabase.from('messages').insert({
         chat_id: chatId,
         sender_id: currentUserId,
-        content,
-        reply_to_id: replyToId || null,
+        content: payload.content?.trim() || '',
+        reply_to_id: payload.replyToId || null,
+        media_url: payload.mediaUrl || null,
+        media_type: payload.mediaType || null,
+        media_duration_seconds: payload.durationSeconds ?? null,
+        sticker: payload.sticker || null,
       })
       if (error) throw error
 
-      // Update last message in chat
+      // Update last message preview in the chat list.
+      const preview = payload.sticker
+        ? `${payload.sticker} Sticker`
+        : payload.mediaType === 'image' ? '📷 Photo'
+        : payload.mediaType === 'video' ? '🎥 Video'
+        : payload.mediaType === 'audio' ? '🎤 Voice message'
+        : payload.content || ''
       await supabase
         .from('chats')
-        .update({ last_message: content, last_message_time: new Date().toISOString(), last_message_type: 'text' })
+        .update({ last_message: preview, last_message_time: new Date().toISOString(), last_message_type: 'text' })
         .eq('id', chatId)
     },
     [chatId, currentUserId]
@@ -127,7 +144,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
 
   // Optimistic local updates so the person acting (unsend/delete-for-me/
   // edit) sees it happen instantly, instead of waiting on the realtime
-  // Round-trip - the other participant still gets it live via the
+  // round-trip - the other participant still gets it live via the
   // subscription above.
   const removeMessageLocally = useCallback((messageId: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId))
