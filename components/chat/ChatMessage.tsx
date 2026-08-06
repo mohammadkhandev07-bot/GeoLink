@@ -6,6 +6,7 @@ import { SharedPostMessage } from './SharedPostMessage'
 import { SharedStoryMessage } from './SharedStoryMessage'
 import { AperonixReplyMessage } from './AperonixReplyMessage'
 import { MessageForwardModal } from './MessageForwardModal'
+import { VoiceMessagePlayer } from './VoiceMessagePlayer'
 import { FullEmojiPicker } from './FullEmojiPicker'
 import { Message } from '@/lib/types/database.types'
 import { formatTimeAgo } from '@/lib/utils/helpers'
@@ -195,6 +196,43 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
               <button onClick={() => setEditing(false)} className="text-xs px-2.5 py-1 rounded-full text-muted-foreground hover:bg-muted">Cancel</button>
               <button onClick={handleSaveEdit} className="text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white font-medium">Save</button>
             </div>
+          </div>
+        ) : (message as any).sticker ? (
+          <div className="text-6xl leading-none px-1">{(message as any).sticker}</div>
+        ) : (message as any).media_type === 'audio' ? (
+          <div className={cn(
+            'px-3 py-2',
+            isOwn
+              ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-2xl rounded-br-sm'
+              : 'bg-muted rounded-2xl rounded-bl-sm',
+            replyPreview && 'rounded-tl-none rounded-tr-none'
+          )}>
+            <VoiceMessagePlayer url={(message as any).media_url} durationSeconds={(message as any).media_duration_seconds} isOwn={isOwn} />
+            <p className={cn('text-[10px] mt-1', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
+              {formatTimeAgo(message.created_at)}
+              {isOwn && (message.is_read ? ' · Seen' : ' · Sent')}
+            </p>
+          </div>
+        ) : ((message as any).media_type === 'image' || (message as any).media_type === 'video') ? (
+          <div className={cn('rounded-2xl overflow-hidden max-w-[240px]', isOwn ? 'rounded-br-sm' : 'rounded-bl-sm', replyPreview && 'rounded-tl-none rounded-tr-none')}>
+            {(message as any).media_type === 'image' ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={(message as any).media_url} alt="Photo" className="w-full max-h-72 object-cover" />
+            ) : (
+              <video src={(message as any).media_url} controls className="w-full max-h-72" />
+            )}
+            {message.content && (
+              <div className={cn('px-3 py-2 text-sm', isOwn ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white' : 'bg-muted')}>
+                <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              </div>
+            )}
+            <p className={cn(
+              'text-[10px] px-3 py-1',
+              isOwn ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white/70' : 'bg-muted text-muted-foreground'
+            )}>
+              {formatTimeAgo(message.created_at)}
+              {isOwn && (message.is_read ? ' · Seen' : ' · Sent')}
+            </p>
           </div>
         ) : (
           <div className={cn(
