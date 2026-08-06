@@ -14,19 +14,37 @@ interface RealtimeMessagesProps {
 }
 
 export function RealtimeMessages({ messages, currentUserId, isTyping, onReply, onRemoveMessage, onPatchMessage }: RealtimeMessagesProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
   const [localMessages, setLocalMessages] = useState<Message[]>(messages)
 
   useEffect(() => {
     setLocalMessages(messages)
   }, [messages])
 
+  const isNearBottom = () => {
+    const el = containerRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 150
+  }
+
+  // Only jumps to the bottom when there's an actual new message (or the
+  // typing dots appear) AND the person is already near the bottom - not on
+  // every re-render, which used to yank them back down while they were
+  // scrolled up reading older messages.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const lastMsg = localMessages[localMessages.length - 1]
+    const isNewMessage = !!lastMsg && lastMsg.id !== lastMessageIdRef.current
+    lastMessageIdRef.current = lastMsg?.id ?? null
+
+    if ((isNewMessage || isTyping) && isNearBottom()) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [localMessages, isTyping])
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
       {localMessages.map((msg) => (
         <ChatMessage
           key={msg.id}
@@ -48,4 +66,4 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, onReply, o
       <div ref={bottomRef} />
     </div>
   )
-} 
+}
