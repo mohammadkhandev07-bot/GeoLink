@@ -85,6 +85,7 @@ export type Message = {
   is_aperonix_reply: boolean
   is_read: boolean
   deleted_for_sender: boolean
+  deleted_for_recipient: boolean
   is_edited: boolean
   reply_to_id: string | null
   created_at: string
