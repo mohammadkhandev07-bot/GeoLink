@@ -124,5 +124,17 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
     [chatId, currentUserId]
   )
 
-  return { messages, isTyping, onlineUsers, sendMessage, sendTypingIndicator }
+  // Optimistic local updates so the person acting (unsend/delete-for-me/
+  // edit) sees it happen instantly, instead of waiting on the realtime
+  // round-trip - the other participant still gets it live via the
+  // subscription above.
+  const removeMessageLocally = useCallback((messageId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId))
+  }, [])
+
+  const patchMessageLocally = useCallback((messageId: string, patch: Partial<Message>) => {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, ...patch } : m)))
+  }, [])
+
+  return { messages, isTyping, onlineUsers, sendMessage, sendTypingIndicator, removeMessageLocally, patchMessageLocally }
 }
