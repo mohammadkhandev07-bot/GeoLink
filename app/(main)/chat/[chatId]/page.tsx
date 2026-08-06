@@ -31,7 +31,7 @@ export default function ChatRoomPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const { messages, isTyping, onlineUsers, sendMessage, sendTypingIndicator } =
+  const { messages, isTyping, onlineUsers, sendMessage, sendTypingIndicator, removeMessageLocally, patchMessageLocally } =
     useRealtimeMessages(chatId, user?.id ?? '')
 
   useEffect(() => {
@@ -152,7 +152,14 @@ export default function ChatRoomPage() {
       </div>
 
       {/* Messages */}
-      <RealtimeMessages messages={messages} currentUserId={user.id} isTyping={isTyping} onReply={setReplyingTo} />
+      <RealtimeMessages
+        messages={messages}
+        currentUserId={user.id}
+        isTyping={isTyping}
+        onReply={setReplyingTo}
+        onRemoveMessage={removeMessageLocally}
+        onPatchMessage={patchMessageLocally}
+      />
 
       {/* Input */}
       {canSend ? (
