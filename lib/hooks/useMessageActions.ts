@@ -19,15 +19,17 @@ export function useUnsendMessage() {
 }
 
 // ------------------------------------------------------------------
-// Delete for me - only the sender stops seeing it, the recipient still
-// does. Enforced by the messages SELECT policy, not by frontend filtering.
+// Delete for me - only the person who clicked it stops seeing it, the
+// other side of the conversation still does. Whether it's the sender or
+// recipient doing the deleting determines which flag gets set.
 // ------------------------------------------------------------------
 export function useDeleteMessageForMe() {
   const supabase = createClient()
 
   return useMutation({
-    mutationFn: async ({ messageId }: { messageId: string; chatId: string }) => {
-      const { error } = await supabase.from('messages').update({ deleted_for_sender: true }).eq('id', messageId)
+    mutationFn: async ({ messageId, isSender }: { messageId: string; chatId: string; isSender: boolean }) => {
+      const column = isSender ? 'deleted_for_sender' : 'deleted_for_recipient'
+      const { error } = await supabase.from('messages').update({ [column]: true }).eq('id', messageId)
       if (error) throw error
     },
   })
