@@ -145,7 +145,7 @@ export function MessageInput({ onSend, onTyping, disabled, replyingTo, onCancelR
     }
   }
 
-  // --- Voice recording -------------------------------------------------
+  // --- Voice recording ---------------------------------------------------------
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
