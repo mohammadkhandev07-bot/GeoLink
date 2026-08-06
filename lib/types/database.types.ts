@@ -88,6 +88,10 @@ export type Message = {
   deleted_for_recipient: boolean
   is_edited: boolean
   reply_to_id: string | null
+  media_url: string | null
+  media_type: 'image' | 'video' | 'audio' | null
+  media_duration_seconds: number | null
+  sticker: string | null
   created_at: string
 }
 
