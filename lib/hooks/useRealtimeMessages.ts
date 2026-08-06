@@ -51,10 +51,11 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
         },
         (payload) => {
           const updated = payload.new as Message
-          // A sender's own "delete for me" should only ever disappear from
-          // their own view - the other person keeps seeing it normally,
-          // matching the same rule the SELECT policy enforces server-side.
-          if (updated.deleted_for_sender && updated.sender_id === currentUserId) {
+          // Whoever clicked "delete for me" - sender or recipient - should
+          // only ever lose it from their own view, matching the same rule
+          // the SELECT policy enforces server-side.
+          const iAmSender = updated.sender_id === currentUserId
+          if ((updated.deleted_for_sender && iAmSender) || (updated.deleted_for_recipient && !iAmSender)) {
             setMessages((prev) => prev.filter((m) => m.id !== updated.id))
             return
           }
