@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/lib/types/database.types'
 
 // ------------------------------------------------------------------
-// Unsend - removes the message for both people entirely.
+// Unsend - Removes the message for both people entirely.
 // ------------------------------------------------------------------
 export function useUnsendMessage() {
   const supabase = createClient()
