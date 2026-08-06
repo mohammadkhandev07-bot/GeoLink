@@ -127,7 +127,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
 
   // Optimistic local updates so the person acting (unsend/delete-for-me/
   // edit) sees it happen instantly, instead of waiting on the realtime
-  // round-trip - the other participant still gets it live via the
+  // Round-trip - the other participant still gets it live via the
   // subscription above.
   const removeMessageLocally = useCallback((messageId: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId))
