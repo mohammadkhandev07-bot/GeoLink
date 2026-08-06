@@ -106,7 +106,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
   const handleDeleteForMe = () => {
     setShowMenu(false)
     onRemoveMessage?.(message.id)
-    deleteForMe.mutate({ messageId: message.id, chatId: message.chat_id })
+    deleteForMe.mutate({ messageId: message.id, chatId: message.chat_id, isSender: isOwn })
   }
 
   const handleSaveEdit = () => {
@@ -226,7 +226,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
         )}
       </div>
 
-      {isOwn && !editing && (
+      {!editing && (
         <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
           <button ref={menuBtnRef} onClick={openMenu} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
             <MoreVertical className="h-4 w-4" />
@@ -249,9 +249,11 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             className="fixed z-40 bg-card border rounded-xl shadow-xl overflow-hidden"
             style={{ top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
           >
-            <button onClick={() => { setShowMenu(false); setEditing(true) }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </button>
+            {isOwn && (
+              <button onClick={() => { setShowMenu(false); setEditing(true) }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+            )}
             <button onClick={handleCopy} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
               {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />} Copy
             </button>
@@ -264,9 +266,11 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             <button onClick={handleDeleteForMe} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
               <EyeOff className="h-3.5 w-3.5" /> Delete for me
             </button>
-            <button onClick={handleUnsend} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10">
-              <Trash2 className="h-3.5 w-3.5" /> Unsend
-            </button>
+            {isOwn && (
+              <button onClick={handleUnsend} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10">
+                <Trash2 className="h-3.5 w-3.5" /> Unsend
+              </button>
+            )}
           </div>
         </>
       )}
