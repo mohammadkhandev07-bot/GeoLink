@@ -9,9 +9,11 @@ interface RealtimeMessagesProps {
   currentUserId: string
   isTyping: boolean
   onReply?: (message: Message) => void
+  onRemoveMessage?: (messageId: string) => void
+  onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
 }
 
-export function RealtimeMessages({ messages, currentUserId, isTyping, onReply }: RealtimeMessagesProps) {
+export function RealtimeMessages({ messages, currentUserId, isTyping, onReply, onRemoveMessage, onPatchMessage }: RealtimeMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [localMessages, setLocalMessages] = useState<Message[]>(messages)
 
@@ -32,6 +34,8 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, onReply }:
           isOwn={msg.sender_id === currentUserId}
           currentUserId={currentUserId}
           onReply={onReply}
+          onRemoveMessage={onRemoveMessage}
+          onPatchMessage={onPatchMessage}
         />
       ))}
       {isTyping && (
@@ -44,4 +48,4 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, onReply }:
       <div ref={bottomRef} />
     </div>
   )
-} 
+}
