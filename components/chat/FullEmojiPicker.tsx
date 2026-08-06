@@ -44,12 +44,14 @@ const EMOJI_CATEGORIES: { label: string; emojis: string[] }[] = [
 interface FullEmojiPickerProps {
   onSelect: (emoji: string) => void
   onClose: () => void
+  style?: React.CSSProperties
 }
 
-export function FullEmojiPicker({ onSelect, onClose }: FullEmojiPickerProps) {
+export function FullEmojiPicker({ onSelect, onClose, style }: FullEmojiPickerProps) {
   return (
     <div
-      className="absolute bottom-full mb-2 bg-card border rounded-xl shadow-2xl w-72 max-h-72 flex flex-col z-50"
+      className="fixed bg-card border rounded-xl shadow-2xl w-72 max-h-72 flex flex-col z-50"
+      style={style}
       onClick={e => e.stopPropagation()}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
