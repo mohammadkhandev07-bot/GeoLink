@@ -227,7 +227,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
       </div>
 
       {isOwn && !editing && (
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
           <button ref={menuBtnRef} onClick={openMenu} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
             <MoreVertical className="h-4 w-4" />
           </button>
