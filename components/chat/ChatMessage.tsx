@@ -118,7 +118,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
       URL.revokeObjectURL(blobUrl)
     } catch {
       // If the download fetch fails (e.g. blocked by CORS on a custom CDN),
-      // falling back to opening it in a new tab still lets them save it manually.
+      // Falling back to opening it in a new tab still lets them save it manually.
       window.open(mediaUrl, '_blank')
     } finally {
       setDownloading(false)
