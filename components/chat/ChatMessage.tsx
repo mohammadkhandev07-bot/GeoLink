@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { MoreVertical, Reply as ReplyIcon, Smile, Pencil, Trash2, EyeOff, Copy, Volume2, Square, Forward, Check } from 'lucide-react'
+import { MoreVertical, Reply as ReplyIcon, Smile, Pencil, Trash2, EyeOff, Copy, Volume2, Square, Forward, Check, Download, Gauge } from 'lucide-react'
 import { SharedPostMessage } from './SharedPostMessage'
 import { SharedStoryMessage } from './SharedStoryMessage'
 import { AperonixReplyMessage } from './AperonixReplyMessage'
@@ -32,19 +32,23 @@ interface ChatMessageProps {
   onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
 }
 
-const MENU_WIDTH = 192
-const MENU_HEIGHT = 260
+const MENU_WIDTH = 208
+const MENU_HEIGHT = 320
 const EMOJI_WIDTH = 288
 const EMOJI_HEIGHT = 288
+const SPEEDS = [1, 1.5, 2, 0.5]
 
 export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMessage, onPatchMessage }: ChatMessageProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showForward, setShowForward] = useState(false)
+  const [showReactors, setShowReactors] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(message.content)
   const [copied, setCopied] = useState(false)
   const [speaking, setSpeaking] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [playbackRate, setPlaybackRate] = useState(1)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [emojiPos, setEmojiPos] = useState<{ top: number; left: number } | null>(null)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
@@ -58,11 +62,13 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
   const removeReaction = useRemoveMessageReaction()
   const { data: replyPreview } = useReplyPreview((message as any).reply_to_id)
 
+  const mediaType = (message as any).media_type as 'image' | 'video' | 'audio' | null
+  const mediaUrl = (message as any).media_url as string | null
   const myReaction = reactions.find(r => r.user_id === currentUserId)
 
   // Both popups are viewport-clamped (never spill off the edge of the
-  // Screen, flip upward if there's no room below) - essential on mobile
-  // Where a long message can push the button close to the bottom edge.
+  // screen, flip upward if there's no room below) - essential on mobile
+  // where a long message can push the button close to the bottom edge.
   const openMenu = () => {
     const rect = menuBtnRef.current?.getBoundingClientRect()
     if (rect) setMenuPos(getClampedPopupPosition(rect, MENU_WIDTH, MENU_HEIGHT))
@@ -95,6 +101,36 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
     await speakText(message.content, () => setSpeaking(false))
   }
 
+  const handleDownload = async () => {
+    if (!mediaUrl) return
+    setDownloading(true)
+    try {
+      const res = await fetch(mediaUrl)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const ext = mediaType === 'video' ? 'mp4' : 'jpg'
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `geolink-${mediaType}-${message.id}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      // If the download fetch fails (e.g. blocked by CORS on a custom CDN),
+      // falling back to opening it in a new tab still lets them save it manually.
+      window.open(mediaUrl, '_blank')
+    } finally {
+      setDownloading(false)
+      setShowMenu(false)
+    }
+  }
+
+  const cyclePlaybackSpeed = () => {
+    const idx = SPEEDS.indexOf(playbackRate)
+    setPlaybackRate(SPEEDS[(idx + 1) % SPEEDS.length])
+  }
+
   // Each action updates the local list immediately (so the person acting
   // sees it happen instantly) alongside the actual database mutation - the
   // other participant gets the same result moments later via realtime.
@@ -125,6 +161,33 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
     } else {
       setReaction.mutate({ messageId: message.id, userId: currentUserId, emoji })
     }
+  }
+
+  // What shows in the little quoted-reply strip above a reply - text for a
+  // normal message, otherwise a small thumbnail/label so it's obvious what
+  // was actually replied to (Instagram-style), instead of just blank text.
+  const renderReplyPreviewContent = () => {
+    if (!replyPreview) return null
+    if (replyPreview.sticker) return <span>{replyPreview.sticker} Sticker</span>
+    if (replyPreview.media_type === 'audio') return <span>🎤 Voice message</span>
+    if (replyPreview.media_type === 'image' && replyPreview.media_url) {
+      return (
+        <span className="flex items-center gap-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={replyPreview.media_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
+          Photo
+        </span>
+      )
+    }
+    if (replyPreview.media_type === 'video' && replyPreview.media_url) {
+      return (
+        <span className="flex items-center gap-1.5">
+          <video src={replyPreview.media_url} className="w-6 h-6 rounded object-cover shrink-0" muted />
+          Video
+        </span>
+      )
+    }
+    return <span className="text-muted-foreground">{replyPreview.content}</span>
   }
 
   if ((message as any).post_id) {
@@ -175,7 +238,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
         {replyPreview && (
           <div className="text-[11px] px-2.5 py-1 rounded-t-xl border-l-2 border-pink-500 bg-muted/60 mb-[-2px] max-w-full truncate">
             <span className="font-semibold text-pink-500">{replyPreview.profiles?.username}</span>{' '}
-            <span className="text-muted-foreground">{replyPreview.content}</span>
+            {renderReplyPreviewContent()}
           </div>
         )}
 
@@ -199,7 +262,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
           </div>
         ) : (message as any).sticker ? (
           <div className="text-6xl leading-none px-1">{(message as any).sticker}</div>
-        ) : (message as any).media_type === 'audio' ? (
+        ) : mediaType === 'audio' ? (
           <div className={cn(
             'px-3 py-2',
             isOwn
@@ -207,19 +270,20 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
               : 'bg-muted rounded-2xl rounded-bl-sm',
             replyPreview && 'rounded-tl-none rounded-tr-none'
           )}>
-            <VoiceMessagePlayer url={(message as any).media_url} durationSeconds={(message as any).media_duration_seconds} isOwn={isOwn} />
-            <p className={cn('text-[10px] mt-1', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
+            <VoiceMessagePlayer url={mediaUrl!} durationSeconds={(message as any).media_duration_seconds} isOwn={isOwn} playbackRate={playbackRate} />
+            <p className={cn('text-[10px] mt-1 flex items-center gap-1.5', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
+              {playbackRate !== 1 && <span className="font-semibold">{playbackRate}x ·</span>}
               {formatTimeAgo(message.created_at)}
               {isOwn && (message.is_read ? ' · Seen' : ' · Sent')}
             </p>
           </div>
-        ) : ((message as any).media_type === 'image' || (message as any).media_type === 'video') ? (
+        ) : (mediaType === 'image' || mediaType === 'video') ? (
           <div className={cn('rounded-2xl overflow-hidden max-w-[240px]', isOwn ? 'rounded-br-sm' : 'rounded-bl-sm', replyPreview && 'rounded-tl-none rounded-tr-none')}>
-            {(message as any).media_type === 'image' ? (
+            {mediaType === 'image' ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={(message as any).media_url} alt="Photo" className="w-full max-h-72 object-cover" />
+              <img src={mediaUrl!} alt="Photo" className="w-full max-h-72 object-cover" />
             ) : (
-              <video src={(message as any).media_url} controls className="w-full max-h-72" />
+              <video src={mediaUrl!} controls className="w-full max-h-72" />
             )}
             {message.content && (
               <div className={cn('px-3 py-2 text-sm', isOwn ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white' : 'bg-muted')}>
@@ -252,15 +316,15 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
         )}
 
         {reactions.length > 0 && (
-          <div className="flex gap-0.5 mt-1 flex-wrap">
+          <button onClick={() => setShowReactors(true)} className="flex gap-0.5 mt-1 flex-wrap">
             {Object.entries(
               reactions.reduce((acc: Record<string, number>, r) => { acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc }, {})
             ).map(([emoji, count]) => (
-              <span key={emoji} className="text-xs bg-muted rounded-full px-1.5 py-0.5 border border-border">
+              <span key={emoji} className="text-xs bg-muted rounded-full px-1.5 py-0.5 border border-border hover:bg-accent transition-colors">
                 {emoji} {count > 1 ? count : ''}
               </span>
             ))}
-          </div>
+          </button>
         )}
       </div>
 
@@ -287,17 +351,31 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             className="fixed z-40 bg-card border rounded-xl shadow-xl overflow-hidden"
             style={{ top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
           >
-            {isOwn && (
+            {isOwn && !mediaType && !((message as any).sticker) && (
               <button onClick={() => { setShowMenu(false); setEditing(true) }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </button>
             )}
-            <button onClick={handleCopy} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
-              {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />} Copy
-            </button>
-            <button onClick={handleRead} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
-              {speaking ? <Square className="h-3.5 w-3.5 fill-current text-pink-500" /> : <Volume2 className="h-3.5 w-3.5" />} {speaking ? 'Stop' : 'Read aloud'}
-            </button>
+            {message.content && (
+              <button onClick={handleCopy} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
+                {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />} Copy
+              </button>
+            )}
+            {message.content && (
+              <button onClick={handleRead} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
+                {speaking ? <Square className="h-3.5 w-3.5 fill-current text-pink-500" /> : <Volume2 className="h-3.5 w-3.5" />} {speaking ? 'Stop' : 'Read aloud'}
+              </button>
+            )}
+            {(mediaType === 'image' || mediaType === 'video') && (
+              <button onClick={handleDownload} disabled={downloading} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted disabled:opacity-50">
+                <Download className="h-3.5 w-3.5" /> {downloading ? 'Downloading...' : mediaType === 'image' ? 'Download Photo' : 'Download Video'}
+              </button>
+            )}
+            {mediaType === 'audio' && (
+              <button onClick={cyclePlaybackSpeed} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
+                <Gauge className="h-3.5 w-3.5" /> Playback speed ({playbackRate}x)
+              </button>
+            )}
             <button onClick={() => { setShowMenu(false); setShowForward(true) }} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
               <Forward className="h-3.5 w-3.5" /> Forward
             </button>
@@ -322,6 +400,25 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             style={{ top: emojiPos.top, left: emojiPos.left }}
           />
         </>
+      )}
+
+      {showReactors && (
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-end sm:items-center justify-center p-4" onClick={() => setShowReactors(false)}>
+          <div className="bg-card border rounded-2xl w-full max-w-xs max-h-80 flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-3 border-b flex items-center justify-between shrink-0">
+              <p className="font-semibold text-sm">Reactions</p>
+              <button onClick={() => setShowReactors(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+            </div>
+            <div className="overflow-y-auto p-2">
+              {reactions.map((r: any) => (
+                <div key={r.id} className="flex items-center gap-2.5 px-2 py-2">
+                  <span className="text-xl shrink-0">{r.emoji}</span>
+                  <span className="text-sm truncate">{r.profiles?.username}{r.user_id === currentUserId ? ' (You)' : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {showForward && (
