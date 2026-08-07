@@ -8,6 +8,8 @@ import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
+import { useActiveStories } from '@/lib/hooks/useStories'
+import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
@@ -28,11 +30,13 @@ export default function ChatRoomPage() {
   const [canSend, setCanSend] = useState(true)
   const [restrictionMessage, setRestrictionMessage] = useState('')
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [showStory, setShowStory] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   const { messages, isTyping, onlineUsers, sendMessage, sendTypingIndicator, removeMessageLocally, patchMessageLocally } =
     useRealtimeMessages(chatId, user?.id ?? '')
+  const { data: storyGroups = [] } = useActiveStories(user?.id)
 
   useEffect(() => {
     if (!chatId) return
@@ -111,6 +115,8 @@ export default function ChatRoomPage() {
 
   const other = chat.participant1_id === user.id ? chat.participant2 : chat.participant1
   const isOnline = onlineUsers.includes(other.id)
+  const otherStoryGroupIndex = storyGroups.findIndex(g => g.userId === other.id)
+  const hasStory = otherStoryGroupIndex !== -1
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] max-w-xl mx-auto">
@@ -119,12 +125,26 @@ export default function ChatRoomPage() {
         <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <Avatar className="h-9 w-9">
-          <AvatarImage src={getAvatarUrl(other.avatar_url)} />
-          <AvatarFallback>{other.username?.[0]?.toUpperCase()}</AvatarFallback>
-        </Avatar>
+        <button
+          onClick={() => hasStory ? setShowStory(true) : router.push(`/profile/${other.username}`)}
+          className="shrink-0"
+        >
+          <div className={hasStory ? 'p-[2px] rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600' : ''}>
+            <div className={hasStory ? 'p-[2px] rounded-full bg-background' : ''}>
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={getAvatarUrl(other.avatar_url)} />
+                <AvatarFallback>{other.username?.[0]?.toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </div>
+          </div>
+        </button>
         <div className="flex-1">
-          <p className="font-semibold text-sm">{other.username}</p>
+          <button
+            onClick={() => hasStory ? setShowStory(true) : router.push(`/profile/${other.username}`)}
+            className="font-semibold text-sm hover:underline text-left"
+          >
+            {other.username}
+          </button>
           <div className="flex items-center gap-1">
             <Circle className={`h-2 w-2 fill-current ${isOnline ? 'text-green-500' : 'text-muted-foreground'}`} />
             <span className="text-xs text-muted-foreground">{isOnline ? 'Online' : 'Offline'}</span>
@@ -173,6 +193,14 @@ export default function ChatRoomPage() {
         <div className="px-4 py-4 border-t text-center">
           <p className="text-sm text-muted-foreground">{restrictionMessage}</p>
         </div>
+      )}
+      {showStory && hasStory && (
+        <StoryViewer
+          groups={storyGroups}
+          startGroupIndex={otherStoryGroupIndex}
+          currentUserId={user.id}
+          onClose={() => setShowStory(false)}
+        />
       )}
     </div>
   )
