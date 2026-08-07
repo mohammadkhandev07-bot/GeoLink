@@ -1,18 +1,23 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Play, Pause } from 'lucide-react'
 
 interface VoiceMessagePlayerProps {
   url: string
   durationSeconds: number | null
   isOwn: boolean
+  playbackRate?: number
 }
 
-export function VoiceMessagePlayer({ url, durationSeconds, isOwn }: VoiceMessagePlayerProps) {
+export function VoiceMessagePlayer({ url, durationSeconds, isOwn, playbackRate = 1 }: VoiceMessagePlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0) // 0-100
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = playbackRate
+  }, [playbackRate])
 
   const toggle = () => {
     const audio = audioRef.current
@@ -20,6 +25,7 @@ export function VoiceMessagePlayer({ url, durationSeconds, isOwn }: VoiceMessage
     if (playing) {
       audio.pause()
     } else {
+      audio.playbackRate = playbackRate
       audio.play()
     }
   }
