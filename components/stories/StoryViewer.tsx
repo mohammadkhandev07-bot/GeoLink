@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2, Eye } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo, cn } from '@/lib/utils/helpers'
@@ -50,6 +51,7 @@ function getActiveScene<T extends { duration: number }>(scenes: T[] | null, elap
 }
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
+  const router = useRouter()
   const [groupIndex, setGroupIndex] = useState(startGroupIndex)
   const [storyIndex, setStoryIndex] = useState(0)
   const [progress, setProgress] = useState(0)
@@ -390,7 +392,10 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
         {/* Header */}
         <div className="absolute top-5 left-2 right-2 z-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/profile/${group.profile?.username}`)}
+            className="flex items-center gap-2"
+          >
             <Avatar className="h-8 w-8 border border-white/30">
               <AvatarImage src={getAvatarUrl(group.profile?.avatar_url)} />
               <AvatarFallback>{group.profile?.username?.[0]?.toUpperCase()}</AvatarFallback>
@@ -399,7 +404,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               <p className="text-white text-sm font-medium leading-none">{group.profile?.username}</p>
               <p className="text-white/60 text-xs mt-0.5">{formatTimeAgo(story.created_at)}</p>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-3">
             {isOwn && (
               <div className="relative">
