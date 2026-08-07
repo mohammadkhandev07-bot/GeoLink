@@ -38,7 +38,10 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
           filter: `chat_id=eq.${chatId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message])
+          const incoming = payload.new as Message
+          // Guards against showing the sender's own message twice - once
+          // from the optimistic insert below, once from this realtime echo.
+          setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]))
         }
       )
       .on(
@@ -115,7 +118,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
       durationSeconds?: number
       sticker?: string
     }) => {
-      const { error } = await supabase.from('messages').insert({
+      const { data, error } = await supabase.from('messages').insert({
         chat_id: chatId,
         sender_id: currentUserId,
         content: payload.content?.trim() || '',
@@ -124,8 +127,15 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
         media_type: payload.mediaType || null,
         media_duration_seconds: payload.durationSeconds ?? null,
         sticker: payload.sticker || null,
-      })
+      }).select().single()
       if (error) throw error
+
+      // Show it immediately rather than waiting on the realtime echo to
+      // come back - the realtime INSERT handler above is guarded against
+      // adding it a second time once that echo does arrive.
+      if (data) {
+        setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]))
+      }
 
       // Update last message preview in the chat list.
       const preview = payload.sticker
