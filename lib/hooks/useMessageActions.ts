@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/lib/types/database.types'
 
 // ------------------------------------------------------------------
-// Unsend - Removes the message for both people entirely.
+// Unsend - removes the message for both people entirely.
 // ------------------------------------------------------------------
 export function useUnsendMessage() {
   const supabase = createClient()
@@ -162,10 +162,14 @@ export function useReplyPreview(replyToId?: string | null) {
       if (!replyToId) return null
       const { data } = await supabase
         .from('messages')
-        .select('id, content, sender_id, profiles:sender_id(username)')
+        .select('id, content, sender_id, media_type, media_url, sticker, profiles:sender_id(username)')
         .eq('id', replyToId)
         .maybeSingle()
-      return data as unknown as { id: string; content: string; sender_id: string; profiles: { username: string } } | null
+      return data as unknown as {
+        id: string; content: string; sender_id: string
+        media_type: 'image' | 'video' | 'audio' | null; media_url: string | null; sticker: string | null
+        profiles: { username: string }
+      } | null
     },
     enabled: !!replyToId,
   })
