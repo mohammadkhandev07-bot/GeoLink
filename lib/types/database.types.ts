@@ -72,6 +72,7 @@ export type Chat = {
   last_message: string | null
   last_message_time: string | null
   last_message_type: 'text' | 'post' | 'reel' | 'story' | 'aperonix' | null
+  deleted_by: string[]
   created_at: string
 }
 
@@ -92,6 +93,23 @@ export type Message = {
   media_type: 'image' | 'video' | 'audio' | null
   media_duration_seconds: number | null
   sticker: string | null
+  is_system: boolean
+  created_at: string
+}
+
+export type Nickname = {
+  id: string
+  chat_id: string
+  set_by_id: string
+  target_id: string
+  nickname: string
+  created_at: string
+}
+
+export type Block = {
+  id: string
+  blocker_id: string
+  blocked_id: string
   created_at: string
 }
 
