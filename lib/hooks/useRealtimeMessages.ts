@@ -137,7 +137,9 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
         setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]))
       }
 
-      // Update last message preview in the chat list.
+      // Update last message preview in the chat list. Sending anything also
+      // "revives" the chat for both sides if either had deleted it - same
+      // as most chat apps, a fresh message brings the thread back.
       const preview = payload.sticker
         ? `${payload.sticker} Sticker`
         : payload.mediaType === 'image' ? '📷 Photo'
@@ -146,7 +148,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
         : payload.content || ''
       await supabase
         .from('chats')
-        .update({ last_message: preview, last_message_time: new Date().toISOString(), last_message_type: 'text' })
+        .update({ last_message: preview, last_message_time: new Date().toISOString(), last_message_type: 'text', deleted_by: [] })
         .eq('id', chatId)
     },
     [chatId, currentUserId]
