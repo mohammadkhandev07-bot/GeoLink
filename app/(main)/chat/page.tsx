@@ -52,7 +52,10 @@ export default function ChatPage() {
       .select('*, participant1:profiles!chats_participant1_id_fkey(id,username,avatar_url), participant2:profiles!chats_participant2_id_fkey(id,username,avatar_url)')
       .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
       .order('last_message_time', { ascending: false })
-    if (data) setChats(data as Chat[])
+    // Chats the person deleted from their own inbox stay hidden until a
+    // new message (from either side) brings them back.
+    const visible = (data || []).filter((c: any) => !c.deleted_by?.includes(user.id))
+    setChats(visible as Chat[])
 
     // Unread counts
     const { data: unread } = await supabase
@@ -208,7 +211,7 @@ export default function ChatPage() {
         </button>
       </div>
 
-      {/* Aperonix AI - Always pinned at the top */}
+      {/* Aperonix AI - always pinned at the top */}
       <Link
         href="/aperonix"
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors border-b text-left"
