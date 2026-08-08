@@ -8,8 +8,10 @@ import { AperonixReplyMessage } from './AperonixReplyMessage'
 import { MessageForwardModal } from './MessageForwardModal'
 import { VoiceMessagePlayer } from './VoiceMessagePlayer'
 import { FullEmojiPicker } from './FullEmojiPicker'
+import { UnavailableMessage } from './UnavailableMessage'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Message } from '@/lib/types/database.types'
-import { formatTimeAgo } from '@/lib/utils/helpers'
+import { formatTimeAgo, getAvatarUrl } from '@/lib/utils/helpers'
 import { cn } from '@/lib/utils/helpers'
 import { getClampedPopupPosition } from '@/lib/utils/popupPosition'
 import {
@@ -30,6 +32,7 @@ interface ChatMessageProps {
   onReply?: (message: Message) => void
   onRemoveMessage?: (messageId: string) => void
   onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
+  unavailable?: boolean
 }
 
 const MENU_WIDTH = 208
@@ -38,7 +41,7 @@ const EMOJI_WIDTH = 288
 const EMOJI_HEIGHT = 288
 const SPEEDS = [1, 1.5, 2, 0.5]
 
-export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMessage, onPatchMessage }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMessage, onPatchMessage, unavailable }: ChatMessageProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showForward, setShowForward] = useState(false)
@@ -49,6 +52,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
   const [speaking, setSpeaking] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
+  const [lightbox, setLightbox] = useState<{ type: 'image' | 'video'; url: string } | null>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [emojiPos, setEmojiPos] = useState<{ top: number; left: number } | null>(null)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
@@ -118,7 +122,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
       URL.revokeObjectURL(blobUrl)
     } catch {
       // If the download fetch fails (e.g. blocked by CORS on a custom CDN),
-      // Falling back to opening it in a new tab still lets them save it manually.
+      // falling back to opening it in a new tab still lets them save it manually.
       window.open(mediaUrl, '_blank')
     } finally {
       setDownloading(false)
@@ -168,26 +172,47 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
   // was actually replied to (Instagram-style), instead of just blank text.
   const renderReplyPreviewContent = () => {
     if (!replyPreview) return null
-    if (replyPreview.sticker) return <span>{replyPreview.sticker} Sticker</span>
-    if (replyPreview.media_type === 'audio') return <span>🎤 Voice message</span>
+    if (replyPreview.sticker) return <span className="text-2xl">{replyPreview.sticker}</span>
+    if (replyPreview.media_type === 'audio' && replyPreview.media_url) {
+      return <VoiceMessagePlayer url={replyPreview.media_url} durationSeconds={null} isOwn={false} />
+    }
     if (replyPreview.media_type === 'image' && replyPreview.media_url) {
       return (
-        <span className="flex items-center gap-1.5">
+        <button onClick={(e) => { e.stopPropagation(); setLightbox({ type: 'image', url: replyPreview.media_url! }) }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={replyPreview.media_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
-          Photo
-        </span>
+          <img src={replyPreview.media_url} alt="" className="w-24 h-24 rounded-lg object-cover" />
+        </button>
       )
     }
     if (replyPreview.media_type === 'video' && replyPreview.media_url) {
       return (
-        <span className="flex items-center gap-1.5">
-          <video src={replyPreview.media_url} className="w-6 h-6 rounded object-cover shrink-0" muted />
-          Video
-        </span>
+        <button onClick={(e) => { e.stopPropagation(); setLightbox({ type: 'video', url: replyPreview.media_url! }) }} className="relative">
+          <video src={replyPreview.media_url} className="w-24 h-24 rounded-lg object-cover" muted />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white text-xs">▶</span>
+          </span>
+        </button>
       )
     }
     return <span className="text-muted-foreground">{replyPreview.content}</span>
+  }
+
+  if ((message as any).is_system) {
+    return (
+      <div className="flex justify-center mb-3">
+        <p className="text-[11px] text-muted-foreground bg-muted rounded-full px-3 py-1 text-center max-w-[80%]">
+          {message.content}
+        </p>
+      </div>
+    )
+  }
+
+  if (unavailable) {
+    return (
+      <div className={cn('flex mb-2', isOwn && 'justify-end')}>
+        <UnavailableMessage isOwn={isOwn} />
+      </div>
+    )
   }
 
   if ((message as any).post_id) {
@@ -236,8 +261,8 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
     <div className={cn('flex gap-1 mb-2 group items-center', isOwn && 'flex-row-reverse')}>
       <div className="max-w-[70%] flex flex-col" style={{ alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
         {replyPreview && (
-          <div className="text-[11px] px-2.5 py-1 rounded-t-xl border-l-2 border-pink-500 bg-muted/60 mb-[-2px] max-w-full truncate">
-            <span className="font-semibold text-pink-500">{replyPreview.profiles?.username}</span>{' '}
+          <div className="text-[11px] px-2.5 py-1.5 rounded-t-xl border-l-2 border-pink-500 bg-muted/60 mb-[-2px] max-w-full">
+            <p className="font-semibold text-pink-500 mb-1">{replyPreview.profiles?.username}</p>
             {renderReplyPreviewContent()}
           </div>
         )}
@@ -280,8 +305,10 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
         ) : (mediaType === 'image' || mediaType === 'video') ? (
           <div className={cn('rounded-2xl overflow-hidden max-w-[240px]', isOwn ? 'rounded-br-sm' : 'rounded-bl-sm', replyPreview && 'rounded-tl-none rounded-tr-none')}>
             {mediaType === 'image' ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={mediaUrl!} alt="Photo" className="w-full max-h-72 object-cover" />
+              <button onClick={() => setLightbox({ type: 'image', url: mediaUrl! })} className="block w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={mediaUrl!} alt="Photo" className="w-full max-h-72 object-cover" />
+              </button>
             ) : (
               <video src={mediaUrl!} controls className="w-full max-h-72" />
             )}
@@ -403,26 +430,42 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
       )}
 
       {showReactors && (
-        <div className="fixed inset-0 bg-black/50 z-[110] flex items-end sm:items-center justify-center p-4" onClick={() => setShowReactors(false)}>
-          <div className="bg-card border rounded-2xl w-full max-w-xs max-h-80 flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="p-3 border-b flex items-center justify-between shrink-0">
-              <p className="font-semibold text-sm">Reactions</p>
-              <button onClick={() => setShowReactors(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-            </div>
-            <div className="overflow-y-auto p-2">
-              {reactions.map((r: any) => (
-                <div key={r.id} className="flex items-center gap-2.5 px-2 py-2">
-                  <span className="text-xl shrink-0">{r.emoji}</span>
-                  <span className="text-sm truncate">{r.profiles?.username}{r.user_id === currentUserId ? ' (You)' : ''}</span>
-                </div>
-              ))}
-            </div>
+        <div className="fixed inset-0 bg-background z-[110] flex flex-col" onClick={() => setShowReactors(false)}>
+          <div className="relative flex items-center justify-center px-4 py-3.5 border-b shrink-0" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowReactors(false)} className="absolute left-4 text-foreground">✕</button>
+            <p className="font-semibold text-sm">Reactions</p>
+          </div>
+          <div className="overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
+            {reactions.map((r: any) => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
+                <Avatar className="h-9 w-9 shrink-0">
+                  <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
+                  <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <span className="flex-1 text-sm truncate">
+                  @{r.profiles?.username}{r.user_id === currentUserId ? ' (You)' : ''}
+                </span>
+                <span className="text-xl shrink-0">{r.emoji}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {showForward && (
         <MessageForwardModal content={message.content} onClose={() => setShowForward(false)} />
+      )}
+
+      {lightbox && (
+        <div className="fixed inset-0 bg-black/90 z-[130] flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl">✕</button>
+          {lightbox.type === 'image' ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lightbox.url} alt="" className="max-w-full max-h-full object-contain" onClick={e => e.stopPropagation()} />
+          ) : (
+            <video src={lightbox.url} controls autoPlay className="max-w-full max-h-full" onClick={e => e.stopPropagation()} />
+          )}
+        </div>
       )}
     </div>
   )
