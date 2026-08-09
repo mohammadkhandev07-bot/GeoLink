@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { useBlockedByOthers, useBlockedRelations } from '@/lib/hooks/useChatSettings'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 
 interface Chat {
@@ -45,6 +46,9 @@ export default function ChatPage() {
   const [startingChatWith, setStartingChatWith] = useState<string | null>(null)
   const [startChatError, setStartChatError] = useState('')
 
+  const { data: blockedByOthers = new Set<string>() } = useBlockedByOthers(user?.id)
+  const { data: blockedRelations = new Set<string>() } = useBlockedRelations(user?.id)
+
   const fetchChats = async () => {
     if (!user) return
     const { data } = await supabase
@@ -53,8 +57,15 @@ export default function ChatPage() {
       .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
       .order('last_message_time', { ascending: false })
     // Chats the person deleted from their own inbox stay hidden until a
-    // new message (from either side) brings them back.
-    const visible = (data || []).filter((c: any) => !c.deleted_by?.includes(user.id))
+    // new message brings them back. Chats where the other side blocked me
+    // disappear from my list entirely (their account is effectively gone
+    // to me until they unblock).
+    const visible = (data || []).filter((c: any) => {
+      if (c.deleted_by?.includes(user.id)) return false
+      const otherId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id
+      if (blockedByOthers.has(otherId)) return false
+      return true
+    })
     setChats(visible as Chat[])
 
     // Unread counts
@@ -79,7 +90,7 @@ export default function ChatPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, fetchChats)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [user])
+  }, [user, blockedByOthers])
 
   // Search profiles by username/name while the "New conversation" panel is open
   useEffect(() => {
@@ -95,12 +106,13 @@ export default function ChatPage() {
         .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
         .neq('id', user?.id ?? '')
         .limit(15)
-      setSearchResults((data as SearchProfile[]) || [])
+      const filtered = ((data as SearchProfile[]) || []).filter(p => !blockedRelations.has(p.id))
+      setSearchResults(filtered)
       setSearching(false)
     }, 300)
 
     return () => clearTimeout(timeout)
-  }, [searchQuery, showNewChat, user])
+  }, [searchQuery, showNewChat, user, blockedRelations])
 
   const startChat = async (target: SearchProfile) => {
     if (!user || startingChatWith) return
