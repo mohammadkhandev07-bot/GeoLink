@@ -10,7 +10,7 @@ import { NicknameModal } from '@/components/chat/NicknameModal'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
-import { useNickname, useSetNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe } from '@/lib/hooks/useChatSettings'
+import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe } from '@/lib/hooks/useChatSettings'
 import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
@@ -45,6 +45,7 @@ export default function ChatRoomPage() {
 
   const { data: myNicknameForThem } = useNickname(chatId, user?.id)
   const setNickname = useSetNickname()
+  const deleteNickname = useDeleteNickname()
   const { data: blockStatus } = useBlockStatus(user?.id, other?.id)
   const toggleBlock = useToggleBlock()
   const deleteChatForMe = useDeleteChatForMe()
@@ -125,6 +126,12 @@ export default function ChatRoomPage() {
   const handleSaveNickname = async (nickname: string) => {
     if (!user || !other) return
     await setNickname.mutateAsync({ chatId, setById: user.id, targetId: other.id, nickname })
+    setShowNicknameModal(false)
+  }
+
+  const handleDeleteNickname = async () => {
+    if (!user) return
+    await deleteNickname.mutateAsync({ chatId, setById: user.id })
     setShowNicknameModal(false)
   }
 
@@ -227,6 +234,7 @@ export default function ChatRoomPage() {
         messages={messages}
         currentUserId={user.id}
         isTyping={isTyping}
+        otherUsername={other.username}
         onReply={setReplyingTo}
         onRemoveMessage={removeMessageLocally}
         onPatchMessage={patchMessageLocally}
@@ -261,8 +269,10 @@ export default function ChatRoomPage() {
           currentNickname={myNicknameForThem || null}
           targetUsername={other.username}
           onSave={handleSaveNickname}
+          onDelete={handleDeleteNickname}
           onClose={() => setShowNicknameModal(false)}
           saving={setNickname.isPending}
+          deleting={deleteNickname.isPending}
         />
       )}
     </div>
