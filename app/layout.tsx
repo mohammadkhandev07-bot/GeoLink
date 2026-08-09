@@ -100,6 +100,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="GeoLink" />
         <meta name="application-name" content="GeoLink" />
         <meta name="msapplication-TileColor" content="#ec4899" />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2685547808817604"
+          crossOrigin="anonymous"
+        ></script>
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
