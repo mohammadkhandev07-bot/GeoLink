@@ -7,11 +7,13 @@ interface NicknameModalProps {
   currentNickname: string | null
   targetUsername: string
   onSave: (nickname: string) => void
+  onDelete?: () => void
   onClose: () => void
   saving?: boolean
+  deleting?: boolean
 }
 
-export function NicknameModal({ currentNickname, targetUsername, onSave, onClose, saving }: NicknameModalProps) {
+export function NicknameModal({ currentNickname, targetUsername, onSave, onDelete, onClose, saving, deleting }: NicknameModalProps) {
   const [value, setValue] = useState(currentNickname || '')
 
   return (
@@ -32,7 +34,7 @@ export function NicknameModal({ currentNickname, targetUsername, onSave, onClose
           />
           <p className="text-xs text-muted-foreground">Only you see this in your view of the chat - {targetUsername} will get a message letting them know you set one.</p>
         </div>
-        <div className="p-4 border-t">
+        <div className="p-4 border-t space-y-2">
           <button
             onClick={() => value.trim() && onSave(value.trim())}
             disabled={!value.trim() || saving}
@@ -40,6 +42,15 @@ export function NicknameModal({ currentNickname, targetUsername, onSave, onClose
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
+          {currentNickname && onDelete && (
+            <button
+              onClick={onDelete}
+              disabled={deleting}
+              className="w-full py-2.5 rounded-xl text-red-500 font-medium hover:bg-red-500/10 disabled:opacity-40"
+            >
+              {deleting ? 'Removing...' : 'Delete Nickname'}
+            </button>
+          )}
         </div>
       </div>
     </div>
