@@ -29,6 +29,7 @@ interface ChatMessageProps {
   message: Message
   isOwn: boolean
   currentUserId: string
+  otherUsername?: string
   onReply?: (message: Message) => void
   onRemoveMessage?: (messageId: string) => void
   onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
@@ -41,7 +42,7 @@ const EMOJI_WIDTH = 288
 const EMOJI_HEIGHT = 288
 const SPEEDS = [1, 1.5, 2, 0.5]
 
-export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMessage, onPatchMessage, unavailable }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onReply, onRemoveMessage, onPatchMessage, unavailable }: ChatMessageProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showForward, setShowForward] = useState(false)
@@ -172,29 +173,43 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
   // was actually replied to (Instagram-style), instead of just blank text.
   const renderReplyPreviewContent = () => {
     if (!replyPreview) return null
-    if (replyPreview.sticker) return <span className="text-2xl">{replyPreview.sticker}</span>
+    if (replyPreview.sticker) {
+      return (
+        <div className={cn('rounded-2xl px-3 py-2 text-3xl', isOwn ? 'bg-muted' : 'bg-muted')}>
+          {replyPreview.sticker}
+        </div>
+      )
+    }
     if (replyPreview.media_type === 'audio' && replyPreview.media_url) {
-      return <VoiceMessagePlayer url={replyPreview.media_url} durationSeconds={null} isOwn={false} />
+      return (
+        <div className="bg-muted rounded-full px-3 py-2">
+          <VoiceMessagePlayer url={replyPreview.media_url} durationSeconds={null} isOwn={false} />
+        </div>
+      )
     }
     if (replyPreview.media_type === 'image' && replyPreview.media_url) {
       return (
-        <button onClick={(e) => { e.stopPropagation(); setLightbox({ type: 'image', url: replyPreview.media_url! }) }}>
+        <button onClick={(e) => { e.stopPropagation(); setLightbox({ type: 'image', url: replyPreview.media_url! }) }} className="rounded-2xl overflow-hidden block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={replyPreview.media_url} alt="" className="w-24 h-24 rounded-lg object-cover" />
+          <img src={replyPreview.media_url} alt="" className="w-20 h-20 object-cover" />
         </button>
       )
     }
     if (replyPreview.media_type === 'video' && replyPreview.media_url) {
       return (
-        <button onClick={(e) => { e.stopPropagation(); setLightbox({ type: 'video', url: replyPreview.media_url! }) }} className="relative">
-          <video src={replyPreview.media_url} className="w-24 h-24 rounded-lg object-cover" muted />
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white text-xs">▶</span>
+        <button onClick={(e) => { e.stopPropagation(); setLightbox({ type: 'video', url: replyPreview.media_url! }) }} className="relative rounded-2xl overflow-hidden block">
+          <video src={replyPreview.media_url} className="w-20 h-20 object-cover" muted />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+            <span className="w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white text-xs">▶</span>
           </span>
         </button>
       )
     }
-    return <span className="text-muted-foreground">{replyPreview.content}</span>
+    return (
+      <div className="bg-muted rounded-2xl px-3 py-2 text-sm text-muted-foreground max-w-[220px] truncate">
+        {replyPreview.content}
+      </div>
+    )
   }
 
   if ((message as any).is_system) {
@@ -261,8 +276,10 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
     <div className={cn('flex gap-1 mb-2 group items-center', isOwn && 'flex-row-reverse')}>
       <div className="max-w-[70%] flex flex-col" style={{ alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
         {replyPreview && (
-          <div className="text-[11px] px-2.5 py-1.5 rounded-t-xl border-l-2 border-pink-500 bg-muted/60 mb-[-2px] max-w-full">
-            <p className="font-semibold text-pink-500 mb-1">{replyPreview.profiles?.username}</p>
+          <div className="flex flex-col mb-1.5" style={{ alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
+            <p className="text-[11px] text-muted-foreground px-1 mb-1">
+              {isOwn ? `You replied to ${replyPreview.profiles?.username}` : `${otherUsername || replyPreview.profiles?.username} replied to you`}
+            </p>
             {renderReplyPreviewContent()}
           </div>
         )}
@@ -292,8 +309,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             'px-3 py-2',
             isOwn
               ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-2xl rounded-br-sm'
-              : 'bg-muted rounded-2xl rounded-bl-sm',
-            replyPreview && 'rounded-tl-none rounded-tr-none'
+              : 'bg-muted rounded-2xl rounded-bl-sm'
           )}>
             <VoiceMessagePlayer url={mediaUrl!} durationSeconds={(message as any).media_duration_seconds} isOwn={isOwn} playbackRate={playbackRate} />
             <p className={cn('text-[10px] mt-1 flex items-center gap-1.5', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
@@ -303,7 +319,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             </p>
           </div>
         ) : (mediaType === 'image' || mediaType === 'video') ? (
-          <div className={cn('rounded-2xl overflow-hidden max-w-[240px]', isOwn ? 'rounded-br-sm' : 'rounded-bl-sm', replyPreview && 'rounded-tl-none rounded-tr-none')}>
+          <div className={cn('rounded-2xl overflow-hidden max-w-[240px]', isOwn ? 'rounded-br-sm' : 'rounded-bl-sm')}>
             {mediaType === 'image' ? (
               <button onClick={() => setLightbox({ type: 'image', url: mediaUrl! })} className="block w-full">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -330,8 +346,7 @@ export function ChatMessage({ message, isOwn, currentUserId, onReply, onRemoveMe
             'px-3 py-2 text-sm max-w-full break-words',
             isOwn
               ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-2xl rounded-br-sm'
-              : 'bg-muted rounded-2xl rounded-bl-sm',
-            replyPreview && 'rounded-tl-none rounded-tr-none'
+              : 'bg-muted rounded-2xl rounded-bl-sm'
           )}>
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
             <p className={cn('text-[10px] mt-0.5 flex items-center gap-1', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
