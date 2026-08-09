@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils/helpers'
 
 interface Notification {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'unfollow' | 'message'
+  type: 'like' | 'comment' | 'follow' | 'unfollow' | 'message' | 'blocked'
   is_read: boolean
   created_at: string
   message: string | null
@@ -60,6 +60,7 @@ export function NotificationPanel() {
       case 'follow': return 'started following you'
       case 'unfollow': return 'unfollowed you'
       case 'message': return `sent you a message`
+      case 'blocked': return 'blocked you'
       default: return ''
     }
   }
@@ -71,6 +72,7 @@ export function NotificationPanel() {
       case 'like': case 'comment': return '/feed'
       case 'follow': case 'unfollow': return `/profile/${n.actor?.username}`
       case 'message': return '/chat'
+      case 'blocked': return '/'
       default: return '/feed'
     }
   }
