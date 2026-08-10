@@ -37,7 +37,7 @@ export function ChatSettingsPage({
   onDeleteChat,
 }: ChatSettingsPageProps) {
   return (
-    <div className="fixed inset-0 bg-background z-[120] flex flex-col">
+    <div className="absolute inset-0 bg-background z-20 flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b sticky top-0 bg-background z-10">
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground p-1 -ml-1">
