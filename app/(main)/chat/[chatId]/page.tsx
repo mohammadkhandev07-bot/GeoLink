@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Circle, MoreVertical, Trash2, PencilLine, Ban, Image as ImageIcon, ImageOff } from 'lucide-react'
+import { ArrowLeft, Circle, Settings } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
 import { NicknameModal } from '@/components/chat/NicknameModal'
 import { WallpaperModal } from '@/components/chat/WallpaperModal'
+import { ChatSettingsPage } from '@/components/chat/ChatSettingsPage'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
@@ -17,12 +18,6 @@ import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 export default function ChatRoomPage() {
   const params = useParams()
@@ -36,6 +31,7 @@ export default function ChatRoomPage() {
   const [showStory, setShowStory] = useState(false)
   const [showNicknameModal, setShowNicknameModal] = useState(false)
   const [showWallpaperModal, setShowWallpaperModal] = useState(false)
+  const [showSettingsPage, setShowSettingsPage] = useState(false)
   const [savingWallpaper, setSavingWallpaper] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -242,44 +238,13 @@ export default function ChatRoomPage() {
           )}
         </div>
 
-        {/* 3 dot menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
-              <MoreVertical className="h-5 w-5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {!theyBlockedMe && (
-              <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setShowNicknameModal(true)}>
-                <PencilLine className="h-4 w-4" />
-                {myNicknameForThem ? 'Edit Nickname' : 'Set Nickname'}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setShowWallpaperModal(true)}>
-              <ImageIcon className="h-4 w-4" />
-              {wallpaper ? 'Edit Wallpaper' : 'Set Wallpaper'}
-            </DropdownMenuItem>
-            {wallpaper && (
-              <DropdownMenuItem className="gap-2 cursor-pointer" onClick={handleRemoveWallpaper}>
-                <ImageOff className="h-4 w-4" />
-                Remove Wallpaper
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={handleToggleBlock}>
-              <Ban className="h-4 w-4" />
-              {iBlockedThem ? 'Unblock' : 'Block'}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive gap-2 cursor-pointer"
-              onClick={handleDeleteChat}
-              disabled={deleting}
-            >
-              <Trash2 className="h-4 w-4" />
-              {deleting ? 'Deleting...' : 'Delete Conversation'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Chat settings */}
+        <button
+          onClick={() => setShowSettingsPage(true)}
+          className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors"
+        >
+          <Settings className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Messages */}
@@ -317,6 +282,22 @@ export default function ChatRoomPage() {
           startGroupIndex={otherStoryGroupIndex}
           currentUserId={user.id}
           onClose={() => setShowStory(false)}
+        />
+      )}
+      {showSettingsPage && (
+        <ChatSettingsPage
+          otherUsername={displayName}
+          myNicknameForThem={myNicknameForThem || null}
+          hasWallpaper={!!wallpaper}
+          iBlockedThem={iBlockedThem}
+          deleting={deleting}
+          showNicknameOption={!theyBlockedMe}
+          onBack={() => setShowSettingsPage(false)}
+          onSetNickname={() => setShowNicknameModal(true)}
+          onSetWallpaper={() => setShowWallpaperModal(true)}
+          onRemoveWallpaper={handleRemoveWallpaper}
+          onToggleBlock={handleToggleBlock}
+          onDeleteChat={handleDeleteChat}
         />
       )}
       {showWallpaperModal && (
