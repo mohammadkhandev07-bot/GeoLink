@@ -202,7 +202,7 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-w-xl mx-auto">
+    <div className="relative flex flex-col h-[calc(100vh-3.5rem)] max-w-xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b bg-background sticky top-14 z-10">
         <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
