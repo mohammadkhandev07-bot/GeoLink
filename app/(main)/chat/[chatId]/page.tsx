@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Circle, MoreVertical, Trash2, PencilLine, Ban } from 'lucide-react'
+import { ArrowLeft, Circle, MoreVertical, Trash2, PencilLine, Ban, Image as ImageIcon, ImageOff } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
 import { NicknameModal } from '@/components/chat/NicknameModal'
+import { WallpaperModal } from '@/components/chat/WallpaperModal'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
-import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe } from '@/lib/hooks/useChatSettings'
+import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe, useChatWallpaper, useSetChatWallpaper, useDeleteChatWallpaper } from '@/lib/hooks/useChatSettings'
 import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
@@ -34,6 +35,8 @@ export default function ChatRoomPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [showStory, setShowStory] = useState(false)
   const [showNicknameModal, setShowNicknameModal] = useState(false)
+  const [showWallpaperModal, setShowWallpaperModal] = useState(false)
+  const [savingWallpaper, setSavingWallpaper] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -49,6 +52,10 @@ export default function ChatRoomPage() {
   const { data: blockStatus } = useBlockStatus(user?.id, other?.id)
   const toggleBlock = useToggleBlock()
   const deleteChatForMe = useDeleteChatForMe()
+
+  const { data: wallpaper } = useChatWallpaper(chatId, user?.id)
+  const setChatWallpaper = useSetChatWallpaper()
+  const deleteChatWallpaper = useDeleteChatWallpaper()
 
   const theyBlockedMe = !!blockStatus?.theyBlockedMe
   const iBlockedThem = !!blockStatus?.iBlockedThem
@@ -135,6 +142,42 @@ export default function ChatRoomPage() {
     setShowNicknameModal(false)
   }
 
+  // Wallpaper is uploaded to its own storage bucket, then saved as a row
+  // scoped to (chatId, user.id) - so it only ever shows up in this one
+  // chat, on this one person's own screen. Setting it here never touches
+  // the wallpaper of any other conversation.
+  const handleSaveWallpaper = async (file: File, position: { x: number; y: number }) => {
+    if (!user) return
+    setSavingWallpaper(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('bucket', 'chat-wallpapers')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+
+      await setChatWallpaper.mutateAsync({
+        chatId,
+        userId: user.id,
+        wallpaperUrl: data.url,
+        positionX: Math.round(position.x),
+        positionY: Math.round(position.y),
+      })
+      setShowWallpaperModal(false)
+    } catch (err) {
+      console.error(err)
+      alert('Could not set wallpaper. Please try again.')
+    } finally {
+      setSavingWallpaper(false)
+    }
+  }
+
+  const handleRemoveWallpaper = () => {
+    if (!user) return
+    deleteChatWallpaper.mutate({ chatId, userId: user.id })
+  }
+
   const handleToggleBlock = () => {
     if (!user || !other) return
     const willBlock = !iBlockedThem
@@ -213,6 +256,16 @@ export default function ChatRoomPage() {
                 {myNicknameForThem ? 'Edit Nickname' : 'Set Nickname'}
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setShowWallpaperModal(true)}>
+              <ImageIcon className="h-4 w-4" />
+              {wallpaper ? 'Edit Wallpaper' : 'Set Wallpaper'}
+            </DropdownMenuItem>
+            {wallpaper && (
+              <DropdownMenuItem className="gap-2 cursor-pointer" onClick={handleRemoveWallpaper}>
+                <ImageOff className="h-4 w-4" />
+                Remove Wallpaper
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="gap-2 cursor-pointer" onClick={handleToggleBlock}>
               <Ban className="h-4 w-4" />
               {iBlockedThem ? 'Unblock' : 'Block'}
@@ -239,6 +292,8 @@ export default function ChatRoomPage() {
         onRemoveMessage={removeMessageLocally}
         onPatchMessage={patchMessageLocally}
         isMessageUnavailable={isMessageUnavailable}
+        wallpaperUrl={wallpaper?.wallpaper_url}
+        wallpaperPosition={wallpaper ? { x: wallpaper.position_x, y: wallpaper.position_y } : undefined}
       />
 
       {/* Input */}
@@ -262,6 +317,13 @@ export default function ChatRoomPage() {
           startGroupIndex={otherStoryGroupIndex}
           currentUserId={user.id}
           onClose={() => setShowStory(false)}
+        />
+      )}
+      {showWallpaperModal && (
+        <WallpaperModal
+          onDone={handleSaveWallpaper}
+          onClose={() => setShowWallpaperModal(false)}
+          saving={savingWallpaper}
         />
       )}
       {showNicknameModal && (
