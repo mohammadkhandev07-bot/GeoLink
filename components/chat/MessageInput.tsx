@@ -78,7 +78,7 @@ export function MessageInput({ onSend, onTyping, disabled, replyingTo, onCancelR
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+    el.style.height = `${Math.min(el.scrollHeight, 300)}px`
   }
   useEffect(() => { resizeTextarea() }, [message])
 
@@ -145,7 +145,7 @@ export function MessageInput({ onSend, onTyping, disabled, replyingTo, onCancelR
     }
   }
 
-  // --- Voice recording ---------------------------------------------------------
+  // --- Voice recording -------------------------------------------------
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -318,7 +318,7 @@ export function MessageInput({ onSend, onTyping, disabled, replyingTo, onCancelR
             placeholder="Message..."
             rows={1}
             disabled={disabled}
-            className="flex-1 bg-muted rounded-2xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500 resize-none overflow-y-auto leading-relaxed disabled:opacity-60"
+            className="flex-1 bg-muted rounded-2xl px-4 py-2.5 text-sm outline-none border border-transparent focus:border-pink-500 resize-none overflow-y-auto leading-relaxed disabled:opacity-60 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           />
 
           {hasContent ? (
