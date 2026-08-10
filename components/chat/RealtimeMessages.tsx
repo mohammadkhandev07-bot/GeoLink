@@ -13,9 +13,11 @@ interface RealtimeMessagesProps {
   onRemoveMessage?: (messageId: string) => void
   onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
   isMessageUnavailable?: (senderId: string) => boolean
+  wallpaperUrl?: string | null
+  wallpaperPosition?: { x: number; y: number }
 }
 
-export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsername, onReply, onRemoveMessage, onPatchMessage, isMessageUnavailable }: RealtimeMessagesProps) {
+export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsername, onReply, onRemoveMessage, onPatchMessage, isMessageUnavailable, wallpaperUrl, wallpaperPosition }: RealtimeMessagesProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string | null>(null)
@@ -46,7 +48,19 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsern
   }, [localMessages, isTyping])
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto p-4 bg-no-repeat"
+      style={
+        wallpaperUrl
+          ? {
+              backgroundImage: `url(${wallpaperUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: `${wallpaperPosition?.x ?? 50}% ${wallpaperPosition?.y ?? 50}%`,
+            }
+          : undefined
+      }
+    >
       {localMessages.map((msg) => (
         <ChatMessage
           key={msg.id}
