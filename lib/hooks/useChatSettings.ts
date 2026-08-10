@@ -174,6 +174,69 @@ export function useBlockedByOthers(userId?: string) {
 }
 
 // ------------------------------------------------------------------
+// Chat wallpaper - a personal display setting, like nicknames. Scoped to
+// (chat_id, user_id): the wallpaper I set here only ever applies to this
+// one conversation, and only on my own screen - it never appears for the
+// other person, and setting one chat's wallpaper never touches any other
+// chat's wallpaper.
+// ------------------------------------------------------------------
+export function useChatWallpaper(chatId?: string, userId?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['chat-wallpaper', chatId, userId],
+    queryFn: async () => {
+      if (!chatId || !userId) return null
+      const { data } = await supabase
+        .from('chat_wallpapers')
+        .select('wallpaper_url, position_x, position_y')
+        .eq('chat_id', chatId)
+        .eq('user_id', userId)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: !!chatId && !!userId,
+  })
+}
+
+export function useSetChatWallpaper() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      chatId, userId, wallpaperUrl, positionX, positionY,
+    }: { chatId: string; userId: string; wallpaperUrl: string; positionX: number; positionY: number }) => {
+      const { error } = await supabase
+        .from('chat_wallpapers')
+        .upsert(
+          { chat_id: chatId, user_id: userId, wallpaper_url: wallpaperUrl, position_x: positionX, position_y: positionY },
+          { onConflict: 'chat_id,user_id' }
+        )
+      if (error) throw error
+    },
+    onSuccess: (_, { chatId, userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat-wallpaper', chatId, userId] })
+    },
+  })
+}
+
+export function useDeleteChatWallpaper() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ chatId, userId }: { chatId: string; userId: string }) => {
+      const { error } = await supabase.from('chat_wallpapers').delete().eq('chat_id', chatId).eq('user_id', userId)
+      if (error) throw error
+    },
+    onSuccess: (_, { chatId, userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat-wallpaper', chatId, userId] })
+    },
+  })
+}
+
+// ------------------------------------------------------------------
 // Soft chat delete - hides it from my inbox only. If either side sends a
 // new message afterward, it reappears for both, same as most chat apps.
 // ------------------------------------------------------------------
