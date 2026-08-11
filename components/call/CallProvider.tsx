@@ -3,10 +3,11 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createPeerConnection } from '@/lib/utils/webrtc';
-import { createClient } from '@/lib/supabase/client'; // Apne supabase client path ke hisaab se adjust kar lena
+import { createClient } from '@/lib/supabase/client';
 
 interface CallContextType {
-  startCall: (receiverId: string, isVideo: boolean) => Promise<void>;
+  // Updated to accept 3 arguments as expected by page.tsx
+  startCall: (targetUser: any, chatId: string, type: 'audio' | 'video' | boolean) => Promise<void>;
   endCall: () => void;
   acceptCall: () => Promise<void>;
   localStream: MediaStream | null;
@@ -24,6 +25,8 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
   const channelRef = useRef<any>(null);
+  
+  // Supabase client initialized correctly
   const supabase = createClient();
 
   // Remote Stream Buffer handling function
@@ -51,9 +54,13 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 1. Call Start Karna (Caller Side)
-  const startCall = async (receiverId: string, isVideo: boolean) => {
+  // 1. Call Start Karna (Updated with 3 parameters)
+  const startCall = async (targetUser: any, chatId: string, type: 'audio' | 'video' | boolean) => {
     setCallState('calling');
+
+    // Parse video type and receiver ID safely
+    const isVideo = type === 'video' || type === true;
+    const receiverId = typeof targetUser === 'string' ? targetUser : (targetUser?.id || targetUser?._id);
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -61,8 +68,8 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
     });
     setLocalStream(stream);
 
-    // Setup Supabase Signaling Room
-    const channel = supabase.channel(`call:${receiverId}`);
+    // Setup Supabase Signaling Room using chatId or receiverId
+    const channel = supabase.channel(`call:${chatId || receiverId}`);
     channelRef.current = channel;
 
     const pc = createPeerConnection(
@@ -154,6 +161,7 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// Exporting as useCallContext to match your page.tsx import
 export const useCallContext = () => {
   const context = useContext(CallContext);
   if (!context) throw new Error('useCallContext must be used within CallProvider');
