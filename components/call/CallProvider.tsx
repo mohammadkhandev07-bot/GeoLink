@@ -28,7 +28,7 @@ export function useCallContext() {
 /**
  * Mounted once near the root (see ResponsiveLayout) so a call can ring in
  * from anywhere in the app, not just the chat page. Renders the incoming
- * call screen and the active call screen as global overlays.
+ * Call screen and the active call screen as global overlays.
  */
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
