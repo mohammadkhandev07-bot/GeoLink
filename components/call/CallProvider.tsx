@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo } from 'react'
 import { useUser } from '@/lib/hooks/useUser'
 import { useCallEngine, peerAvatar, type CallType } from '@/lib/hooks/useCall'
+import { showToast } from '@/components/shared/Toast'
 import { IncomingCallModal } from './IncomingCallModal'
 import { CallScreen } from './CallScreen'
 
@@ -13,7 +14,7 @@ interface StartCallPeer {
 }
 
 interface CallContextValue {
-  startCall: (peer: StartCallPeer, chatId: string | null, type: CallType) => void
+  startCall: (peer: StartCallPeer, chatId: string | null, type: CallType) => Promise<void>
   isCallActive: boolean
 }
 
@@ -28,18 +29,18 @@ export function useCallContext() {
 /**
  * Mounted once near the root (see ResponsiveLayout) so a call can ring in
  * from anywhere in the app, not just the chat page. Renders the incoming
- * Call screen and the active call screen as global overlays.
+ * call screen and the active call screen as global overlays.
  */
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
   const engine = useCallEngine(user?.id)
 
-  const startCall = (peer: StartCallPeer, chatId: string | null, type: CallType) => {
+  const startCall = async (peer: StartCallPeer, chatId: string | null, type: CallType) => {
     if (engine.phase !== 'idle') {
-      alert('You are already on a call.')
+      showToast('You are already on a call.', 'error')
       return
     }
-    engine.startCall(peer.id, chatId, type, peer)
+    await engine.startCall(peer.id, chatId, type, peer)
   }
 
   const value = useMemo<CallContextValue>(() => ({
