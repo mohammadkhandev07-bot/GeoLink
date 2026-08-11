@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createPeerConnection } from '@/lib/utils/webrtc';
-import { supabase } from '@/lib/supabase/client'; // Apne supabase client path ke hisaab se adjust kar lena
+import { createClient } from '@/lib/supabase/client'; // Apne supabase client path ke hisaab se adjust kar lena
 
 interface CallContextType {
   startCall: (receiverId: string, isVideo: boolean) => Promise<void>;
@@ -24,6 +24,7 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
   const channelRef = useRef<any>(null);
+  const supabase = createClient();
 
   // Remote Stream Buffer handling function
   const handleAddIceCandidate = async (candidate: RTCIceCandidateInit) => {
