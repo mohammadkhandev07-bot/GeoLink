@@ -134,11 +134,14 @@ export default function ChatRoomPage() {
 
   const handleStartCall = (type: 'audio' | 'video') => {
     if (!other) return
+    if (theyBlockedMe || iBlockedThem) {
+      alert(iBlockedThem ? "You've blocked this user." : 'You cannot call this user.')
+      return
+    }
     if (!canCall) {
       alert('You can only call people you follow or who follow you.')
       return
     }
-    if (theyBlockedMe || iBlockedThem) return
     startCall({ id: other.id, username: other.username, avatar_url: other.avatar_url }, chatId, type)
   }
 
@@ -267,20 +270,20 @@ export default function ChatRoomPage() {
           )}
         </div>
 
-        {/* Call buttons - only enabled between followers/following */}
+        {/* Call buttons - always clickable; handleStartCall alerts if calling
+            isn't allowed (blocked, or not following each other) so nothing
+            ever fails silently */}
         <button
           onClick={() => handleStartCall('audio')}
-          disabled={!canCall || theyBlockedMe || iBlockedThem}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title={canCall ? 'Voice call' : 'You can only call followers/following'}
+          className={`p-1 rounded-lg hover:bg-accent transition-colors ${canCall && !theyBlockedMe && !iBlockedThem ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/40'}`}
+          title="Voice call"
         >
           <Phone className="h-5 w-5" />
         </button>
         <button
           onClick={() => handleStartCall('video')}
-          disabled={!canCall || theyBlockedMe || iBlockedThem}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title={canCall ? 'Video call' : 'You can only call followers/following'}
+          className={`p-1 rounded-lg hover:bg-accent transition-colors ${canCall && !theyBlockedMe && !iBlockedThem ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/40'}`}
+          title="Video call"
         >
           <Video className="h-5 w-5" />
         </button>
