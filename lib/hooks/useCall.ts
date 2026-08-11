@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { RTC_CONFIG, RING_TIMEOUT_MS } from '@/lib/utils/webrtc'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { showToast } from '@/components/shared/Toast'
 
 export type CallType = 'audio' | 'video'
 export type CallStatus = 'ringing' | 'accepted' | 'rejected' | 'missed' | 'ended' | 'cancelled' | 'busy'
@@ -256,7 +257,7 @@ export function useCallEngine(currentUserId?: string) {
       console.error('getMedia failed', err)
       const message = describeCallError(err, 'media')
       setError(message)
-      alert(message)
+      showToast(message, 'error')
       cleanup()
       return
     }
@@ -287,7 +288,7 @@ export function useCallEngine(currentUserId?: string) {
       console.error('startCall failed', err)
       const message = describeCallError(err, 'insert')
       setError(message)
-      alert(message)
+      showToast(message, 'error')
       cleanup()
     }
   }, [currentUserId])
@@ -319,7 +320,7 @@ export function useCallEngine(currentUserId?: string) {
       console.error('acceptIncoming failed', err)
       const message = describeCallError(err, 'media')
       setError(message)
-      alert(message)
+      showToast(message, 'error')
       await updateCallStatus(call.id, { status: 'rejected' })
       cleanup()
     }
