@@ -42,6 +42,35 @@ interface PendingIce {
  * Mounted once, high up in the tree (see CallProvider), so an incoming
  * call can interrupt whatever page the person is currently on.
  */
+function describeCallError(err: any, context: 'media' | 'insert' | 'join'): string {
+  if (context === 'media') {
+    if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission')) {
+      return 'Camera/microphone access was denied. Please allow access in your browser\'s site settings and try again.'
+    }
+    if (err?.name === 'NotFoundError') {
+      return 'No camera or microphone was found on this device.'
+    }
+    if (err?.name === 'NotReadableError') {
+      return 'Your camera/microphone is already in use by another app.'
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return 'This browser (or this connection) does not support calls. Calling needs a modern browser over HTTPS.'
+    }
+    return 'Could not access your camera/microphone.'
+  }
+  if (context === 'insert') {
+    const msg = String(err?.message || '')
+    if (msg.includes('does not exist') || msg.includes('schema cache') || err?.code === '42P01') {
+      return 'Calling isn\'t set up on the server yet - the "calls" database table is missing. Run supabase-migration-calls.sql in the Supabase SQL Editor.'
+    }
+    if (err?.code === '42501' || msg.toLowerCase().includes('row-level security')) {
+      return 'Calling is blocked by a database permission (RLS policy). Check that supabase-migration-calls.sql ran successfully.'
+    }
+    return 'Could not start the call. Please try again.'
+  }
+  return 'Could not connect the call.'
+}
+
 export function useCallEngine(currentUserId?: string) {
   const supabase = createClient()
 
@@ -118,6 +147,9 @@ export function useCallEngine(currentUserId?: string) {
   }, [])
 
   const getMedia = async (type: CallType) => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw Object.assign(new Error('unsupported'), { name: 'UnsupportedError' })
+    }
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: type === 'video' ? { facingMode: 'user' } : false,
@@ -217,9 +249,19 @@ export function useCallEngine(currentUserId?: string) {
   const startCall = useCallback(async (calleeId: string, chatId: string | null, type: CallType, calleeProfile: PeerProfile) => {
     if (!currentUserId) return
     setError(null)
+    let stream: MediaStream
     try {
-      const stream = await getMedia(type)
+      stream = await getMedia(type)
+    } catch (err: any) {
+      console.error('getMedia failed', err)
+      const message = describeCallError(err, 'media')
+      setError(message)
+      alert(message)
+      cleanup()
+      return
+    }
 
+    try {
       const { data: newCall, error: insertError } = await supabase
         .from('calls')
         .insert({ chat_id: chatId, caller_id: currentUserId, callee_id: calleeId, type, status: 'ringing' })
@@ -243,9 +285,9 @@ export function useCallEngine(currentUserId?: string) {
       }, RING_TIMEOUT_MS)
     } catch (err: any) {
       console.error('startCall failed', err)
-      setError(err?.message?.includes('Permission') || err?.name === 'NotAllowedError'
-        ? 'Camera/microphone access was denied.'
-        : 'Could not start the call.')
+      const message = describeCallError(err, 'insert')
+      setError(message)
+      alert(message)
       cleanup()
     }
   }, [currentUserId])
@@ -275,7 +317,9 @@ export function useCallEngine(currentUserId?: string) {
       setCall((prev) => (prev ? { ...prev, status: 'accepted' } : prev))
     } catch (err: any) {
       console.error('acceptIncoming failed', err)
-      setError(err?.name === 'NotAllowedError' ? 'Camera/microphone access was denied.' : 'Could not join the call.')
+      const message = describeCallError(err, 'media')
+      setError(message)
+      alert(message)
       await updateCallStatus(call.id, { status: 'rejected' })
       cleanup()
     }
