@@ -1,88 +1,160 @@
-'use client'
+// components/call/CallProvider.tsx
+'use client';
 
-import { createContext, useContext, useMemo } from 'react'
-import { useUser } from '@/lib/hooks/useUser'
-import { useCallEngine, peerAvatar, type CallType } from '@/lib/hooks/useCall'
-import { showToast } from '@/components/shared/Toast'
-import { IncomingCallModal } from './IncomingCallModal'
-import { CallScreen } from './CallScreen'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createPeerConnection } from '@/lib/utils/webrtc';
+import { supabase } from '@/lib/supabase/client'; // Apne supabase client path ke hisaab se adjust kar lena
 
-interface StartCallPeer {
-  id: string
-  username: string
-  avatar_url: string | null
+interface CallContextType {
+  startCall: (receiverId: string, isVideo: boolean) => Promise<void>;
+  endCall: () => void;
+  acceptCall: () => Promise<void>;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+  callState: 'idle' | 'calling' | 'incoming' | 'connected';
 }
 
-interface CallContextValue {
-  startCall: (peer: StartCallPeer, chatId: string | null, type: CallType) => Promise<void>
-  isCallActive: boolean
-}
+const CallContext = createContext<CallContextType | undefined>(undefined);
 
-const CallContext = createContext<CallContextValue | null>(null)
+export const CallProvider = ({ children }: { children: React.ReactNode }) => {
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [callState, setCallState] = useState<'idle' | 'calling' | 'incoming' | 'connected'>('idle');
 
-export function useCallContext() {
-  const ctx = useContext(CallContext)
-  if (!ctx) throw new Error('useCallContext must be used within CallProvider')
-  return ctx
-}
+  const peerConnection = useRef<RTCPeerConnection | null>(null);
+  const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
+  const channelRef = useRef<any>(null);
 
-/**
- * Mounted once near the root (see ResponsiveLayout) so a call can ring in
- * from anywhere in the app, not just the chat page. Renders the incoming
- * call screen and the active call screen as global overlays.
- */
-export function CallProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useUser()
-  const engine = useCallEngine(user?.id)
-
-  const startCall = async (peer: StartCallPeer, chatId: string | null, type: CallType) => {
-    if (engine.phase !== 'idle') {
-      showToast('You are already on a call.', 'error')
-      return
+  // Remote Stream Buffer handling function
+  const handleAddIceCandidate = async (candidate: RTCIceCandidateInit) => {
+    if (peerConnection.current && peerConnection.current.remoteDescription) {
+      try {
+        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err);
+      }
+    } else {
+      // Guard: Queue candidates if remote SDP isn't ready yet
+      iceCandidatesQueue.current.push(candidate);
     }
-    await engine.startCall(peer.id, chatId, type, peer)
-  }
+  };
 
-  const value = useMemo<CallContextValue>(() => ({
-    startCall,
-    isCallActive: engine.phase !== 'idle',
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [engine.phase])
+  // Queue me pade ICE candidates ko flush kar
+  const processBufferedCandidates = async () => {
+    if (!peerConnection.current || !peerConnection.current.remoteDescription) return;
+    while (iceCandidatesQueue.current.length > 0) {
+      const candidate = iceCandidatesQueue.current.shift();
+      if (candidate) {
+        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    }
+  };
 
-  const peerName = engine.peer?.username || 'Unknown'
-  const peerAvatarUrl = peerAvatar(engine.peer)
+  // 1. Call Start Karna (Caller Side)
+  const startCall = async (receiverId: string, isVideo: boolean) => {
+    setCallState('calling');
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: isVideo,
+    });
+    setLocalStream(stream);
+
+    // Setup Supabase Signaling Room
+    const channel = supabase.channel(`call:${receiverId}`);
+    channelRef.current = channel;
+
+    const pc = createPeerConnection(
+      (candidate) => {
+        channel.send({
+          type: 'broadcast',
+          event: 'ice-candidate',
+          payload: { candidate },
+        });
+      },
+      (remoteMediaStream) => {
+        setRemoteStream(remoteMediaStream);
+        setCallState('connected');
+      }
+    );
+
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    peerConnection.current = pc;
+
+    channel
+      .on('broadcast', { event: 'answer' }, async ({ payload }) => {
+        if (peerConnection.current) {
+          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          await processBufferedCandidates();
+        }
+      })
+      .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+        await handleAddIceCandidate(payload.candidate);
+      })
+      .on('broadcast', { event: 'end-call' }, () => {
+        cleanupCall();
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          channel.send({
+            type: 'broadcast',
+            event: 'offer',
+            payload: { sdp: offer },
+          });
+        }
+      });
+  };
+
+  // 2. Call Cut Karna (Clean-Up)
+  const cleanupCall = () => {
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+    }
+    if (peerConnection.current) {
+      peerConnection.current.close();
+      peerConnection.current = null;
+    }
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+      channelRef.current = null;
+    }
+    iceCandidatesQueue.current = [];
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCallState('idle');
+  };
+
+  const endCall = () => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'end-call',
+        payload: {},
+      });
+    }
+    cleanupCall();
+  };
 
   return (
-    <CallContext.Provider value={value}>
+    <CallContext.Provider
+      value={{
+        startCall,
+        endCall,
+        acceptCall: async () => {}, // Receiver logic binding
+        localStream,
+        remoteStream,
+        callState,
+      }}
+    >
       {children}
-
-      {engine.phase === 'incoming-ringing' && engine.call && (
-        <IncomingCallModal
-          callerName={peerName}
-          callerAvatar={peerAvatarUrl}
-          type={engine.call.type}
-          onAccept={engine.acceptIncoming}
-          onReject={engine.rejectIncoming}
-        />
-      )}
-
-      {(engine.phase === 'outgoing-ringing' || engine.phase === 'connecting' || engine.phase === 'in-call') && engine.call && (
-        <CallScreen
-          phase={engine.phase}
-          type={engine.call.type}
-          peerName={peerName}
-          peerAvatar={peerAvatarUrl}
-          localStream={engine.localStream}
-          remoteStream={engine.remoteStream}
-          isMuted={engine.isMuted}
-          isCameraOff={engine.isCameraOff}
-          callDurationSec={engine.callDurationSec}
-          error={engine.error}
-          onEnd={engine.phase === 'outgoing-ringing' ? engine.cancelOutgoing : engine.hangup}
-          onToggleMute={engine.toggleMute}
-          onToggleCamera={engine.toggleCamera}
-        />
-      )}
     </CallContext.Provider>
-  )
-}
+  );
+};
+
+export const useCall = () => {
+  const context = useContext(CallContext);
+  if (!context) throw new Error('useCall must be used within CallProvider');
+  return context;
+};
