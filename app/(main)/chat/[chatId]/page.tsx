@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Circle, Settings } from 'lucide-react'
+import { ArrowLeft, Circle, Settings, Phone, Video } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
@@ -13,6 +13,7 @@ import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
 import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe, useChatWallpaper, useSetChatWallpaper, useDeleteChatWallpaper } from '@/lib/hooks/useChatSettings'
+import { useCallContext } from '@/components/call/CallProvider'
 import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
@@ -52,6 +53,9 @@ export default function ChatRoomPage() {
   const { data: wallpaper } = useChatWallpaper(chatId, user?.id)
   const setChatWallpaper = useSetChatWallpaper()
   const deleteChatWallpaper = useDeleteChatWallpaper()
+
+  const { startCall } = useCallContext()
+  const [canCall, setCanCall] = useState(false)
 
   const theyBlockedMe = !!blockStatus?.theyBlockedMe
   const iBlockedThem = !!blockStatus?.iBlockedThem
@@ -112,6 +116,31 @@ export default function ChatRoomPage() {
       .neq('sender_id', user.id)
       .then(() => {})
   }, [messages, chatId, user])
+
+  // Calling is limited to people who follow me or whom I follow (either
+  // direction) - not open to everyone the way messaging can be.
+  useEffect(() => {
+    if (!user || !other) { setCanCall(false); return }
+    let cancelled = false
+    ;(async () => {
+      const [{ data: iFollowThem }, { data: theyFollowMe }] = await Promise.all([
+        supabase.from('follows').select('id').eq('follower_id', user.id).eq('following_id', other.id).eq('status', 'accepted').maybeSingle(),
+        supabase.from('follows').select('id').eq('follower_id', other.id).eq('following_id', user.id).eq('status', 'accepted').maybeSingle(),
+      ])
+      if (!cancelled) setCanCall(!!iFollowThem || !!theyFollowMe)
+    })()
+    return () => { cancelled = true }
+  }, [user?.id, other?.id])
+
+  const handleStartCall = (type: 'audio' | 'video') => {
+    if (!other) return
+    if (!canCall) {
+      alert('You can only call people you follow or who follow you.')
+      return
+    }
+    if (theyBlockedMe || iBlockedThem) return
+    startCall({ id: other.id, username: other.username, avatar_url: other.avatar_url }, chatId, type)
+  }
 
   const handleDeleteChat = async () => {
     if (!user) return
@@ -237,6 +266,24 @@ export default function ChatRoomPage() {
             </div>
           )}
         </div>
+
+        {/* Call buttons - only enabled between followers/following */}
+        <button
+          onClick={() => handleStartCall('audio')}
+          disabled={!canCall || theyBlockedMe || iBlockedThem}
+          className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title={canCall ? 'Voice call' : 'You can only call followers/following'}
+        >
+          <Phone className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => handleStartCall('video')}
+          disabled={!canCall || theyBlockedMe || iBlockedThem}
+          className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title={canCall ? 'Video call' : 'You can only call followers/following'}
+        >
+          <Video className="h-5 w-5" />
+        </button>
 
         {/* Chat settings */}
         <button
