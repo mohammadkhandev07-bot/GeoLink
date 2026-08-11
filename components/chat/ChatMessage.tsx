@@ -433,24 +433,26 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
       )}
 
       {showReactors && (
-        <div className="fixed inset-0 bg-background z-[110] flex flex-col" onClick={() => setShowReactors(false)}>
-          <div className="relative flex items-center justify-center px-4 py-3.5 border-b shrink-0" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowReactors(false)} className="absolute left-4 text-foreground">✕</button>
-            <p className="font-semibold text-sm">Reactions</p>
-          </div>
-          <div className="overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
-            {reactions.map((r: any) => (
-              <div key={r.id} className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
-                <Avatar className="h-9 w-9 shrink-0">
-                  <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
-                  <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="flex-1 text-sm truncate">
-                  @{r.profiles?.username}{r.user_id === currentUserId ? ' (You)' : ''}
-                </span>
-                <span className="text-xl shrink-0">{r.emoji}</span>
-              </div>
-            ))}
+        <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4" onClick={() => setShowReactors(false)}>
+          <div className="bg-card border rounded-2xl w-full max-w-xs max-h-[70vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+              <p className="font-semibold text-sm">Reactions ({reactions.length})</p>
+              <button onClick={() => setShowReactors(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {reactions.map((r: any) => (
+                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-b-0">
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
+                    <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="flex-1 text-sm truncate">
+                    @{r.profiles?.username}{r.user_id === currentUserId ? ' (You)' : ''}
+                  </span>
+                  <span className="text-xl shrink-0">{r.emoji}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
