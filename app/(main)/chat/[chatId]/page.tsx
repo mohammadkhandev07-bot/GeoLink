@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Circle, Settings, Phone, Video } from 'lucide-react'
+import { ArrowLeft, Circle, Settings, Phone, Video, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
@@ -14,6 +14,7 @@ import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
 import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe, useChatWallpaper, useSetChatWallpaper, useDeleteChatWallpaper } from '@/lib/hooks/useChatSettings'
 import { useCallContext } from '@/components/call/CallProvider'
+import { showToast } from '@/components/shared/Toast'
 import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
@@ -56,6 +57,7 @@ export default function ChatRoomPage() {
 
   const { startCall } = useCallContext()
   const [canCall, setCanCall] = useState(false)
+  const [callStarting, setCallStarting] = useState(false)
 
   const theyBlockedMe = !!blockStatus?.theyBlockedMe
   const iBlockedThem = !!blockStatus?.iBlockedThem
@@ -132,17 +134,22 @@ export default function ChatRoomPage() {
     return () => { cancelled = true }
   }, [user?.id, other?.id])
 
-  const handleStartCall = (type: 'audio' | 'video') => {
+  const handleStartCall = async (type: 'audio' | 'video') => {
     if (!other) return
     if (theyBlockedMe || iBlockedThem) {
-      alert(iBlockedThem ? "You've blocked this user." : 'You cannot call this user.')
+      showToast(iBlockedThem ? "You've blocked this user." : 'You cannot call this user.', 'error')
       return
     }
     if (!canCall) {
-      alert('You can only call people you follow or who follow you.')
+      showToast('You can only call people you follow or who follow you.', 'error')
       return
     }
-    startCall({ id: other.id, username: other.username, avatar_url: other.avatar_url }, chatId, type)
+    setCallStarting(true)
+    try {
+      await startCall({ id: other.id, username: other.username, avatar_url: other.avatar_url }, chatId, type)
+    } finally {
+      setCallStarting(false)
+    }
   }
 
   const handleDeleteChat = async () => {
@@ -270,22 +277,24 @@ export default function ChatRoomPage() {
           )}
         </div>
 
-        {/* Call buttons - always clickable; handleStartCall alerts if calling
-            isn't allowed (blocked, or not following each other) so nothing
-            ever fails silently */}
+        {/* Call buttons - always clickable; handleStartCall shows a toast if
+            calling isn't allowed (blocked, or not following each other) so
+            nothing ever fails silently */}
         <button
           onClick={() => handleStartCall('audio')}
+          disabled={callStarting}
           className={`p-1 rounded-lg hover:bg-accent transition-colors ${canCall && !theyBlockedMe && !iBlockedThem ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/40'}`}
           title="Voice call"
         >
-          <Phone className="h-5 w-5" />
+          {callStarting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Phone className="h-5 w-5" />}
         </button>
         <button
           onClick={() => handleStartCall('video')}
+          disabled={callStarting}
           className={`p-1 rounded-lg hover:bg-accent transition-colors ${canCall && !theyBlockedMe && !iBlockedThem ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/40'}`}
           title="Video call"
         >
-          <Video className="h-5 w-5" />
+          {callStarting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
         </button>
 
         {/* Chat settings */}
