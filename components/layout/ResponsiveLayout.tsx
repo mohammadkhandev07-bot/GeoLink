@@ -2,6 +2,7 @@ import { Navbar } from './Navbar'
 import { Sidebar } from './Sidebar'
 import { MobileBottomNav } from './MobileBottomNav'
 import { CallProvider } from '@/components/call/CallProvider'
+import { GlobalToast } from '@/components/shared/GlobalToast'
 
 export function ResponsiveLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export function ResponsiveLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <MobileBottomNav />
+        <GlobalToast />
       </div>
     </CallProvider>
   )
