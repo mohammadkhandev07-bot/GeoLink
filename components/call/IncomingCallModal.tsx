@@ -57,4 +57,4 @@ export function IncomingCallModal({ callerName, callerAvatar, type, onAccept, on
       </div>
     </div>
   )
-}
+} 
