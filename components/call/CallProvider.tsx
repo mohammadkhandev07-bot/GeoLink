@@ -153,8 +153,8 @@ export const CallProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useCall = () => {
+export const useCallContext = () => {
   const context = useContext(CallContext);
-  if (!context) throw new Error('useCall must be used within CallProvider');
+  if (!context) throw new Error('useCallContext must be used within CallProvider');
   return context;
 };
