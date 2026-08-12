@@ -1,11 +1,8 @@
 'use client'
 
-// Read-aloud tries ElevenLabs first (via /api/aperonix/speak, rotating
-// across 5 free accounts server-side) for a warm, natural voice, and falls
-// back to the browser's own built-in Web Speech API voice if that's ever
-// unavailable - so Aperonix can always speak, one way or another.
-// Voice input (speech-to-text) always uses the browser's native API -
-// support varies: best in Chrome/Edge, not available in Firefox.
+// Read-aloud uses the browser's own built-in Web Speech API. Voice input
+// (speech-to-text) also always uses the browser's native API - support
+// varies: best in Chrome/Edge, not available in Firefox.
 
 let cachedVoices: SpeechSynthesisVoice[] = []
 
@@ -75,10 +72,16 @@ interface SpeakHandle {
   stop: () => void
 }
 
-// The original browser Web Speech API path - kept as the guaranteed
-// fallback so Aperonix can always speak something even if ElevenLabs is
-// completely unreachable (all 5 accounts out of quota, network down, etc.).
-async function speakWithBrowserVoice(cleaned: string, onEnd: () => void): Promise<SpeakHandle> {
+export async function speakText(
+  text: string,
+  onEnd: () => void
+): Promise<SpeakHandle> {
+  const cleaned = cleanTextForSpeech(text)
+  if (!cleaned) {
+    onEnd()
+    return { stop: () => {} }
+  }
+
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     onEnd()
     return { stop: () => {} }
@@ -101,48 +104,6 @@ async function speakWithBrowserVoice(cleaned: string, onEnd: () => void): Promis
 
   window.speechSynthesis.speak(utterance)
   return { stop: () => window.speechSynthesis.cancel() }
-}
-
-// Tries the ElevenLabs voice (server-side, rotating across 5 accounts)
-// first for a genuinely warm, natural-sounding reply. If that route can't
-// produce audio for any reason - all 5 accounts out of quota, a network
-// hiccup, a slow response - it falls straight through to the browser's own
-// voice with no visible error, so the person always hears something.
-export async function speakText(
-  text: string,
-  onEnd: () => void
-): Promise<SpeakHandle> {
-  const cleaned = cleanTextForSpeech(text)
-  if (!cleaned) {
-    onEnd()
-    return { stop: () => {} }
-  }
-
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 20000)
-    const res = await fetch('/api/aperonix/speak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: cleaned }),
-      signal: controller.signal,
-    })
-    clearTimeout(timeout)
-
-    if (res.ok) {
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
-      audio.onended = () => { URL.revokeObjectURL(url); onEnd() }
-      audio.onerror = () => { URL.revokeObjectURL(url); onEnd() }
-      await audio.play()
-      return { stop: () => { audio.pause(); URL.revokeObjectURL(url) } }
-    }
-  } catch {
-    // Network error, timeout, etc. - fall through to the browser voice below.
-  }
-
-  return speakWithBrowserVoice(cleaned, onEnd)
 }
 
 export function stopSpeaking() {
