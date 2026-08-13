@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, ShieldCheck } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { startRingtone, stopRingtone } from '@/lib/utils/ringtone'
 import type { CallPhase, CallType } from '@/lib/hooks/useCall'
@@ -79,16 +79,26 @@ export function CallScreen({
       {/* Dim overlay so controls/text stay readable over video */}
       {isVideoCall && <div className="absolute inset-0 bg-black/30" />}
 
+      {/* Top bar - GeoLink branded, mirrors a normal call app's header */}
+      <div className="relative z-10 flex items-center justify-between px-5 pt-5">
+        <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center text-white/70 text-lg">⌄</div>
+        <div className="flex items-center gap-1.5 text-xs text-white/50">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>GeoLink secure call</span>
+        </div>
+        <div className="h-9 w-9" />
+      </div>
+
       {/* Peer info - centered when no remote video yet, top-aligned once video is live */}
       <div
         className={`relative z-10 flex flex-col items-center gap-3 transition-all duration-300 ${
-          showRemoteVideo ? 'pt-10' : 'flex-1 justify-center'
+          showRemoteVideo ? 'pt-6' : 'flex-1 justify-center -mt-16'
         }`}
       >
         {!showRemoteVideo && (
-          <Avatar className="h-28 w-28 ring-4 ring-white/10">
+          <Avatar className="h-32 w-32 ring-4 ring-pink-500/30 shadow-2xl shadow-pink-500/10">
             <AvatarImage src={peerAvatar} alt={peerName} />
-            <AvatarFallback className="text-3xl">{peerName[0]?.toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="text-4xl bg-gradient-to-br from-pink-500 to-purple-600">{peerName[0]?.toUpperCase()}</AvatarFallback>
           </Avatar>
         )}
         <h2 className={`font-bold ${showRemoteVideo ? 'text-lg drop-shadow-lg' : 'text-2xl'}`}>{peerName}</h2>
@@ -99,7 +109,7 @@ export function CallScreen({
 
       {/* Local self-view (video calls only) */}
       {isVideoCall && localStream && (
-        <div className="absolute top-4 right-4 w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden ring-1 ring-white/20 bg-neutral-800 z-20">
+        <div className="absolute top-20 right-4 w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden ring-2 ring-pink-500/40 bg-neutral-800 z-20 shadow-lg">
           {isCameraOff ? (
             <div className="w-full h-full flex items-center justify-center">
               <VideoOff className="h-6 w-6 text-white/40" />
@@ -111,7 +121,7 @@ export function CallScreen({
       )}
 
       {/* Controls */}
-      <div className="relative z-10 flex items-center justify-center gap-6 pb-12 pt-6">
+      <div className="relative z-10 flex items-center justify-center gap-6 pb-12 pt-6 bg-gradient-to-t from-black/40 to-transparent">
         <button
           onClick={onToggleMute}
           className={`h-14 w-14 rounded-full flex items-center justify-center transition-colors ${
