@@ -14,7 +14,6 @@ import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
 import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe, useChatWallpaper, useSetChatWallpaper, useDeleteChatWallpaper } from '@/lib/hooks/useChatSettings'
 import { useCallContext } from '@/components/call/CallProvider'
-import { showToast } from '@/components/shared/Toast'
 import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
@@ -55,7 +54,7 @@ export default function ChatRoomPage() {
   const setChatWallpaper = useSetChatWallpaper()
   const deleteChatWallpaper = useDeleteChatWallpaper()
 
-  const { startCall } = useCallContext()
+  const { startCall, reportBlocked } = useCallContext()
   const [canCall, setCanCall] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
 
@@ -125,23 +124,25 @@ export default function ChatRoomPage() {
     if (!user || !other) { setCanCall(false); return }
     let cancelled = false
     ;(async () => {
-      const [{ data: iFollowThem }, { data: theyFollowMe }] = await Promise.all([
+      const [{ data: iFollowThem, error: e1 }, { data: theyFollowMe, error: e2 }] = await Promise.all([
         supabase.from('follows').select('id').eq('follower_id', user.id).eq('following_id', other.id).eq('status', 'accepted').maybeSingle(),
         supabase.from('follows').select('id').eq('follower_id', other.id).eq('following_id', user.id).eq('status', 'accepted').maybeSingle(),
       ])
+      console.log('[GeoLink Call] canCall check', { iFollowThem, theyFollowMe, e1, e2, myId: user.id, otherId: other.id })
       if (!cancelled) setCanCall(!!iFollowThem || !!theyFollowMe)
     })()
     return () => { cancelled = true }
   }, [user?.id, other?.id])
 
   const handleStartCall = async (type: 'audio' | 'video') => {
+    console.log('[GeoLink Call] call button clicked', { type, canCall, theyBlockedMe, iBlockedThem, other })
     if (!other) return
     if (theyBlockedMe || iBlockedThem) {
-      showToast(iBlockedThem ? "You've blocked this user." : 'You cannot call this user.', 'error')
+      reportBlocked(iBlockedThem ? "You've blocked this user." : 'You cannot call this user.')
       return
     }
     if (!canCall) {
-      showToast('You can only call people you follow or who follow you.', 'error')
+      reportBlocked('You can only call people you follow or who follow you.')
       return
     }
     setCallStarting(true)
