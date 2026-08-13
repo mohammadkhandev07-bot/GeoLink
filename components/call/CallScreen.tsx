@@ -89,7 +89,7 @@ export function CallScreen({
         <div className="h-9 w-9" />
       </div>
 
-      {/* Peer info - centered when no remote video yet, top-aligned once video is live */}
+      {/* Peer info - Centered when no remote video yet, top-aligned once video is live */}
       <div
         className={`relative z-10 flex flex-col items-center gap-3 transition-all duration-300 ${
           showRemoteVideo ? 'pt-6' : 'flex-1 justify-center -mt-16'
