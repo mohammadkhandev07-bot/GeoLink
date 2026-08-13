@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Both participants call this on hangup - only the caller's report counts
-  // toward the ledger so a 3-minute call doesn't get logged as 6.
+  // Toward the ledger so a 3-minute call doesn't get logged as 6.
   if (call.provider && call.caller_id === user.id) {
     await recordCallUsage(call.provider as CallProviderName, Number(durationSeconds) || 0)
   }
