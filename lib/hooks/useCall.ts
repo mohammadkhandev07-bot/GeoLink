@@ -101,6 +101,7 @@ export function useCallEngine(currentUserId?: string) {
   const roleRef = useRef<'caller' | 'callee' | null>(null)
 
   useEffect(() => { callRef.current = call }, [call])
+  useEffect(() => { console.log('[GeoLink Call] phase changed ->', phase) }, [phase])
 
   const clearRingTimeout = () => { if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null } }
   const clearDurationTimer = () => { if (durationIntervalRef.current) { clearInterval(durationIntervalRef.current); durationIntervalRef.current = null } }
@@ -255,23 +256,26 @@ export function useCallEngine(currentUserId?: string) {
     setError(null)
     roleRef.current = 'caller'
     try {
+      console.log('[GeoLink Call] inserting call row into Supabase...', { calleeId, chatId, type })
       const { data: newCall, error: insertError } = await supabase
         .from('calls')
         .insert({ chat_id: chatId, caller_id: currentUserId, callee_id: calleeId, type, status: 'ringing' })
         .select()
         .single()
+      console.log('[GeoLink Call] insert result', { newCall, insertError })
       if (insertError || !newCall) throw insertError || new Error('Could not start call')
 
       setCall(newCall as CallRow)
       setPeer(calleeProfile)
       setPhase('outgoing-ringing')
+      console.log('[GeoLink Call] phase -> outgoing-ringing, call row:', newCall)
 
       ringTimeoutRef.current = setTimeout(async () => {
         await updateCallStatus(newCall.id, { status: 'missed' })
         cleanup()
       }, RING_TIMEOUT_MS)
     } catch (err: any) {
-      console.error('startCall failed', err)
+      console.error('[GeoLink Call] startCall failed', err)
       const message = describeCallError(err, 'connect')
       setError(message)
       cleanup()
