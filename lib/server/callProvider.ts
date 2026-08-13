@@ -4,7 +4,7 @@ export type CallProviderName = 'agora' | 'daily'
 
 // Leave a safety buffer under each provider's real 10,000/month free
 // limit, so we switch away BEFORE either one actually gets cut off or
-// starts billing - never right at the edge.
+// Starts billing - never right at the edge.
 const AGORA_SAFE_LIMIT_SECONDS = 9000 * 60
 const DAILY_SAFE_LIMIT_SECONDS = 9000 * 60
 
