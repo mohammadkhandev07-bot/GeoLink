@@ -72,7 +72,7 @@ export default function ChatRoomPage() {
   }, [chatId])
 
   // Live-check the other person's Message Privacy setting every time this
-  // conversation is opened - it may have changed since the chat was created.
+  // Conversation is opened - it may have changed since the chat was created.
   useEffect(() => {
     if (!chat || !user) return
     const otherP = chat.participant1_id === user.id ? chat.participant2 : chat.participant1
