@@ -27,7 +27,7 @@ export function IncomingCallModal({ callerName, callerAvatar, type, onAccept, on
 
       <div className="flex flex-col items-center gap-4">
         <p className="text-sm text-white/60">Incoming {type === 'video' ? 'video' : 'voice'} call</p>
-        <Avatar className="h-28 w-28 ring-4 ring-white/10 animate-pulse">
+        <Avatar className="h-28 w-28 ring-4 ring-pink-500/30 shadow-2xl shadow-pink-500/10 animate-pulse">
           <AvatarImage src={callerAvatar} alt={callerName} />
           <AvatarFallback className="text-3xl">{callerName[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
@@ -57,4 +57,4 @@ export function IncomingCallModal({ callerName, callerAvatar, type, onAccept, on
       </div>
     </div>
   )
-} 
+}
