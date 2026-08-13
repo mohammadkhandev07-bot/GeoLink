@@ -65,7 +65,7 @@ function removeTracksOfKind(stream: MediaStream, kind: string) {
 
 /**
  * Drives one call end-to-end:
- *  - global listener for incoming calls (works from any page, not just chat)
+ *  - Global listener for incoming calls (works from any page, not just chat)
  *  - call lifecycle (ring timeout, accept, reject, cancel, hangup) via the
  *    "calls" Supabase table + realtime, same as before
  *  - the actual audio/video transport, via Agora.io (primary) or Daily.co
