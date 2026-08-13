@@ -14,7 +14,7 @@ async function buildAgoraConnection(roomName: string, forUserId: string) {
   }
   // Agora needs a small numeric uid per participant, not the Supabase
   // UUID - it only has to be unique within this one channel, not tied to
-  // the person's identity anywhere else, so a stable hash is enough.
+  // The person's identity anywhere else, so a stable hash is enough.
   let hash = 0
   for (const ch of forUserId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
   const uid = (hash % 1000000000) + 1
