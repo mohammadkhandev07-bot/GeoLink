@@ -1,8 +1,14 @@
 'use client'
 
-// Read-aloud uses the browser's own built-in Web Speech API. Voice input
-// (speech-to-text) also always uses the browser's native API - support
-// varies: best in Chrome/Edge, not available in Firefox.
+// Read-aloud tries Edge TTS first (via /api/aperonix/speak - free, no key,
+// no signup, a genuinely natural neural voice) so Aperonix always sounds
+// like the same warm female voice everywhere: reading its own replies,
+// speaking back during a voice-mode conversation, and reading a person's
+// own chat messages aloud. If that route is ever unreachable, it falls
+// back to the browser's own built-in voice with no visible error, so
+// something always gets read out loud either way.
+// Voice input (speech-to-text) always uses the browser's native API -
+// support varies: best in Chrome/Edge, not available in Firefox.
 
 let cachedVoices: SpeechSynthesisVoice[] = []
 
@@ -44,10 +50,8 @@ function cleanTextForSpeech(text: string): string {
 }
 
 // Picks the nicest-sounding female English voice available on this device,
-// so Aperonix always speaks in a warm, "sweet girl" tone rather than
-// whatever the system default happens to be. Google's network voices sound
-// dramatically more natural than the offline OS voices (Microsoft David/
-// Zira on Windows, etc.), so those are tried first wherever available.
+// for the fallback path only - Edge TTS (the primary path) always uses the
+// same fixed voice, this is just what plays if that route is unreachable.
 function pickAperonixVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
   const preferredNames = [
     'Google UK English Female', 'Google US English', 'Google हिन्दी',
@@ -72,16 +76,9 @@ interface SpeakHandle {
   stop: () => void
 }
 
-export async function speakText(
-  text: string,
-  onEnd: () => void
-): Promise<SpeakHandle> {
-  const cleaned = cleanTextForSpeech(text)
-  if (!cleaned) {
-    onEnd()
-    return { stop: () => {} }
-  }
-
+// The browser-voice safety net - only used if the Edge TTS API route
+// couldn't produce audio for some reason.
+async function speakWithBrowserVoice(cleaned: string, onEnd: () => void): Promise<SpeakHandle> {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     onEnd()
     return { stop: () => {} }
@@ -95,8 +92,6 @@ export async function speakText(
     utterance.voice = voice
     utterance.lang = voice.lang
   }
-  // Natural pitch (not exaggerated) reads as an actual person rather than a
-  // cartoonish robot voice, with a slightly slower pace for clarity.
   utterance.pitch = 1.02
   utterance.rate = 0.93
   utterance.onend = onEnd
@@ -104,6 +99,43 @@ export async function speakText(
 
   window.speechSynthesis.speak(utterance)
   return { stop: () => window.speechSynthesis.cancel() }
+}
+
+export async function speakText(
+  text: string,
+  onEnd: () => void
+): Promise<SpeakHandle> {
+  const cleaned = cleanTextForSpeech(text)
+  if (!cleaned) {
+    onEnd()
+    return { stop: () => {} }
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
+    const res = await fetch('/api/aperonix/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: cleaned }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    if (res.ok) {
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audio.onended = () => { URL.revokeObjectURL(url); onEnd() }
+      audio.onerror = () => { URL.revokeObjectURL(url); onEnd() }
+      await audio.play()
+      return { stop: () => { audio.pause(); URL.revokeObjectURL(url) } }
+    }
+  } catch {
+    // Network error, timeout, etc. - fall through to the browser voice below.
+  }
+
+  return speakWithBrowserVoice(cleaned, onEnd)
 }
 
 export function stopSpeaking() {
