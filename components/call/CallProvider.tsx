@@ -1,9 +1,8 @@
 'use client'
 
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useUser } from '@/lib/hooks/useUser'
 import { useCallEngine, peerAvatar, type CallType } from '@/lib/hooks/useCall'
-import { showToast } from '@/components/shared/Toast'
 import { IncomingCallModal } from './IncomingCallModal'
 import { CallScreen } from './CallScreen'
 
@@ -16,6 +15,7 @@ interface StartCallPeer {
 interface CallContextValue {
   startCall: (peer: StartCallPeer, chatId: string | null, type: CallType) => Promise<void>
   isCallActive: boolean
+  reportBlocked: (reason: string) => void
 }
 
 const CallContext = createContext<CallContextValue | null>(null)
@@ -29,15 +29,38 @@ export function useCallContext() {
 /**
  * Mounted once near the root (see ResponsiveLayout) so a call can ring in
  * from anywhere in the app, not just the chat page. Renders the incoming
- * call screen and the active call screen as global overlays.
+ * call screen, the active call screen, and a self-contained error banner
+ * as global overlays.
+ *
+ * The error banner is driven directly by this component's own state
+ * (bannerError below) rather than routing through the separate Toast
+ * module - that removes a whole class of "the message technically fired
+ * but nothing rendered" bugs, since the exact same render that owns the
+ * call state also owns what's displayed for it.
  */
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
   const engine = useCallEngine(user?.id)
+  const [bannerError, setBannerError] = useState<string | null>(null)
+
+  // Whenever the call engine reports an error (permission denied, DB
+  // insert failed, etc.) surface it here, auto-dismissing after a bit.
+  useEffect(() => {
+    if (!engine.error) return
+    setBannerError(engine.error)
+    const timer = setTimeout(() => setBannerError(null), 7000)
+    return () => clearTimeout(timer)
+  }, [engine.error])
+
+  const reportBlocked = (reason: string) => {
+    setBannerError(reason)
+    window.setTimeout(() => setBannerError((current) => (current === reason ? null : current)), 5000)
+  }
 
   const startCall = async (peer: StartCallPeer, chatId: string | null, type: CallType) => {
+    console.log('[GeoLink Call] startCall requested', { peer, chatId, type, phase: engine.phase })
     if (engine.phase !== 'idle') {
-      showToast('You are already on a call.', 'error')
+      reportBlocked('You are already on a call.')
       return
     }
     await engine.startCall(peer.id, chatId, type, peer)
@@ -46,6 +69,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<CallContextValue>(() => ({
     startCall,
     isCallActive: engine.phase !== 'idle',
+    reportBlocked,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [engine.phase])
 
@@ -55,6 +79,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   return (
     <CallContext.Provider value={value}>
       {children}
+
+      {bannerError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[300] max-w-[92vw] flex items-center gap-3 bg-red-600 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-2xl">
+          <span>{bannerError}</span>
+          <button onClick={() => setBannerError(null)} className="shrink-0 opacity-80 hover:opacity-100">✕</button>
+        </div>
+      )}
 
       {engine.phase === 'incoming-ringing' && engine.call && (
         <IncomingCallModal
