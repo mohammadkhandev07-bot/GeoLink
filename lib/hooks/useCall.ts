@@ -243,6 +243,23 @@ export function useCallEngine(currentUserId?: string) {
       }
     } catch (err: any) {
       console.error('connectMedia failed', err)
+      // A camera/mic error here (rather than a network/provider error)
+      // means the permission pre-check above didn't catch it in time -
+      // most commonly an installed home-screen app on some Android
+      // phones that never surfaces the real permission prompt at all.
+      // Fall back to the same explainer screen (in its "blocked" form)
+      // instead of just leaving them with a generic error, since it also
+      // offers "open in browser" as a working escape hatch.
+      const errName = String(err?.name || '')
+      const errMsg = String(err?.message || err?.code || '')
+      const isMediaError = ['NotAllowedError', 'NotFoundError', 'NotReadableError'].includes(errName)
+        || /permission|not allowed|notallowed|denied/i.test(errMsg)
+        || !navigator.mediaDevices?.getUserMedia
+      if (isMediaError) {
+        pendingCallRef.current = activeCall
+        setPhase('permission-blocked')
+        return
+      }
       const message = describeCallError(err, 'media')
       setError(message)
       await updateCallStatus(activeCall.id, { status: 'ended', ended_at: new Date().toISOString() })
