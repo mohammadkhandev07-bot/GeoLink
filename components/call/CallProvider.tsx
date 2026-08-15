@@ -45,7 +45,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [bannerError, setBannerError] = useState<string | null>(null)
 
   // Whenever the call engine reports an error (permission denied, DB
-  // insert failed, etc.) surface it here, auto-dismissing after a bit.
+  // Insert failed, etc.) surface it here, auto-dismissing after a bit.
   useEffect(() => {
     if (!engine.error) return
     setBannerError(engine.error)
