@@ -80,19 +80,17 @@ export function CallScreen({
       {isVideoCall && <div className="absolute inset-0 bg-black/30" />}
 
       {/* Top bar - GeoLink branded, mirrors a normal call app's header */}
-      <div className="relative z-10 flex items-center justify-between px-5 pt-5">
-        <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center text-white/70 text-lg">⌄</div>
+      <div className="relative z-10 flex items-center justify-center px-5 pt-5">
         <div className="flex items-center gap-1.5 text-xs text-white/50">
           <ShieldCheck className="h-3.5 w-3.5" />
           <span>GeoLink secure call</span>
         </div>
-        <div className="h-9 w-9" />
       </div>
 
       {/* Peer info - Centered when no remote video yet, top-aligned once video is live */}
       <div
         className={`relative z-10 flex flex-col items-center gap-3 transition-all duration-300 ${
-          showRemoteVideo ? 'pt-6' : 'flex-1 justify-center -mt-16'
+          showRemoteVideo ? 'pt-6' : 'flex-1 justify-center'
         }`}
       >
         {!showRemoteVideo && (
