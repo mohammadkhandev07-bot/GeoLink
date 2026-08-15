@@ -5,6 +5,7 @@ import { useUser } from '@/lib/hooks/useUser'
 import { useCallEngine, peerAvatar, type CallType } from '@/lib/hooks/useCall'
 import { IncomingCallModal } from './IncomingCallModal'
 import { CallScreen } from './CallScreen'
+import { PermissionGate } from './PermissionGate'
 
 interface StartCallPeer {
   id: string
@@ -89,6 +90,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           type={engine.call.type}
           onAccept={engine.acceptIncoming}
           onReject={engine.rejectIncoming}
+        />
+      )}
+
+      {(engine.phase === 'permission-prompt' || engine.phase === 'permission-blocked') && engine.call && (
+        <PermissionGate
+          mode={engine.phase === 'permission-blocked' ? 'blocked' : 'prompt'}
+          type={engine.call.type}
+          peerName={peerName}
+          onAllow={engine.phase === 'permission-blocked' ? engine.recheckPermission : engine.confirmPermissionAndConnect}
+          onCancel={engine.hangup}
         />
       )}
 
