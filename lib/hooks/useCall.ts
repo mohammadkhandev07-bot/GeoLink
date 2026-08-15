@@ -27,7 +27,7 @@ interface PeerProfile {
   avatar_url: string | null
 }
 
-export type CallPhase = 'idle' | 'outgoing-ringing' | 'incoming-ringing' | 'connecting' | 'in-call'
+export type CallPhase = 'idle' | 'outgoing-ringing' | 'incoming-ringing' | 'connecting' | 'permission-prompt' | 'permission-blocked' | 'in-call'
 
 function describeCallError(err: any, context: 'media' | 'connect'): string {
   if (context === 'media') {
@@ -98,6 +98,7 @@ export function useCallEngine(currentUserId?: string) {
   const ringTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const callRef = useRef<CallRow | null>(null)
+  const pendingCallRef = useRef<CallRow | null>(null)
   const roleRef = useRef<'caller' | 'callee' | null>(null)
 
   useEffect(() => { callRef.current = call }, [call])
@@ -148,6 +149,7 @@ export function useCallEngine(currentUserId?: string) {
     remoteStreamObjRef.current.getTracks().forEach((t) => remoteStreamObjRef.current.removeTrack(t))
 
     roleRef.current = null
+    pendingCallRef.current = null
     setLocalStream(null)
     setRemoteStream(null)
     setCall(null)
@@ -166,7 +168,7 @@ export function useCallEngine(currentUserId?: string) {
   // Joins the actual audio/video transport (Agora or Daily, whichever
   // /api/calls/connect decides) once both sides have accepted the call.
   // ------------------------------------------------------------------
-  const connectMedia = useCallback(async (activeCall: CallRow) => {
+  const doConnectMedia = useCallback(async (activeCall: CallRow) => {
     setPhase('connecting')
     try {
       const res = await fetch('/api/calls/connect', {
@@ -247,6 +249,69 @@ export function useCallEngine(currentUserId?: string) {
       cleanup()
     }
   }, [cleanup, updateCallStatus])
+
+  // Checks the browser's current camera/mic permission state (where the
+  // Permissions API is available - Safari doesn't support querying
+  // 'camera'/'microphone', in which case we just proceed straight to the
+  // real request, which is exactly what happened before this existed).
+  const checkMediaPermission = async (type: CallType): Promise<'granted' | 'prompt' | 'denied' | 'unknown'> => {
+    if (!navigator.permissions?.query) return 'unknown'
+    try {
+      const mic = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+      if (mic.state === 'denied') return 'denied'
+      if (type === 'audio') return mic.state as 'granted' | 'prompt'
+      const cam = await navigator.permissions.query({ name: 'camera' as PermissionName })
+      if (cam.state === 'denied') return 'denied'
+      return (mic.state === 'granted' && cam.state === 'granted') ? 'granted' : 'prompt'
+    } catch {
+      return 'unknown'
+    }
+  }
+
+  // Gatekeeper in front of doConnectMedia: if the browser has never been
+  // asked before, show our own friendly explainer first (so people
+  // understand why we're asking, before the real browser prompt appears -
+  // people are far more likely to hit "Allow" that way). If access was
+  // already explicitly blocked, there's no popup that can fix that - only
+  // the person changing it in their browser's site settings can - so we
+  // show clear instructions instead of just quietly failing.
+  const connectMedia = useCallback(async (activeCall: CallRow) => {
+    pendingCallRef.current = activeCall
+    const state = await checkMediaPermission(activeCall.type)
+    if (state === 'denied') {
+      setPhase('permission-blocked')
+      return
+    }
+    if (state === 'prompt') {
+      setPhase('permission-prompt')
+      return
+    }
+    await doConnectMedia(activeCall)
+  }, [doConnectMedia])
+
+  // Called when the person taps "Allow camera & microphone" on our
+  // explainer screen - this click IS the user gesture the browser needs
+  // to show its own native permission prompt.
+  const confirmPermissionAndConnect = useCallback(async () => {
+    if (!pendingCallRef.current) return
+    await doConnectMedia(pendingCallRef.current)
+  }, [doConnectMedia])
+
+  // Called from the "I've fixed it" button on the blocked-access screen -
+  // re-checks in case they just changed the site setting.
+  const recheckPermission = useCallback(async () => {
+    if (!pendingCallRef.current) return
+    const state = await checkMediaPermission(pendingCallRef.current.type)
+    if (state === 'denied') {
+      setError('Still blocked. Make sure you reloaded the page after changing the browser setting.')
+      return
+    }
+    if (state === 'prompt') {
+      setPhase('permission-prompt')
+      return
+    }
+    await doConnectMedia(pendingCallRef.current)
+  }, [doConnectMedia])
 
   // ------------------------------------------------------------------
   // Outgoing call
@@ -424,6 +489,8 @@ export function useCallEngine(currentUserId?: string) {
     hangup: () => endCall('ended'),
     toggleMute,
     toggleCamera,
+    confirmPermissionAndConnect,
+    recheckPermission,
   }
 }
 
