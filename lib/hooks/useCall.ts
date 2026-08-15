@@ -361,7 +361,7 @@ export function useCallEngine(currentUserId?: string) {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'calls', filter: `callee_id=eq.${currentUserId}` },
-        async ({ payload }: any) => {
+        async (payload: any) => {
           const row = payload.new as CallRow
           if (row.status !== 'ringing') return
           roleRef.current = 'callee'
@@ -380,12 +380,12 @@ export function useCallEngine(currentUserId?: string) {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'calls', filter: `caller_id=eq.${currentUserId}` },
-        ({ payload }: any) => handleStatusUpdate(payload.new as CallRow)
+        (payload: any) => handleStatusUpdate(payload.new as CallRow)
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'calls', filter: `callee_id=eq.${currentUserId}` },
-        ({ payload }: any) => handleStatusUpdate(payload.new as CallRow)
+        (payload: any) => handleStatusUpdate(payload.new as CallRow)
       )
       .subscribe()
 
