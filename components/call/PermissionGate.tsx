@@ -1,6 +1,6 @@
 'use client'
 
-import { Mic, Video, ShieldCheck, LockKeyhole } from 'lucide-react'
+import { Mic, Video, ShieldCheck, LockKeyhole, ExternalLink } from 'lucide-react'
 import type { CallType } from '@/lib/hooks/useCall'
 
 interface PermissionGateProps {
@@ -9,6 +9,11 @@ interface PermissionGateProps {
   peerName: string
   onAllow: () => void
   onCancel: () => void
+}
+
+function isInstalledStandaloneApp() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia?.('(display-mode: standalone)')?.matches || (window.navigator as any).standalone === true
 }
 
 /**
@@ -23,9 +28,16 @@ interface PermissionGateProps {
  * the browser level. No in-app button can undo that - only changing the
  * browser's own site setting can - so this shows exactly how to do that
  * instead of just failing quietly.
+ *
+ * On some Android phones (MIUI/Xiaomi especially), an installed home-screen
+ * PWA never surfaces the camera/mic permission prompt at all - the request
+ * silently fails with no dialog, even on a fresh install. Since there's no
+ * in-app fix for that, we point people to open the same page in a normal
+ * browser tab instead, which reliably shows the real permission prompt.
  */
 export function PermissionGate({ mode, type, peerName, onAllow, onCancel }: PermissionGateProps) {
   const needsCamera = type === 'video'
+  const standalone = isInstalledStandaloneApp()
 
   return (
     <div className="fixed inset-0 bg-neutral-950 z-[200] flex flex-col items-center justify-center text-white px-6 text-center">
@@ -65,6 +77,20 @@ export function PermissionGate({ mode, type, peerName, onAllow, onCancel }: Perm
             I've fixed it - Try Again
           </button>
         </>
+      )}
+
+      {standalone && (
+        <button
+          onClick={() => window.open(window.location.href, '_blank')}
+          className="w-full max-w-xs py-3 rounded-xl bg-white/10 font-medium mb-3 flex items-center justify-center gap-2 text-sm"
+        >
+          <ExternalLink className="h-4 w-4" /> Open in browser instead
+        </button>
+      )}
+      {standalone && (
+        <p className="text-white/40 text-xs max-w-xs mb-2">
+          Not asking, even after trying? Some phones don't show the permission popup inside an installed app - opening this in your regular browser (Chrome/etc) usually fixes it.
+        </p>
       )}
 
       <button onClick={onCancel} className="text-white/50 text-sm py-2">
