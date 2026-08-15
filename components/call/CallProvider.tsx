@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { useUser } from '@/lib/hooks/useUser'
 import { useCallEngine, peerAvatar, type CallType } from '@/lib/hooks/useCall'
 import { IncomingCallModal } from './IncomingCallModal'
@@ -66,12 +66,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     await engine.startCall(peer.id, chatId, type, peer)
   }
 
-  const value = useMemo<CallContextValue>(() => ({
-    startCall,
-    isCallActive: engine.phase !== 'idle',
-    reportBlocked,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [engine.phase])
+  const value: CallContextValue = { startCall, isCallActive: engine.phase !== 'idle', reportBlocked }
 
   const peerName = engine.peer?.username || 'Unknown'
   const peerAvatarUrl = peerAvatar(engine.peer)
