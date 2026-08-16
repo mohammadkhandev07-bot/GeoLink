@@ -39,7 +39,8 @@ function describeCallError(err: any, context: 'media' | 'connect'): string {
     if (!navigator.mediaDevices?.getUserMedia) {
       return 'This browser (or this connection) does not support calls. Calling needs a modern browser over HTTPS.'
     }
-    return 'Could not access your camera/microphone.'
+    const detail = err?.message || err?.code || err?.name
+    return detail ? `Could not connect the call: ${detail}` : 'Could not access your camera/microphone.'
   }
   const msg = String(err?.message || '')
   if (msg.includes('AGORA_APP_ID') || msg.includes('AGORA_APP_CERTIFICATE')) {
@@ -99,6 +100,7 @@ export function useCallEngine(currentUserId?: string) {
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const callRef = useRef<CallRow | null>(null)
   const pendingCallRef = useRef<CallRow | null>(null)
+  const remoteLeftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const roleRef = useRef<'caller' | 'callee' | null>(null)
 
   useEffect(() => { callRef.current = call }, [call])
@@ -106,6 +108,7 @@ export function useCallEngine(currentUserId?: string) {
 
   const clearRingTimeout = () => { if (ringTimeoutRef.current) { clearTimeout(ringTimeoutRef.current); ringTimeoutRef.current = null } }
   const clearDurationTimer = () => { if (durationIntervalRef.current) { clearInterval(durationIntervalRef.current); durationIntervalRef.current = null } }
+  const clearRemoteLeftTimeout = () => { if (remoteLeftTimeoutRef.current) { clearTimeout(remoteLeftTimeoutRef.current); remoteLeftTimeoutRef.current = null } }
 
   const reportUsageAndCleanupTransport = useCallback(async () => {
     const activeCall = callRef.current
@@ -143,6 +146,7 @@ export function useCallEngine(currentUserId?: string) {
   const cleanup = useCallback(() => {
     clearRingTimeout()
     clearDurationTimer()
+    clearRemoteLeftTimeout()
     void reportUsageAndCleanupTransport()
 
     localStreamObjRef.current.getTracks().forEach((t) => { t.stop(); localStreamObjRef.current.removeTrack(t) })
@@ -187,19 +191,39 @@ export function useCallEngine(currentUserId?: string) {
         agoraRef.current = { client, audioTrack: null, videoTrack: null }
 
         client.on('user-published', async (remoteUser: any, mediaType: 'audio' | 'video') => {
-          await client.subscribe(remoteUser, mediaType)
-          const track = mediaType === 'audio' ? remoteUser.audioTrack : remoteUser.videoTrack
-          if (track) {
-            upsertTrack(remoteStreamObjRef.current, track.getMediaStreamTrack())
-            setRemoteStream(remoteStreamObjRef.current)
-            setPhase('in-call')
-            if (!startedAtMsRef.current) startedAtMsRef.current = Date.now()
+          try {
+            await client.subscribe(remoteUser, mediaType)
+            const track = mediaType === 'audio' ? remoteUser.audioTrack : remoteUser.videoTrack
+            if (track) {
+              upsertTrack(remoteStreamObjRef.current, track.getMediaStreamTrack())
+              setRemoteStream(remoteStreamObjRef.current)
+              setPhase('in-call')
+              if (!startedAtMsRef.current) startedAtMsRef.current = Date.now()
+            }
+          } catch (subErr) {
+            console.error('[Agora] subscribe failed', subErr)
           }
+          // The other side is back - cancel any pending "they disconnected" grace timer.
+          if (remoteLeftTimeoutRef.current) { clearTimeout(remoteLeftTimeoutRef.current); remoteLeftTimeoutRef.current = null }
         })
         client.on('user-unpublished', (_remoteUser: any, mediaType: 'audio' | 'video') => {
           removeTracksOfKind(remoteStreamObjRef.current, mediaType === 'audio' ? 'audio' : 'video')
         })
-        client.on('user-left', () => cleanup())
+        // A brief network blip can make Agora report the other person as
+        // having "left" even though they're still on the call and about
+        // to reconnect - so this doesn't end the call immediately. It
+        // waits a few seconds for them to reappear (user-published above)
+        // before actually treating it as a real hangup.
+        client.on('user-left', () => {
+          if (remoteLeftTimeoutRef.current) clearTimeout(remoteLeftTimeoutRef.current)
+          remoteLeftTimeoutRef.current = setTimeout(() => {
+            remoteLeftTimeoutRef.current = null
+            cleanup()
+          }, 8000)
+        })
+        client.on('connection-state-change', (curState: string, _prevState: string, reason: string) => {
+          console.log('[Agora] connection state ->', curState, reason)
+        })
 
         await client.join(info.appId, info.channel, info.token, info.uid)
 
@@ -488,6 +512,70 @@ export function useCallEngine(currentUserId?: string) {
     return () => { supabase.removeChannel(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId])
+
+  // ------------------------------------------------------------------
+  // Reliability backstop for the realtime listener above. Realtime
+  // websockets can lag or get suspended (mobile browsers throttle
+  // background tabs, network switches between wifi/cellular, etc.) - when
+  // that happens, an incoming call can arrive late or not visibly at all.
+  // This polls every few seconds as a safety net so a call is never
+  // missed for more than a moment, even if the realtime event itself
+  // never arrives. It's deliberately lightweight (one small query) and
+  // only runs while idle or actively ringing, not during a live call.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!currentUserId) return
+
+    const poll = async () => {
+      if (phase !== 'idle' && phase !== 'incoming-ringing') return
+
+      // Catch a missed "someone is calling me" event.
+      if (phase === 'idle') {
+        const { data: incoming } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('callee_id', currentUserId)
+          .eq('status', 'ringing')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (incoming && Date.now() - new Date(incoming.created_at).getTime() < RING_TIMEOUT_MS) {
+          roleRef.current = 'callee'
+          const { data: callerProfile } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .eq('id', incoming.caller_id)
+            .single()
+          setCall(incoming as CallRow)
+          setPeer(callerProfile as PeerProfile)
+          setPhase('incoming-ringing')
+          ringTimeoutRef.current = setTimeout(() => cleanup(), RING_TIMEOUT_MS - (Date.now() - new Date(incoming.created_at).getTime()))
+        }
+      }
+
+      // Catch a missed status change (caller cancelled, or - if we're the
+      // caller - the callee already accepted/rejected) on the call
+      // currently showing on screen.
+      const current = callRef.current
+      if (current) {
+        const { data: fresh } = await supabase.from('calls').select('status').eq('id', current.id).single()
+        if (fresh && fresh.status !== current.status) {
+          if (fresh.status === 'accepted' && roleRef.current === 'caller') {
+            const acceptedCall = { ...current, status: 'accepted' as CallStatus }
+            setCall(acceptedCall)
+            connectMedia(acceptedCall)
+          } else if (['rejected', 'missed', 'cancelled', 'busy', 'ended'].includes(fresh.status)) {
+            cleanup()
+          }
+        }
+      }
+    }
+
+    const intervalId = setInterval(poll, 4000)
+    return () => clearInterval(intervalId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, phase])
 
   return {
     phase,
