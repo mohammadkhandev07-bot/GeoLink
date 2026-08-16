@@ -101,6 +101,7 @@ export function useCallEngine(currentUserId?: string) {
   const callRef = useRef<CallRow | null>(null)
   const pendingCallRef = useRef<CallRow | null>(null)
   const remoteLeftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const connectingCallIdRef = useRef<string | null>(null)
   const roleRef = useRef<'caller' | 'callee' | null>(null)
 
   useEffect(() => { callRef.current = call }, [call])
@@ -154,6 +155,7 @@ export function useCallEngine(currentUserId?: string) {
 
     roleRef.current = null
     pendingCallRef.current = null
+    connectingCallIdRef.current = null
     setLocalStream(null)
     setRemoteStream(null)
     setCall(null)
@@ -317,6 +319,15 @@ export function useCallEngine(currentUserId?: string) {
   // the person changing it in their browser's site settings can - so we
   // show clear instructions instead of just quietly failing.
   const connectMedia = useCallback(async (activeCall: CallRow) => {
+    // The realtime listener and the polling backstop can both notice
+    // "this call just got accepted" within moments of each other - without
+    // this guard, that would spin up two Agora/Daily connections for the
+    // same call, which then fight each other (this is what was producing
+    // the "PeerConnection already disconnected" error). Whichever path
+    // notices first claims the call id; the other becomes a no-op.
+    if (connectingCallIdRef.current === activeCall.id) return
+    connectingCallIdRef.current = activeCall.id
+
     pendingCallRef.current = activeCall
     const state = await checkMediaPermission(activeCall.type)
     if (state === 'denied') {
