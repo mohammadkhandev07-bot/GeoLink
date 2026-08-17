@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { MoreVertical, Reply as ReplyIcon, Smile, Pencil, Trash2, EyeOff, Copy, Volume2, Square, Forward, Check, Download, Gauge } from 'lucide-react'
+import { MoreVertical, Reply as ReplyIcon, Smile, Pencil, Trash2, EyeOff, Copy, Volume2, Square, Forward, Check, Download, Gauge, Phone, Video } from 'lucide-react'
 import { SharedPostMessage } from './SharedPostMessage'
 import { SharedStoryMessage } from './SharedStoryMessage'
 import { AperonixReplyMessage } from './AperonixReplyMessage'
@@ -42,6 +42,12 @@ const EMOJI_WIDTH = 288
 const EMOJI_HEIGHT = 288
 const SPEEDS = [1, 1.5, 2, 0.5]
 
+function formatCallDuration(sec: number) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0')
+  const s = Math.floor(sec % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
 export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onReply, onRemoveMessage, onPatchMessage, unavailable }: ChatMessageProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -67,7 +73,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
   const removeReaction = useRemoveMessageReaction()
   const { data: replyPreview } = useReplyPreview((message as any).reply_to_id)
 
-  const mediaType = (message as any).media_type as 'image' | 'video' | 'audio' | null
+  const mediaType = (message as any).media_type as 'image' | 'video' | 'audio' | 'call' | null
   const mediaUrl = (message as any).media_url as string | null
   const myReaction = reactions.find(r => r.user_id === currentUserId)
 
@@ -220,6 +226,37 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
         </p>
       </div>
     )
+  }
+
+  if (mediaType === 'call') {
+    let callInfo: { callType: 'audio' | 'video'; outcome: string; durationSec: number } | null = null
+    try { callInfo = JSON.parse(message.content) } catch {}
+    if (callInfo) {
+      const label =
+        callInfo.outcome === 'completed'
+          ? `${callInfo.callType === 'video' ? 'Video' : 'Voice'} call · ${formatCallDuration(callInfo.durationSec)}`
+          : callInfo.outcome === 'missed' ? 'Missed call'
+          : callInfo.outcome === 'rejected' ? 'Call declined'
+          : callInfo.outcome === 'cancelled' ? 'Cancelled call'
+          : `${callInfo.callType === 'video' ? 'Video' : 'Voice'} call`
+      const Icon = callInfo.callType === 'video' ? Video : Phone
+      const isMissedOrDeclined = callInfo.outcome === 'missed' || callInfo.outcome === 'rejected'
+      return (
+        <div className={cn('flex mb-2', isOwn && 'justify-end')}>
+          <div className={cn(
+            'flex items-center gap-2 px-3 py-2 rounded-2xl text-sm',
+            isOwn ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-sm' : 'bg-muted rounded-bl-sm',
+            isMissedOrDeclined && !isOwn && 'text-red-500'
+          )}>
+            <Icon className={cn('h-4 w-4 shrink-0', isMissedOrDeclined && !isOwn ? 'text-red-500' : isOwn ? 'text-white' : 'text-muted-foreground')} />
+            <span>{label}</span>
+            <span className={cn('text-[10px]', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
+              {formatTimeAgo(message.created_at)}
+            </span>
+          </div>
+        </div>
+      )
+    }
   }
 
   if (unavailable) {
