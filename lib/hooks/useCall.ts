@@ -141,10 +141,37 @@ export function useCallEngine(currentUserId?: string) {
     startedAtMsRef.current = null
   }, [])
 
+  // Logs a finished call into the chat as a message, like a normal phone
+  // app does ("Voice call - 2:14", "Missed call", etc). Only the caller's
+  // side writes this (mirroring how only the caller's usage gets counted
+  // above) so a call never ends up logged twice - whichever side actually
+  // hangs up, the caller's own listener always eventually notices the
+  // final status and logs it exactly once.
+  const logCallToChat = async (call: CallRow, status: CallStatus) => {
+    if (!call.chat_id) return
+    const durationSec = startedAtMsRef.current ? Math.round((Date.now() - startedAtMsRef.current) / 1000) : 0
+    const outcome = durationSec > 0 ? 'completed' : status
+    try {
+      await supabase.from('messages').insert({
+        chat_id: call.chat_id,
+        sender_id: call.caller_id,
+        content: JSON.stringify({ callType: call.type, outcome, durationSec }),
+        media_type: 'call',
+      })
+    } catch (e) {
+      console.error('[GeoLink Call] failed to log call to chat', e)
+    }
+  }
+
   // Full teardown - stops media, tears down whichever provider is active,
   // and resets every piece of state back to idle. Used whenever a call
   // ends for ANY reason (hangup, reject, cancel, timeout, error).
-  const cleanup = useCallback(() => {
+  const cleanup = useCallback((logStatus?: CallStatus) => {
+    const callToLog = callRef.current
+    if (callToLog && logStatus && roleRef.current === 'caller') {
+      void logCallToChat(callToLog, logStatus)
+    }
+
     clearRingTimeout()
     clearDurationTimer()
     clearRemoteLeftTimeout()
@@ -220,7 +247,7 @@ export function useCallEngine(currentUserId?: string) {
           if (remoteLeftTimeoutRef.current) clearTimeout(remoteLeftTimeoutRef.current)
           remoteLeftTimeoutRef.current = setTimeout(() => {
             remoteLeftTimeoutRef.current = null
-            cleanup()
+            cleanup('ended')
           }, 8000)
         })
         client.on('connection-state-change', (curState: string, _prevState: string, reason: string) => {
@@ -233,8 +260,16 @@ export function useCallEngine(currentUserId?: string) {
         upsertTrack(localStreamObjRef.current, audioTrack.getMediaStreamTrack())
         let videoTrack: any = null
         if (activeCall.type === 'video') {
-          videoTrack = await AgoraRTC.createCameraVideoTrack()
-          upsertTrack(localStreamObjRef.current, videoTrack.getMediaStreamTrack())
+          try {
+            videoTrack = await AgoraRTC.createCameraVideoTrack()
+            upsertTrack(localStreamObjRef.current, videoTrack.getMediaStreamTrack())
+          } catch (camErr) {
+            // No usable camera on this device - don't fail the whole call
+            // over it, just continue as audio-only and let them know why.
+            console.warn('[Agora] camera unavailable, continuing audio-only', camErr)
+            videoTrack = null
+            setError('No camera found on this device - continuing with audio only.')
+          }
         }
         agoraRef.current.audioTrack = audioTrack
         agoraRef.current.videoTrack = videoTrack
@@ -261,7 +296,7 @@ export function useCallEngine(currentUserId?: string) {
           const targetStream = ev.participant?.local ? localStreamObjRef.current : remoteStreamObjRef.current
           targetStream.removeTrack(ev.track)
         })
-        call.on('left-meeting', () => cleanup())
+        call.on('left-meeting', () => cleanup('ended'))
         call.on('error', (ev: any) => { console.error('[Daily] error', ev); setError(describeCallError(ev, 'connect')) })
 
         await call.join({ url: info.roomUrl, token: info.token })
@@ -289,7 +324,7 @@ export function useCallEngine(currentUserId?: string) {
       const message = describeCallError(err, 'media')
       setError(message)
       await updateCallStatus(activeCall.id, { status: 'ended', ended_at: new Date().toISOString() })
-      cleanup()
+      cleanup('ended')
     }
   }, [cleanup, updateCallStatus])
 
@@ -327,6 +362,12 @@ export function useCallEngine(currentUserId?: string) {
     // notices first claims the call id; the other becomes a no-op.
     if (connectingCallIdRef.current === activeCall.id) return
     connectingCallIdRef.current = activeCall.id
+    // The caller's original "ringing" timeout (45s) must stop the moment
+    // the call is actually accepted - otherwise it keeps counting down in
+    // the background and force-ends a perfectly healthy call anywhere from
+    // a few seconds to tens of seconds later, depending on how long the
+    // callee took to pick up.
+    clearRingTimeout()
 
     pendingCallRef.current = activeCall
     const state = await checkMediaPermission(activeCall.type)
@@ -389,7 +430,7 @@ export function useCallEngine(currentUserId?: string) {
 
       ringTimeoutRef.current = setTimeout(async () => {
         await updateCallStatus(newCall.id, { status: 'missed' })
-        cleanup()
+        cleanup('missed')
       }, RING_TIMEOUT_MS)
     } catch (err: any) {
       console.error('[GeoLink Call] startCall failed', err)
@@ -402,7 +443,7 @@ export function useCallEngine(currentUserId?: string) {
   const cancelOutgoing = useCallback(async () => {
     if (!call) return
     await updateCallStatus(call.id, { status: 'cancelled' })
-    cleanup()
+    cleanup('cancelled')
   }, [call, cleanup])
 
   // ------------------------------------------------------------------
@@ -436,7 +477,7 @@ export function useCallEngine(currentUserId?: string) {
     if (current) {
       await updateCallStatus(current.id, { status: finalStatus, ended_at: new Date().toISOString() })
     }
-    cleanup()
+    cleanup(finalStatus)
   }, [cleanup])
 
   const toggleMute = useCallback(() => {
@@ -516,7 +557,7 @@ export function useCallEngine(currentUserId?: string) {
         return
       }
       if (['rejected', 'missed', 'cancelled', 'busy', 'ended'].includes(row.status)) {
-        cleanup()
+        cleanup(row.status)
       }
     }
 
@@ -538,9 +579,8 @@ export function useCallEngine(currentUserId?: string) {
     if (!currentUserId) return
 
     const poll = async () => {
-      if (phase !== 'idle' && phase !== 'incoming-ringing') return
-
-      // Catch a missed "someone is calling me" event.
+      // Catch a missed "someone is calling me" event - only relevant when
+      // we're not already dealing with some other call.
       if (phase === 'idle') {
         const { data: incoming } = await supabase
           .from('calls')
@@ -563,11 +603,15 @@ export function useCallEngine(currentUserId?: string) {
           setPhase('incoming-ringing')
           ringTimeoutRef.current = setTimeout(() => cleanup(), RING_TIMEOUT_MS - (Date.now() - new Date(incoming.created_at).getTime()))
         }
+        return
       }
 
-      // Catch a missed status change (caller cancelled, or - if we're the
-      // caller - the callee already accepted/rejected) on the call
-      // currently showing on screen.
+      // Catch a missed status change (callee accepted/rejected, caller
+      // cancelled, etc) on whatever call is currently active - this needs
+      // to run for the ENTIRE life of a call (ringing, connecting, in-call),
+      // not just while idle - otherwise a caller stuck on "Ringing..."
+      // never notices the callee already picked up if the realtime event
+      // for it happens to get lost.
       const current = callRef.current
       if (current) {
         const { data: fresh } = await supabase.from('calls').select('status').eq('id', current.id).single()
@@ -577,7 +621,7 @@ export function useCallEngine(currentUserId?: string) {
             setCall(acceptedCall)
             connectMedia(acceptedCall)
           } else if (['rejected', 'missed', 'cancelled', 'busy', 'ended'].includes(fresh.status)) {
-            cleanup()
+            cleanup(fresh.status)
           }
         }
       }
