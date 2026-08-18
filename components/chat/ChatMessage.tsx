@@ -33,6 +33,7 @@ interface ChatMessageProps {
   onReply?: (message: Message) => void
   onRemoveMessage?: (messageId: string) => void
   onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
+  onCallAgain?: () => void
   unavailable?: boolean
 }
 
@@ -48,8 +49,11 @@ function formatCallDuration(sec: number) {
   return `${m}:${s}`
 }
 
-export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onReply, onRemoveMessage, onPatchMessage, unavailable }: ChatMessageProps) {
+export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onReply, onRemoveMessage, onPatchMessage, onCallAgain, unavailable }: ChatMessageProps) {
   const [showMenu, setShowMenu] = useState(false)
+  const [showCallMenu, setShowCallMenu] = useState(false)
+  const [callMenuPos, setCallMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const callMenuBtnRef = useRef<HTMLButtonElement>(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showForward, setShowForward] = useState(false)
   const [showReactors, setShowReactors] = useState(false)
@@ -241,19 +245,118 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
           : `${callInfo.callType === 'video' ? 'Video' : 'Voice'} call`
       const Icon = callInfo.callType === 'video' ? Video : Phone
       const isMissedOrDeclined = callInfo.outcome === 'missed' || callInfo.outcome === 'rejected'
+
+      const openCallMenu = () => {
+        const rect = callMenuBtnRef.current?.getBoundingClientRect()
+        if (rect) setCallMenuPos(getClampedPopupPosition(rect, MENU_WIDTH, 200))
+        setShowCallMenu(v => !v)
+      }
+
       return (
-        <div className={cn('flex mb-2', isOwn && 'justify-end')}>
-          <div className={cn(
-            'flex items-center gap-2 px-3 py-2 rounded-2xl text-sm',
-            isOwn ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-sm' : 'bg-muted rounded-bl-sm',
-            isMissedOrDeclined && !isOwn && 'text-red-500'
-          )}>
-            <Icon className={cn('h-4 w-4 shrink-0', isMissedOrDeclined && !isOwn ? 'text-red-500' : isOwn ? 'text-white' : 'text-muted-foreground')} />
-            <span>{label}</span>
-            <span className={cn('text-[10px]', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
-              {formatTimeAgo(message.created_at)}
-            </span>
+        <div className={cn('flex gap-1 mb-2 group items-center', isOwn && 'flex-row-reverse')}>
+          <div className="flex flex-col" style={{ alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-2xl text-sm',
+              isOwn ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-sm' : 'bg-muted rounded-bl-sm',
+              isMissedOrDeclined && !isOwn && 'text-red-500'
+            )}>
+              <Icon className={cn('h-4 w-4 shrink-0', isMissedOrDeclined && !isOwn ? 'text-red-500' : isOwn ? 'text-white' : 'text-muted-foreground')} />
+              <span>{label}</span>
+              <span className={cn('text-[10px]', isOwn ? 'text-white/70' : 'text-muted-foreground')}>
+                {formatTimeAgo(message.created_at)}
+              </span>
+            </div>
+            {reactions.length > 0 && (
+              <button onClick={() => setShowReactors(true)} className="flex gap-0.5 mt-1 flex-wrap">
+                {Object.entries(
+                  reactions.reduce((acc: Record<string, number>, r) => { acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc }, {})
+                ).map(([emoji, count]) => (
+                  <span key={emoji} className="text-xs bg-muted rounded-full px-1.5 py-0.5 border border-border">
+                    {emoji} {count > 1 ? count : ''}
+                  </span>
+                ))}
+              </button>
+            )}
           </div>
+
+          <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+            <button ref={callMenuBtnRef} onClick={openCallMenu} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+            <button onClick={() => onReply?.(message)} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+              <ReplyIcon className="h-4 w-4" />
+            </button>
+            <button ref={emojiBtnRef} onClick={openEmojiPicker} className="p-1.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+              <Smile className="h-4 w-4" />
+            </button>
+          </div>
+
+          {showCallMenu && callMenuPos && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowCallMenu(false)} />
+              <div
+                className="fixed z-40 bg-card border rounded-xl shadow-xl overflow-hidden"
+                style={{ top: callMenuPos.top, left: callMenuPos.left, width: MENU_WIDTH }}
+              >
+                <button
+                  onClick={() => { setShowCallMenu(false); onCallAgain?.() }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted"
+                >
+                  <Phone className="h-3.5 w-3.5" /> Call again
+                </button>
+                <button
+                  onClick={() => { setShowCallMenu(false); onReply?.(message) }}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted"
+                >
+                  <ReplyIcon className="h-3.5 w-3.5" /> Reply
+                </button>
+                <button onClick={handleDeleteForMe} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted">
+                  <EyeOff className="h-3.5 w-3.5" /> Delete for me
+                </button>
+                {isOwn && (
+                  <button onClick={handleUnsend} className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10">
+                    <Trash2 className="h-3.5 w-3.5" /> Unsend
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {showEmojiPicker && emojiPos && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowEmojiPicker(false)} />
+              <FullEmojiPicker
+                onSelect={handleReact}
+                onClose={() => setShowEmojiPicker(false)}
+                style={{ top: emojiPos.top, left: emojiPos.left }}
+              />
+            </>
+          )}
+
+          {showReactors && (
+            <div className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4" onClick={() => setShowReactors(false)}>
+              <div className="bg-card border rounded-2xl w-full max-w-xs max-h-[70vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+                  <p className="font-semibold text-sm">Reactions ({reactions.length})</p>
+                  <button onClick={() => setShowReactors(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {reactions.map((r: any) => (
+                    <div key={r.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-b-0">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
+                        <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 text-sm truncate">
+                        @{r.profiles?.username}{r.user_id === currentUserId ? ' (You)' : ''}
+                      </span>
+                      <span className="text-xl shrink-0">{r.emoji}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )
     }
@@ -495,7 +598,18 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
       )}
 
       {showForward && (
-        <MessageForwardModal content={message.content} onClose={() => setShowForward(false)} />
+        <MessageForwardModal
+          message={{
+            content: message.content,
+            media_url: mediaUrl,
+            media_type: mediaType === 'call' ? null : mediaType,
+            media_duration_seconds: (message as any).media_duration_seconds ?? null,
+            sticker: (message as any).sticker ?? null,
+            post_id: (message as any).post_id ?? null,
+            story_id: (message as any).story_id ?? null,
+          }}
+          onClose={() => setShowForward(false)}
+        />
       )}
 
       {lightbox && (
