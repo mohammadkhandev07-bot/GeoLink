@@ -303,7 +303,7 @@ export type ChatWithProfiles = Chat & {
   participant2: Profile
 }
 
-// Simple Database type for Supabase client
+// Simple database type for Supabase client
 export type Database = {
   public: {
     Tables: {
