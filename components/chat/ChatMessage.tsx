@@ -82,7 +82,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
   const myReaction = reactions.find(r => r.user_id === currentUserId)
 
   // Both popups are viewport-clamped (never spill off the edge of the
-  // screen, flip upward if there's no room below) - essential on mobile
+  // Screen, flip upward if there's no room below) - essential on mobile
   // where a long message can push the button close to the bottom edge.
   const openMenu = () => {
     const rect = menuBtnRef.current?.getBoundingClientRect()
