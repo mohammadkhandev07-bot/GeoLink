@@ -7,7 +7,7 @@ import { DEFAULT_RINGTONE_ID, DEFAULT_RINGTONE_VOLUME } from '@/lib/utils/ringto
 
 // ------------------------------------------------------------------
 // Call settings - which ringtone plays for incoming/outgoing calls, and
-// how loud. Stored on the user's own profile so it's the same across
+// How loud. Stored on the user's own profile so it's the same across
 // every chat and every device they're logged into.
 // ------------------------------------------------------------------
 export function useCallSettings(userId?: string) {
