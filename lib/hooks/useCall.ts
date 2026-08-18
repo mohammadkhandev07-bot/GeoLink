@@ -74,7 +74,7 @@ function removeTracksOfKind(stream: MediaStream, kind: string) {
  *    up) - see /api/calls/connect for how that's decided server-side
  *
  * Mounted once, high up in the tree (see CallProvider), so an incoming
- * call can interrupt whatever page the person is currently on.
+ * Call can interrupt whatever page the person is currently on.
  */
 export function useCallEngine(currentUserId?: string) {
   const supabase = createClient()
