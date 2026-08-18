@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { callGemini, extractText, GeminiMessage, GeminiPart } from '@/lib/aperonix/gemini'
 import { APERONIX_SYSTEM_PROMPT } from '@/lib/aperonix/systemPrompt'
 
@@ -16,6 +17,13 @@ interface MediaInput {
 
 export async function POST(request: NextRequest) {
   try {
+    // Aperonix calls out to the Gemini API, which costs real money per
+    // request - require a signed-in GeoLink user so a stranger can't script
+    // requests straight at this endpoint and burn through the API quota.
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { messages, newMessage, media } = (await request.json()) as {
       messages: ChatHistoryItem[]
       newMessage: string
