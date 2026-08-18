@@ -17,6 +17,8 @@ interface CallScreenProps {
   isCameraOff: boolean
   callDurationSec: number
   error: string | null
+  ringtoneId?: string
+  ringtoneVolume?: number
   onEnd: () => void
   onToggleMute: () => void
   onToggleCamera: () => void
@@ -30,7 +32,7 @@ function formatDuration(sec: number) {
 
 export function CallScreen({
   phase, type, peerName, peerAvatar, localStream, remoteStream,
-  isMuted, isCameraOff, callDurationSec, error,
+  isMuted, isCameraOff, callDurationSec, error, ringtoneId, ringtoneVolume,
   onEnd, onToggleMute, onToggleCamera,
 }: CallScreenProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null)
@@ -49,10 +51,10 @@ export function CallScreen({
   // Ringback tone while we're the caller waiting for pickup.
   useEffect(() => {
     if (phase === 'outgoing-ringing') {
-      startRingtone()
+      startRingtone(ringtoneId, ringtoneVolume)
       return () => stopRingtone()
     }
-  }, [phase])
+  }, [phase, ringtoneId, ringtoneVolume])
 
   const statusText =
     error ? error :
