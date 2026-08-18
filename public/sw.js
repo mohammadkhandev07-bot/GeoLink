@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geolink-v3'
+const CACHE_NAME = 'geolink-v4'
 const OFFLINE_URL = '/offline'
 
 const PRECACHE = [
@@ -46,30 +46,69 @@ self.addEventListener('fetch', e => {
 
 self.addEventListener('push', e => {
   if (!e.data) return
-  let data = { title: 'GeoLink', body: 'New notification', url: '/feed' }
+  let data = { title: 'GeoLink', body: 'New notification', url: '/feed', kind: 'generic' }
   try { data = { ...data, ...e.data.json() } } catch {}
+
+  const isCall = data.kind === 'call'
+  const isMessage = data.kind === 'message'
+
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icons/icon-192x192.png',
       badge: '/icons/icon-72x72.png',
-      vibrate: [200, 100, 200],
-      data: { url: data.url },
-      tag: 'geolink',
+      // Longer, more insistent buzz for a call (like a real ringing phone);
+      // a shorter, single buzz for an ordinary message.
+      vibrate: isCall ? [400, 200, 400, 200, 400, 200, 400] : [200, 100, 200],
+      data: { url: data.url, kind: data.kind, callId: data.callId, chatId: data.chatId },
+      tag: data.tag || 'geolink',
       renotify: true,
+      // Calls stay on screen until the person acts on them instead of
+      // auto-dismissing, same as a real incoming-call notification.
+      requireInteraction: isCall,
+      actions: isCall
+        ? [{ action: 'accept', title: 'Accept' }, { action: 'decline', title: 'Decline' }]
+        : isMessage
+        ? [{ action: 'reply', title: 'Open chat' }]
+        : [],
     })
   )
 })
 
 self.addEventListener('notificationclick', e => {
+  const { url, kind, callId, chatId } = e.notification.data || {}
   e.notification.close()
-  const url = e.notification.data?.url || '/feed'
+
+  if (kind === 'call' && e.action === 'decline') {
+    // Decline right from the notification, without opening the app -
+    // best effort; if it fails, the call still auto-cancels once the
+    // caller's ring timeout runs out.
+    e.waitUntil(
+      fetch('/api/calls/decline', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId }),
+      }).catch(() => {})
+    )
+    return
+  }
+
+  const targetUrl = url || (chatId ? `/chat/${chatId}` : '/feed')
   e.waitUntil(
     clients.matchAll({ type: 'window' }).then(list => {
       for (const c of list) {
-        if ('focus' in c) { c.navigate(url); return c.focus() }
+        if ('focus' in c) {
+          c.navigate(targetUrl)
+          c.focus()
+          // Let the already-open app know a call notification was tapped,
+          // so it can also start ringing in-app with the chosen ringtone -
+          // the OS notification sound plays regardless, this is on top of it.
+          if (kind === 'call') c.postMessage({ type: 'CALL_NOTIFICATION_OPENED', callId })
+          return
+        }
       }
-      return clients.openWindow(url)
+      return clients.openWindow(targetUrl)
     })
   )
 })
