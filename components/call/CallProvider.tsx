@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useUser } from '@/lib/hooks/useUser'
 import { useCallEngine, peerAvatar, type CallType } from '@/lib/hooks/useCall'
+import { useCallSettings } from '@/lib/hooks/useChatSettings'
+import { usePushSubscription } from '@/lib/hooks/usePushSubscription'
 import { IncomingCallModal } from './IncomingCallModal'
 import { CallScreen } from './CallScreen'
 import { PermissionGate } from './PermissionGate'
@@ -42,6 +44,8 @@ export function useCallContext() {
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
   const engine = useCallEngine(user?.id)
+  const { data: callSettings } = useCallSettings(user?.id)
+  usePushSubscription(user?.id)
   const [bannerError, setBannerError] = useState<string | null>(null)
 
   // Whenever the call engine reports an error (permission denied, DB
@@ -88,6 +92,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           callerName={peerName}
           callerAvatar={peerAvatarUrl}
           type={engine.call.type}
+          ringtoneId={callSettings?.ringtone}
+          ringtoneVolume={callSettings?.volume}
           onAccept={engine.acceptIncoming}
           onReject={engine.rejectIncoming}
         />
@@ -115,6 +121,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           isCameraOff={engine.isCameraOff}
           callDurationSec={engine.callDurationSec}
           error={engine.error}
+          ringtoneId={callSettings?.ringtone}
+          ringtoneVolume={callSettings?.volume}
           onEnd={engine.phase === 'outgoing-ringing' ? engine.cancelOutgoing : engine.hangup}
           onToggleMute={engine.toggleMute}
           onToggleCamera={engine.toggleCamera}
