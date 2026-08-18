@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 // Generated once for this project - a VAPID key pair just identifies "this
 // server" to the push service, it isn't a per-deployment secret you need
-// to rotate, so it's baked in here instead of making you set it up in
+// To rotate, so it's baked in here instead of making you set it up in
 // environment variables. (The public half is also hardcoded in
 // usePushSubscription.ts - both halves have to match.)
 const VAPID_PUBLIC_KEY = 'BGI4kJnzbedMSJ9-cgol7_P8MnNzsyXzGjSG6QZwSZtKX1qCXvrcoxuXvH9FwDNrW0-rjpf8aZWBMcGn9EYrT1k'
