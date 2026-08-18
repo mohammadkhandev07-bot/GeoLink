@@ -1,6 +1,6 @@
 /**
  * Ringtones - generated with the Web Audio API, so there's no audio file
- * to host/license and every option always plays instantly, even offline.
+ * To host/license and every option always plays instantly, even offline.
  * Each entry is a distinct little melody/pattern so they're easy to tell
  * apart in the picker.
  */
