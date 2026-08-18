@@ -10,16 +10,18 @@ interface IncomingCallModalProps {
   callerName: string
   callerAvatar: string
   type: CallType
+  ringtoneId?: string
+  ringtoneVolume?: number
   onAccept: () => void
   onReject: () => void
 }
 
-export function IncomingCallModal({ callerName, callerAvatar, type, onAccept, onReject }: IncomingCallModalProps) {
+export function IncomingCallModal({ callerName, callerAvatar, type, ringtoneId, ringtoneVolume, onAccept, onReject }: IncomingCallModalProps) {
   useEffect(() => {
-    startRingtone()
+    startRingtone(ringtoneId, ringtoneVolume)
     if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400])
     return () => stopRingtone()
-  }, [])
+  }, [ringtoneId, ringtoneVolume])
 
   return (
     <div className="fixed inset-0 bg-black/95 z-[200] flex flex-col items-center justify-between py-16 px-6 text-white">
@@ -57,4 +59,4 @@ export function IncomingCallModal({ callerName, callerAvatar, type, onAccept, on
       </div>
     </div>
   )
-} 
+}
