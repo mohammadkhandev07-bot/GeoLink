@@ -428,6 +428,14 @@ export function useCallEngine(currentUserId?: string) {
       setPhase('outgoing-ringing')
       console.log('[GeoLink Call] phase -> outgoing-ringing, call row:', newCall)
 
+      // Fire-and-forget - notifies the callee with a system notification
+      // even if they don't have GeoLink open right now.
+      fetch('/api/push/notify-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId: newCall.id }),
+      }).catch(() => {})
+
       ringTimeoutRef.current = setTimeout(async () => {
         await updateCallStatus(newCall.id, { status: 'missed' })
         cleanup('missed')
