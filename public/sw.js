@@ -102,7 +102,7 @@ self.addEventListener('notificationclick', e => {
           c.navigate(targetUrl)
           c.focus()
           // Let the already-open app know a call notification was tapped,
-          // so it can also start ringing in-app with the chosen ringtone -
+          // So it can also start ringing in-app with the chosen ringtone -
           // the OS notification sound plays regardless, this is on top of it.
           if (kind === 'call') c.postMessage({ type: 'CALL_NOTIFICATION_OPENED', callId })
           return
