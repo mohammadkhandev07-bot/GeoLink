@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { callGemini, extractText, GeminiMessage } from '@/lib/aperonix/gemini'
 
 const MEDIA_PROMPTS: Record<string, string> = {
@@ -17,6 +18,12 @@ const SYSTEM_PROMPT = 'You are Aperonix, GeoLink\'s official AI assistant, made 
 
 export async function POST(request: NextRequest) {
   try {
+    // Same cost-abuse guard as the chat/speak routes - this also calls
+    // Gemini, so it must never be reachable by a signed-out visitor.
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { mediaBase64, mimeType, context, field, regenerate, previousResult } = (await request.json()) as {
       mediaBase64?: string
       mimeType?: string
@@ -63,4 +70,4 @@ export async function POST(request: NextRequest) {
     console.error('Aperonix generate error:', error)
     return NextResponse.json({ error: 'Try again later.' }, { status: 500 })
   }
-} 
+}
