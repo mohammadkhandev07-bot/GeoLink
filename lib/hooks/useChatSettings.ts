@@ -3,6 +3,51 @@
 import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { DEFAULT_RINGTONE_ID, DEFAULT_RINGTONE_VOLUME } from '@/lib/utils/ringtone'
+
+// ------------------------------------------------------------------
+// Call settings - which ringtone plays for incoming/outgoing calls, and
+// how loud. Stored on the user's own profile so it's the same across
+// every chat and every device they're logged into.
+// ------------------------------------------------------------------
+export function useCallSettings(userId?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['call-settings', userId],
+    queryFn: async () => {
+      if (!userId) return { ringtone: DEFAULT_RINGTONE_ID, volume: DEFAULT_RINGTONE_VOLUME }
+      const { data } = await supabase
+        .from('profiles')
+        .select('call_ringtone, call_ringtone_volume')
+        .eq('id', userId)
+        .maybeSingle()
+      return {
+        ringtone: data?.call_ringtone || DEFAULT_RINGTONE_ID,
+        volume: data?.call_ringtone_volume ?? DEFAULT_RINGTONE_VOLUME,
+      }
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useUpdateCallSettings() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, ringtone, volume }: { userId: string; ringtone?: string; volume?: number }) => {
+      const patch: Record<string, any> = {}
+      if (ringtone !== undefined) patch.call_ringtone = ringtone
+      if (volume !== undefined) patch.call_ringtone_volume = volume
+      const { error } = await supabase.from('profiles').update(patch).eq('id', userId)
+      if (error) throw error
+    },
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['call-settings', userId] })
+    },
+  })
+}
 
 // ------------------------------------------------------------------
 // Nicknames - what I privately call this person in this chat. Only I can
