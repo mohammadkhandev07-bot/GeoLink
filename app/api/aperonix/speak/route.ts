@@ -15,7 +15,7 @@ const APERONIX_VOICE = 'en-US-EmmaMultilingualNeural'
 
 // Strips emojis and stray markdown symbols before speaking - without this,
 // some engines announce emojis ("grinning face") or read "asterisk" around
-// bold text, which sounds nothing like a real person talking.
+// Bold text, which sounds nothing like a real person talking.
 function cleanTextForSpeech(text: string): string {
   return text
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{2190}-\u{21FF}]/gu, '')
