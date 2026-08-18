@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, PencilLine, Image as ImageIcon, ImageOff, Ban, Trash2, ChevronRight } from 'lucide-react'
+import { ArrowLeft, PencilLine, Image as ImageIcon, ImageOff, Ban, Trash2, ChevronRight, Phone } from 'lucide-react'
 
 interface ChatSettingsPageProps {
   otherUsername: string
@@ -15,6 +15,7 @@ interface ChatSettingsPageProps {
   onRemoveWallpaper: () => void
   onToggleBlock: () => void
   onDeleteChat: () => void
+  onOpenCallSettings: () => void
 }
 
 /**
@@ -35,6 +36,7 @@ export function ChatSettingsPage({
   onRemoveWallpaper,
   onToggleBlock,
   onDeleteChat,
+  onOpenCallSettings,
 }: ChatSettingsPageProps) {
   return (
     <div className="absolute inset-0 bg-background z-20 flex flex-col">
@@ -99,6 +101,19 @@ export function ChatSettingsPage({
           >
             <Ban className="h-5 w-5 text-muted-foreground" />
             <span className="text-sm font-medium">{iBlockedThem ? 'Unblock' : 'Block'}</span>
+          </button>
+        </div>
+
+        <div className="rounded-2xl border bg-card divide-y overflow-hidden">
+          <button
+            onClick={onOpenCallSettings}
+            className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-accent transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Phone className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-medium">Call settings</span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </button>
         </div>
 
