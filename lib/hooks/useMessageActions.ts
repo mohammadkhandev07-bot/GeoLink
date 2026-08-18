@@ -106,19 +106,53 @@ export function useRemoveMessageReaction() {
 // Forward - sends a copy of a message's content to one or more other
 // chats, finding or creating each chat as needed.
 // ------------------------------------------------------------------
+export interface ForwardableMessage {
+  content: string
+  media_url?: string | null
+  media_type?: 'image' | 'video' | 'audio' | null
+  media_duration_seconds?: number | null
+  sticker?: string | null
+  post_id?: string | null
+  story_id?: string | null
+}
+
 export function useForwardMessage() {
   const supabase = createClient()
 
   return useMutation({
     mutationFn: async ({
-      content,
+      message,
       senderId,
       recipientIds,
     }: {
-      content: string
+      message: ForwardableMessage
       senderId: string
       recipientIds: string[]
     }) => {
+      // Carry over every part of the original message - not just its text -
+      // so a forwarded photo/video/voice note/sticker/shared post or reel
+      // actually shows up as that same media on the other end, instead of
+      // collapsing into a bare caption/title.
+      const insertPayload = {
+        sender_id: senderId,
+        content: message.content,
+        media_url: message.media_url ?? null,
+        media_type: message.media_type ?? null,
+        media_duration_seconds: message.media_duration_seconds ?? null,
+        sticker: message.sticker ?? null,
+        post_id: message.post_id ?? null,
+        story_id: message.story_id ?? null,
+        is_forwarded: true,
+      }
+
+      const lastMessageType: 'text' | 'post' | 'reel' =
+        message.post_id || message.story_id ? 'post' : message.media_type === 'video' ? 'reel' : 'text'
+      const lastMessagePreview =
+        message.sticker ? message.sticker
+        : message.media_type ? `Sent a ${message.media_type}`
+        : message.post_id || message.story_id ? 'Sent a post'
+        : message.content
+
       for (const recipientId of recipientIds) {
         let chatId: string | null = null
         const { data: existing } = await supabase
@@ -138,11 +172,11 @@ export function useForwardMessage() {
         }
         if (!chatId) continue
 
-        await supabase.from('messages').insert({ chat_id: chatId, sender_id: senderId, content })
+        await supabase.from('messages').insert({ chat_id: chatId, ...insertPayload })
         await supabase.from('chats').update({
-          last_message: content,
+          last_message: lastMessagePreview,
           last_message_time: new Date().toISOString(),
-          last_message_type: 'text',
+          last_message_type: lastMessageType,
         }).eq('id', chatId)
       }
     },
