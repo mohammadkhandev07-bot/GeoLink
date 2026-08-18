@@ -135,6 +135,13 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
       // adding it a second time once that echo does arrive.
       if (data) {
         setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]))
+        // Fire-and-forget - notifies the other person even if they don't
+        // have GeoLink open right now. Never blocks/breaks sending if it fails.
+        fetch('/api/push/notify-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: data.id }),
+        }).catch(() => {})
       }
 
       // Update last message preview in the chat list. Sending anything also
