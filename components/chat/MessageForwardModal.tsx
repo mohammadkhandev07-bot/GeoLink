@@ -59,7 +59,7 @@ export function MessageForwardModal({ message, onClose }: MessageForwardModalPro
 
   // What the little preview strip at the top of this modal shows - a real
   // label for media/posts/reels/stickers instead of showing nothing (or the
-  // raw caption) when there's no plain text content.
+  // Raw caption) when there's no plain text content.
   const previewLabel =
     message.sticker ? message.sticker
     : message.post_id ? '📷 Shared post'
