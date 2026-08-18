@@ -37,7 +37,7 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsern
   // Only jumps to the bottom when there's an actual new message (or the
   // Typing dots appear) AND the person is already near the bottom - not on
   // Every re-render, which used to yank them back down while they were
-  // scrolled up reading older messages.
+  // Scrolled up reading older messages.
   useEffect(() => {
     const lastMsg = localMessages[localMessages.length - 1]
     const isNewMessage = !!lastMsg && lastMsg.id !== lastMessageIdRef.current
