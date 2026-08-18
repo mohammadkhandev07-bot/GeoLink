@@ -35,4 +35,4 @@ export async function DELETE(request: NextRequest) {
 
   await supabase.from('push_subscriptions').delete().eq('user_id', user.id).eq('endpoint', endpoint)
   return NextResponse.json({ ok: true })
-}
+} 
