@@ -12,12 +12,13 @@ interface RealtimeMessagesProps {
   onReply?: (message: Message) => void
   onRemoveMessage?: (messageId: string) => void
   onPatchMessage?: (messageId: string, patch: Partial<Message>) => void
+  onCallAgain?: () => void
   isMessageUnavailable?: (senderId: string) => boolean
   wallpaperUrl?: string | null
   wallpaperPosition?: { x: number; y: number }
 }
 
-export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsername, onReply, onRemoveMessage, onPatchMessage, isMessageUnavailable, wallpaperUrl, wallpaperPosition }: RealtimeMessagesProps) {
+export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsername, onReply, onRemoveMessage, onPatchMessage, onCallAgain, isMessageUnavailable, wallpaperUrl, wallpaperPosition }: RealtimeMessagesProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string | null>(null)
@@ -71,6 +72,7 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsern
           onReply={onReply}
           onRemoveMessage={onRemoveMessage}
           onPatchMessage={onPatchMessage}
+          onCallAgain={onCallAgain}
           unavailable={isMessageUnavailable?.(msg.sender_id)}
         />
       ))}
