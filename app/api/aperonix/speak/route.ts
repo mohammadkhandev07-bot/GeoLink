@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { EdgeTTS } from 'edge-tts-universal'
+import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -25,6 +26,12 @@ function cleanTextForSpeech(text: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    // Text-to-speech also costs per request - require auth, same as the
+    // other Aperonix endpoints.
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { text } = await req.json()
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'No text provided' }, { status: 400 })
