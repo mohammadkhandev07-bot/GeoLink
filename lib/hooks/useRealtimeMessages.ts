@@ -25,7 +25,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
     loadMessages()
 
     // Realtime subscription for new/edited/removed messages - INSERT covers
-    // new messages, UPDATE covers edits and read receipts, DELETE covers
+    // New messages, UPDATE covers edits and read receipts, DELETE covers
     // unsend, all reflected live for both people in the chat.
     const channel = supabase
       .channel(`chat:${chatId}`)
