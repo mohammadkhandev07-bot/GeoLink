@@ -20,7 +20,7 @@ interface ChatSettingsPageProps {
 
 /**
  * Full-page "Chat Setting" screen - opened from the settings icon in the
- * chat header (replaces the old 3-dot dropdown). Same actions as before,
+ * Chat header (replaces the old 3-dot dropdown). Same actions as before,
  * just laid out as a proper settings page with a Back button.
  */
 export function ChatSettingsPage({
