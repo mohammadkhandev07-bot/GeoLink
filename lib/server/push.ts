@@ -1,15 +1,18 @@
 import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// Generated once for this project - a VAPID key pair just identifies "this
+// server" to the push service, it isn't a per-deployment secret you need
+// to rotate, so it's baked in here instead of making you set it up in
+// environment variables. (The public half is also hardcoded in
+// usePushSubscription.ts - both halves have to match.)
+const VAPID_PUBLIC_KEY = 'BGI4kJnzbedMSJ9-cgol7_P8MnNzsyXzGjSG6QZwSZtKX1qCXvrcoxuXvH9FwDNrW0-rjpf8aZWBMcGn9EYrT1k'
+const VAPID_PRIVATE_KEY = 'NXrDfGWfCOQQWysEldmbeAB3hdepebohRluzEXFf1fQ'
+
 let configured = false
 function ensureConfigured() {
   if (configured) return
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-  const privateKey = process.env.VAPID_PRIVATE_KEY
-  if (!publicKey || !privateKey) {
-    throw new Error('Push notifications are not configured (VAPID keys missing).')
-  }
-  webpush.setVapidDetails('mailto:support@geolink.app', publicKey, privateKey)
+  webpush.setVapidDetails('mailto:support@geolink.app', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
   configured = true
 }
 
@@ -33,11 +36,7 @@ export interface PushPayload {
  * Notification API can't play a custom sound while the page is closed).
  */
 export async function sendPushToUser(userId: string, payload: PushPayload) {
-  try {
-    ensureConfigured()
-  } catch {
-    return // Not configured - fail silently, this is a best-effort enhancement.
-  }
+  ensureConfigured()
 
   const admin = createAdminClient()
   const { data: subs } = await admin
