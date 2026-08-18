@@ -24,8 +24,34 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
     }
     loadMessages()
 
+    // Lightweight backstop, same idea as the one used for incoming calls:
+    // Supabase realtime websockets can silently drop (mobile tabs getting
+    // throttled in the background, wifi/cellular handoff, the socket just
+    // going quiet) without the UI ever finding out, which is exactly what
+    // causes "message only shows up after I refresh the page". This
+    // re-fetches the last few messages every few seconds and merges in
+    // anything realtime missed, so a message never has to wait for a
+    // manual refresh - at most a few seconds behind, never stuck.
+    const backstopPoll = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (!data) return
+      setMessages((prev) => {
+        const byId = new Map(prev.map((m) => [m.id, m]))
+        for (const m of data) byId.set(m.id, m as Message)
+        return Array.from(byId.values()).sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+      })
+    }
+    const backstopInterval = setInterval(backstopPoll, 5000)
+
     // Realtime subscription for new/edited/removed messages - INSERT covers
-    // New messages, UPDATE covers edits and read receipts, DELETE covers
+    // new messages, UPDATE covers edits and read receipts, DELETE covers
     // unsend, all reflected live for both people in the chat.
     const channel = supabase
       .channel(`chat:${chatId}`)
@@ -93,10 +119,19 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({ userId: currentUserId })
+          // Catch anything sent in the gap between the initial load above
+          // and the subscription actually going live.
+          backstopPoll()
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // The backstop poll above keeps messages flowing even while
+          // disconnected - Supabase's client will retry the socket itself.
+          console.warn('[chat] realtime channel', status, '- relying on backstop poll until it reconnects')
         }
       })
 
     return () => {
+      clearInterval(backstopInterval)
       supabase.removeChannel(channel)
     }
   }, [chatId, currentUserId])
