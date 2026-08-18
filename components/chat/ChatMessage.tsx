@@ -82,7 +82,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
   const myReaction = reactions.find(r => r.user_id === currentUserId)
 
   // Both popups are viewport-clamped (never spill off the edge of the
-  // Screen, flip upward if there's no room below) - essential on mobile
+  // screen, flip upward if there's no room below) - essential on mobile
   // where a long message can push the button close to the bottom edge.
   const openMenu = () => {
     const rect = menuBtnRef.current?.getBoundingClientRect()
@@ -189,6 +189,29 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
           {replyPreview.sticker}
         </div>
       )
+    }
+    // A call-log entry stores its details as JSON in `content` (same as the
+    // call bubble itself) - show the same friendly "Voice call · 00:14"
+    // label here instead of dumping that raw JSON into the reply preview.
+    if (replyPreview.media_type === 'call') {
+      let callInfo: { callType: 'audio' | 'video'; outcome: string; durationSec: number } | null = null
+      try { callInfo = JSON.parse(replyPreview.content) } catch {}
+      if (callInfo) {
+        const label =
+          callInfo.outcome === 'completed'
+            ? `${callInfo.callType === 'video' ? 'Video' : 'Voice'} call · ${formatCallDuration(callInfo.durationSec)}`
+            : callInfo.outcome === 'missed' ? 'Missed call'
+            : callInfo.outcome === 'rejected' ? 'Call declined'
+            : callInfo.outcome === 'cancelled' ? 'Cancelled call'
+            : `${callInfo.callType === 'video' ? 'Video' : 'Voice'} call`
+        const Icon = callInfo.callType === 'video' ? Video : Phone
+        return (
+          <div className="bg-muted rounded-2xl px-3 py-2 text-sm text-muted-foreground flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            {label}
+          </div>
+        )
+      }
     }
     if (replyPreview.media_type === 'audio' && replyPreview.media_url) {
       return (
