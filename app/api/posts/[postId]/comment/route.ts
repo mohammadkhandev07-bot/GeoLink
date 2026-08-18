@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { commentSchema } from '@/lib/utils/validation'
 
 export async function POST(
   request: NextRequest,
@@ -10,8 +11,12 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { content } = await request.json()
-  if (!content?.trim()) return NextResponse.json({ error: 'Content required' }, { status: 400 })
+  const body = await request.json()
+  const parsed = commentSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Invalid comment' }, { status: 400 })
+  }
+  const { content } = parsed.data
 
   const { data, error } = await supabase
     .from('comments')
