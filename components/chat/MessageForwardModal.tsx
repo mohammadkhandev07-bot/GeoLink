@@ -5,11 +5,11 @@ import { X, Send, Search, Check } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
-import { useForwardMessage } from '@/lib/hooks/useMessageActions'
+import { useForwardMessage, ForwardableMessage } from '@/lib/hooks/useMessageActions'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 
 interface MessageForwardModalProps {
-  content: string
+  message: ForwardableMessage
   onClose: () => void
 }
 
@@ -22,7 +22,7 @@ interface Person {
 
 // Same followers+following multi-select picker used for sharing an
 // Aperonix reply, reused here to forward an existing chat message.
-export function MessageForwardModal({ content, onClose }: MessageForwardModalProps) {
+export function MessageForwardModal({ message, onClose }: MessageForwardModalProps) {
   const { user } = useUser()
   const [people, setPeople] = useState<Person[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -52,10 +52,22 @@ export function MessageForwardModal({ content, onClose }: MessageForwardModalPro
 
   const handleSend = async () => {
     if (!user || selected.length === 0) return
-    await forwardMessage.mutateAsync({ content, senderId: user.id, recipientIds: selected })
+    await forwardMessage.mutateAsync({ message, senderId: user.id, recipientIds: selected })
     setSent(true)
     setTimeout(onClose, 1200)
   }
+
+  // What the little preview strip at the top of this modal shows - a real
+  // label for media/posts/reels/stickers instead of showing nothing (or the
+  // raw caption) when there's no plain text content.
+  const previewLabel =
+    message.sticker ? message.sticker
+    : message.post_id ? '📷 Shared post'
+    : message.story_id ? '⭐ Shared story'
+    : message.media_type === 'video' ? '🎬 Video'
+    : message.media_type === 'image' ? '📷 Photo'
+    : message.media_type === 'audio' ? '🎤 Voice message'
+    : message.content
 
   const filtered = people.filter(p =>
     p.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -71,7 +83,7 @@ export function MessageForwardModal({ content, onClose }: MessageForwardModalPro
         </div>
 
         <div className="px-4 py-2 border-b bg-muted/30">
-          <p className="text-xs text-muted-foreground truncate">{content}</p>
+          <p className="text-xs text-muted-foreground truncate">{previewLabel}</p>
         </div>
 
         <div className="px-4 py-2 border-b">
