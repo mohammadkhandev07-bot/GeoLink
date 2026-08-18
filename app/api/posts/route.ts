@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { postSchema } from '@/lib/utils/validation'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -24,7 +25,17 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { content, media_url, media_type } = body
+
+  // Enforce the same limits server-side that the create-post form already
+  // enforces client-side - a direct API call (bypassing the UI) could
+  // otherwise post unlimited-length captions or an invalid media_type.
+  const parsed = postSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Invalid post' }, { status: 400 })
+  }
+
+  const { media_url } = body
+  const { content, media_type } = parsed.data
 
   const { data, error } = await supabase
     .from('posts')
