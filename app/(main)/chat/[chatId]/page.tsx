@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Circle, Settings, Phone, Video, Loader2 } from 'lucide-react'
+import { ArrowLeft, Circle, Settings, Phone, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { RealtimeMessages } from '@/components/chat/RealtimeMessages'
 import { MessageInput } from '@/components/chat/MessageInput'
 import { NicknameModal } from '@/components/chat/NicknameModal'
 import { WallpaperModal } from '@/components/chat/WallpaperModal'
 import { ChatSettingsPage } from '@/components/chat/ChatSettingsPage'
+import { CallSettingsPage } from '@/components/chat/CallSettingsPage'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
@@ -33,6 +34,7 @@ export default function ChatRoomPage() {
   const [showNicknameModal, setShowNicknameModal] = useState(false)
   const [showWallpaperModal, setShowWallpaperModal] = useState(false)
   const [showSettingsPage, setShowSettingsPage] = useState(false)
+  const [showCallSettings, setShowCallSettings] = useState(false)
   const [savingWallpaper, setSavingWallpaper] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -278,9 +280,8 @@ export default function ChatRoomPage() {
           )}
         </div>
 
-        {/* Call buttons - always clickable; handleStartCall shows a toast if
-            calling isn't allowed (blocked, or not following each other) so
-            nothing ever fails silently */}
+        {/* Voice call only - video calling was removed since the video
+            transport wasn't reliable enough and hurt the calling experience. */}
         <button
           onClick={() => handleStartCall('audio')}
           disabled={callStarting}
@@ -288,14 +289,6 @@ export default function ChatRoomPage() {
           title="Voice call"
         >
           {callStarting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Phone className="h-5 w-5" />}
-        </button>
-        <button
-          onClick={() => handleStartCall('video')}
-          disabled={callStarting}
-          className={`p-1 rounded-lg hover:bg-accent transition-colors ${canCall && !theyBlockedMe && !iBlockedThem ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/40'}`}
-          title="Video call"
-        >
-          {callStarting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
         </button>
 
         {/* Chat settings */}
@@ -316,6 +309,7 @@ export default function ChatRoomPage() {
         onReply={setReplyingTo}
         onRemoveMessage={removeMessageLocally}
         onPatchMessage={patchMessageLocally}
+        onCallAgain={() => handleStartCall('audio')}
         isMessageUnavailable={isMessageUnavailable}
         wallpaperUrl={wallpaper?.wallpaper_url}
         wallpaperPosition={wallpaper ? { x: wallpaper.position_x, y: wallpaper.position_y } : undefined}
@@ -358,6 +352,13 @@ export default function ChatRoomPage() {
           onRemoveWallpaper={handleRemoveWallpaper}
           onToggleBlock={handleToggleBlock}
           onDeleteChat={handleDeleteChat}
+          onOpenCallSettings={() => setShowCallSettings(true)}
+        />
+      )}
+      {showCallSettings && (
+        <CallSettingsPage
+          userId={user.id}
+          onBack={() => setShowCallSettings(false)}
         />
       )}
       {showWallpaperModal && (
