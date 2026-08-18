@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 /**
  * Lets the callee decline a call straight from the system notification's
  * "Decline" button, without needing to open the app. The caller's own
- * client (via realtime + its polling backstop) picks up the status change
+ * Client (via realtime + its polling backstop) picks up the status change
  * and logs "Declined call" into the chat, same as an in-app decline.
  */
 export async function POST(request: NextRequest) {
