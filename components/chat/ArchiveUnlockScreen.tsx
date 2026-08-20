@@ -12,7 +12,7 @@ interface ArchiveUnlockScreenProps {
   onUnlock: () => void
   /** Archive section shows "Archive is locked"; opening a single archived
    *  chat directly (search, someone's profile, a link) shows "Chat is
-   *  locked" instead - same screen, wording just matches what's actually
+   *  Locked" instead - same screen, wording just matches what's actually
    *  behind it. */
   title?: string
 }
