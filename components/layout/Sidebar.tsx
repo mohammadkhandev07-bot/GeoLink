@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Search, SquarePlay, Send, Settings, PlusSquare } from 'lucide-react'
+import { Home, Search, SquarePlay, Send, Settings, PlusSquare, Archive } from 'lucide-react'
 import { cn } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -55,6 +55,12 @@ export function Sidebar() {
               <span>{profile.username}</span>
             </Link>
           )}
+          <Link href="/chat/archive"
+            className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-accent',
+              pathname.startsWith('/chat/archive') && 'bg-accent')}>
+            <Archive className="h-5 w-5" />
+            Archive
+          </Link>
           <Link href="/settings"
             className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-accent',
               pathname.startsWith('/settings') && 'bg-accent')}>
