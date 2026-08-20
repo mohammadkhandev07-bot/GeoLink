@@ -28,7 +28,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
     // Supabase realtime websockets can silently drop (mobile tabs getting
     // throttled in the background, wifi/cellular handoff, the socket just
     // going quiet) without the UI ever finding out, which is exactly what
-    // causes "message only shows up after I refresh the page". This
+    // Causes "message only shows up after I refresh the page". This
     // re-fetches the last few messages every few seconds and merges in
     // anything realtime missed, so a message never has to wait for a
     // manual refresh - at most a few seconds behind, never stuck.
