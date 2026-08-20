@@ -71,7 +71,10 @@ export type Chat = {
   participant2_id: string
   last_message: string | null
   last_message_time: string | null
-  last_message_type: 'text' | 'post' | 'reel' | 'story' | 'aperonix' | null
+  last_message_type: 'text' | 'post' | 'reel' | 'story' | 'aperonix' | 'image' | 'video' | 'audio' | 'call' | 'sticker' | 'reaction' | null
+  last_message_sender_id: string | null
+  pinned_by: string[]
+  archived_by: string[]
   deleted_by: string[]
   created_at: string
 }
@@ -303,7 +306,7 @@ export type ChatWithProfiles = Chat & {
   participant2: Profile
 }
 
-// Simple database type for Supabase client
+// Simple Database type for Supabase client
 export type Database = {
   public: {
     Tables: {
