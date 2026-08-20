@@ -13,7 +13,9 @@ import { CallSettingsPage } from '@/components/chat/CallSettingsPage'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRealtimeMessages } from '@/lib/hooks/useRealtimeMessages'
 import { useActiveStories } from '@/lib/hooks/useStories'
-import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe, useChatWallpaper, useSetChatWallpaper, useDeleteChatWallpaper } from '@/lib/hooks/useChatSettings'
+import { useNickname, useSetNickname, useDeleteNickname, useBlockStatus, useToggleBlock, useDeleteChatForMe, useChatWallpaper, useSetChatWallpaper, useDeleteChatWallpaper, useArchiveLockStatus } from '@/lib/hooks/useChatSettings'
+import { ArchiveUnlockScreen } from '@/components/chat/ArchiveUnlockScreen'
+import { ArchivePasswordWizard } from '@/components/chat/ArchivePasswordWizard'
 import { useCallContext } from '@/components/call/CallProvider'
 import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
@@ -59,6 +61,11 @@ export default function ChatRoomPage() {
   const { startCall, reportBlocked } = useCallContext()
   const [canCall, setCanCall] = useState(false)
   const [callStarting, setCallStarting] = useState(false)
+  // Resets every time this page mounts - opening an archived chat always
+  // re-asks for the password, it isn't a one-time unlock.
+  const [archiveUnlocked, setArchiveUnlocked] = useState(false)
+
+  const { data: archiveLock } = useArchiveLockStatus(user?.id)
 
   const theyBlockedMe = !!blockStatus?.theyBlockedMe
   const iBlockedThem = !!blockStatus?.iBlockedThem
@@ -225,6 +232,22 @@ export default function ChatRoomPage() {
 
   if (loading || !chat || !other) return <PageLoader />
   if (!user) return null
+
+  // A chat archived by ME is locked behind the archive password no matter
+  // how it's opened - search, someone's profile "Message" button, a direct
+  // link, all of it - not just the /chat/archive list. If a password was
+  // never set (e.g. it got archived before one existed), fall back to the
+  // same setup wizard the Archive section itself would show.
+  const isArchivedByMe = (chat as any).archived_by?.includes(user.id)
+  if (isArchivedByMe && !archiveUnlocked) {
+    if (archiveLock && !archiveLock.hasPassword) {
+      return <ArchivePasswordWizard onClose={() => router.push('/chat')} onDone={() => setArchiveUnlocked(true)} />
+    }
+    if (archiveLock) {
+      return <ArchiveUnlockScreen hint={archiveLock.hint} onUnlock={() => setArchiveUnlocked(true)} />
+    }
+    return <PageLoader />
+  }
 
   const isOnline = onlineUsers.includes(other.id)
   const otherStoryGroupIndex = storyGroups.findIndex(g => g.userId === other.id)
