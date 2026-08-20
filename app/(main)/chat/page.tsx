@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Edit, X, Search } from 'lucide-react'
+import { Edit, X, Search, Archive } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
@@ -218,9 +218,14 @@ export default function ChatPage() {
     <div className="max-w-xl mx-auto">
       <div className="sticky top-14 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold">Messages</h1>
-        <button onClick={() => setShowNewChat(true)} className="text-muted-foreground hover:text-foreground">
-          <Edit className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.push('/chat/archive')} className="text-muted-foreground hover:text-foreground" title="Archive">
+            <Archive className="h-5 w-5" />
+          </button>
+          <button onClick={() => setShowNewChat(true)} className="text-muted-foreground hover:text-foreground" title="New conversation">
+            <Edit className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Aperonix AI - always pinned at the top */}
