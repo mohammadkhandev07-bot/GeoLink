@@ -179,18 +179,33 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
         }).catch(() => {})
       }
 
-      // Update last message preview in the chat list. Sending anything also
-      // "revives" the chat for both sides if either had deleted it - same
-      // as most chat apps, a fresh message brings the thread back.
+      // Update last message preview in the chat list. Generic, type-based
+      // labels only - never the actual text someone typed - so a chat
+      // preview never leaks what was said to anyone glancing at the list
+      // without opening the conversation. Sending anything also "revives"
+      // the chat for both sides if either had deleted it, same as most
+      // chat apps - a fresh message brings the thread back.
       const preview = payload.sticker
         ? `${payload.sticker} Sticker`
         : payload.mediaType === 'image' ? '📷 Photo'
         : payload.mediaType === 'video' ? '🎥 Video'
         : payload.mediaType === 'audio' ? '🎤 Voice message'
-        : payload.content || ''
+        : '💬 New message'
+      const previewType = payload.sticker
+        ? 'sticker'
+        : payload.mediaType === 'image' ? 'image'
+        : payload.mediaType === 'video' ? 'video'
+        : payload.mediaType === 'audio' ? 'audio'
+        : 'text'
       await supabase
         .from('chats')
-        .update({ last_message: preview, last_message_time: new Date().toISOString(), last_message_type: 'text', deleted_by: [] })
+        .update({
+          last_message: preview,
+          last_message_time: new Date().toISOString(),
+          last_message_type: previewType,
+          last_message_sender_id: currentUserId,
+          deleted_by: [],
+        })
         .eq('id', chatId)
     },
     [chatId, currentUserId]
