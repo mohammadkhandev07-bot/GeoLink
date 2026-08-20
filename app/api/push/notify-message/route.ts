@@ -4,7 +4,7 @@ import { sendPushToUser } from '@/lib/server/push'
 
 /**
  * Called right after a chat message is inserted (client-side) to notify
- * The recipient even if they don't have GeoLink open in a tab right now.
+ * the recipient even if they don't have GeoLink open in a tab right now.
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   const { data: message } = await supabase
     .from('messages')
-    .select('id, sender_id, content, media_type, sticker, chat_id, chats(participant1_id, participant2_id)')
+    .select('id, sender_id, content, media_type, sticker, chat_id, chats(participant1_id, participant2_id, archived_by)')
     .eq('id', messageId)
     .single()
 
@@ -27,6 +27,12 @@ export async function POST(request: NextRequest) {
   const chat = message.chats as any
   const recipientId = chat.participant1_id === user.id ? chat.participant2_id : chat.participant1_id
 
+  // Archived chats are meant to be private and quiet - no notification,
+  // same as they get no unread badge either.
+  if ((chat.archived_by || []).includes(recipientId)) {
+    return NextResponse.json({ ok: true })
+  }
+
   const { data: senderProfile } = await supabase
     .from('profiles')
     .select('username, full_name')
@@ -34,12 +40,15 @@ export async function POST(request: NextRequest) {
     .single()
 
   const senderName = senderProfile?.full_name || senderProfile?.username || 'Someone'
+  // Generic, type-based label only - never the actual text someone typed -
+  // same privacy rule as the chat list preview. A lock-screen notification
+  // is even more exposed than the in-app list, so this matters more here.
   const preview =
     message.sticker ? `${message.sticker} Sticker`
-    : message.media_type === 'image' ? '📷 Photo'
-    : message.media_type === 'video' ? '🎬 Video'
-    : message.media_type === 'audio' ? '🎤 Voice message'
-    : message.content?.slice(0, 120) || 'New message'
+    : message.media_type === 'image' ? '📷 Sent a photo'
+    : message.media_type === 'video' ? '🎬 Sent a video'
+    : message.media_type === 'audio' ? '🎤 Sent a voice message'
+    : '💬 Sent a message'
 
   await sendPushToUser(recipientId, {
     title: senderName,
