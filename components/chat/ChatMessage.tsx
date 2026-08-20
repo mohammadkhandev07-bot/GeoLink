@@ -148,7 +148,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
 
   // Each action updates the local list immediately (so the person acting
   // sees it happen instantly) alongside the actual database mutation - the
-  // Other participant gets the same result moments later via realtime.
+  // other participant gets the same result moments later via realtime.
   const handleUnsend = () => {
     setShowMenu(false)
     onRemoveMessage?.(message.id)
@@ -174,7 +174,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
     if (myReaction?.emoji === emoji) {
       removeReaction.mutate({ messageId: message.id, userId: currentUserId })
     } else {
-      setReaction.mutate({ messageId: message.id, userId: currentUserId, emoji })
+      setReaction.mutate({ messageId: message.id, userId: currentUserId, emoji, chatId: message.chat_id })
     }
   }
 
