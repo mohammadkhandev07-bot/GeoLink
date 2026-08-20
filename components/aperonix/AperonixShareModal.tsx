@@ -81,9 +81,10 @@ export function AperonixShareModal({ replyText, onClose }: AperonixShareModalPro
       })
 
       await supabase.from('chats').update({
-        last_message: 'Shared an Aperonix reply',
+        last_message: '✨ Shared an Aperonix reply',
         last_message_time: new Date().toISOString(),
         last_message_type: 'aperonix',
+        last_message_sender_id: user.id,
       }).eq('id', chatId)
     }
 
