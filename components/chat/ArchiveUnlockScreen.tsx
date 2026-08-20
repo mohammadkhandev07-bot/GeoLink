@@ -9,9 +9,14 @@ import { useVerifyArchivePassword } from '@/lib/hooks/useChatSettings'
 interface ArchiveUnlockScreenProps {
   hint: string | null
   onUnlock: () => void
+  /** Archive section shows "Archive is locked"; opening a single archived
+   *  chat directly (search, someone's profile, a link) shows "Chat is
+   *  locked" instead - same screen, wording just matches what's actually
+   *  behind it. */
+  title?: string
 }
 
-export function ArchiveUnlockScreen({ hint, onUnlock }: ArchiveUnlockScreenProps) {
+export function ArchiveUnlockScreen({ hint, onUnlock, title = 'Archive is locked' }: ArchiveUnlockScreenProps) {
   const router = useRouter()
   const { user } = useUser()
   const verify = useVerifyArchivePassword()
@@ -35,7 +40,7 @@ export function ArchiveUnlockScreen({ hint, onUnlock }: ArchiveUnlockScreenProps
       <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
         <Lock className="h-6 w-6 text-muted-foreground" />
       </div>
-      <h1 className="font-bold text-lg mb-1">Archive is locked</h1>
+      <h1 className="font-bold text-lg mb-1">{title}</h1>
       <p className="text-sm text-muted-foreground mb-6">Enter your password to continue.</p>
       <input
         autoFocus
