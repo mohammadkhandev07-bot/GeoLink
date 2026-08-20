@@ -7,7 +7,7 @@ import { DEFAULT_RINGTONE_ID, DEFAULT_RINGTONE_VOLUME } from '@/lib/utils/ringto
 
 // ------------------------------------------------------------------
 // Call settings - which ringtone plays for incoming/outgoing calls, and
-// How loud. Stored on the user's own profile so it's the same across
+// how loud. Stored on the user's own profile so it's the same across
 // every chat and every device they're logged into.
 // ------------------------------------------------------------------
 export function useCallSettings(userId?: string) {
@@ -295,6 +295,108 @@ export function useDeleteChatForMe() {
       if (current.includes(userId)) return
       const { error } = await supabase.from('chats').update({ deleted_by: [...current, userId] }).eq('id', chatId)
       if (error) throw error
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Pin / unpin a chat - purely personal, each side can pin the same
+// conversation independently (or not at all), same idea as the Aperonix
+// entry that's always pinned at the top.
+// ------------------------------------------------------------------
+export function useTogglePinChat() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ chatId, userId, pin }: { chatId: string; userId: string; pin: boolean }) => {
+      const { data: chat } = await supabase.from('chats').select('pinned_by').eq('id', chatId).maybeSingle()
+      const current: string[] = chat?.pinned_by || []
+      const next = pin ? [...new Set([...current, userId])] : current.filter((id) => id !== userId)
+      const { error } = await supabase.from('chats').update({ pinned_by: next }).eq('id', chatId)
+      if (error) throw error
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Archive / unarchive a chat - also personal to each side. An archived
+// chat is hidden from the normal inbox, doesn't raise notifications, and
+// doesn't add to the unread badge - see /chat/archive and the
+// notify-message push route.
+// ------------------------------------------------------------------
+export function useToggleArchiveChat() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ chatId, userId, archive }: { chatId: string; userId: string; archive: boolean }) => {
+      const { data: chat } = await supabase.from('chats').select('archived_by').eq('id', chatId).maybeSingle()
+      const current: string[] = chat?.archived_by || []
+      const next = archive ? [...new Set([...current, userId])] : current.filter((id) => id !== userId)
+      const { error } = await supabase.from('chats').update({ archived_by: next }).eq('id', chatId)
+      if (error) throw error
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Archive lock - a simple PIN that protects the whole Archive section
+// (not per-chat). This is a casual privacy screen (stops someone picking
+// up your unlocked phone from browsing it), not bank-grade security, so a
+// SHA-256 hash via the browser's built-in Web Crypto API is enough - no
+// extra password-hashing library needed.
+// ------------------------------------------------------------------
+async function hashPin(pin: string): Promise<string> {
+  const data = new TextEncoder().encode(pin)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+export function useArchiveLockStatus(userId?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['archive-lock-status', userId],
+    queryFn: async () => {
+      if (!userId) return { hasPassword: false, hint: null as string | null }
+      const { data } = await supabase
+        .from('profiles')
+        .select('archive_password_hash, archive_password_hint')
+        .eq('id', userId)
+        .maybeSingle()
+      return { hasPassword: !!data?.archive_password_hash, hint: data?.archive_password_hint || null }
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useSetArchivePassword() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, password, hint }: { userId: string; password: string; hint?: string }) => {
+      const hash = await hashPin(password)
+      const { error } = await supabase
+        .from('profiles')
+        .update({ archive_password_hash: hash, archive_password_hint: hint?.trim() || null })
+        .eq('id', userId)
+      if (error) throw error
+    },
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['archive-lock-status', userId] })
+    },
+  })
+}
+
+export function useVerifyArchivePassword() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const { data } = await supabase.from('profiles').select('archive_password_hash').eq('id', userId).maybeSingle()
+      if (!data?.archive_password_hash) return true // no password set yet - nothing to check against
+      const hash = await hashPin(password)
+      return hash === data.archive_password_hash
     },
   })
 }
