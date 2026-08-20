@@ -53,7 +53,7 @@ export function ShareModal({ post, onClose }: ShareModalProps) {
     setSending(true)
     const isVideo = post.media_type === 'video'
     const msgType = isVideo ? 'reel' : post.media_url ? 'post' : 'text'
-    const preview = post.content?.slice(0, 60) || (isVideo ? 'Shared a reel' : 'Shared a post')
+    const preview = isVideo ? '🎬 Shared a reel' : '📎 Shared a post'
 
     for (const receiverId of selected) {
       // Find or create chat
@@ -89,6 +89,7 @@ export function ShareModal({ post, onClose }: ShareModalProps) {
         last_message: preview,
         last_message_time: new Date().toISOString(),
         last_message_type: msgType,
+        last_message_sender_id: user.id,
       }).eq('id', chatId)
 
       // Note: no manual notification insert here - the database trigger on
