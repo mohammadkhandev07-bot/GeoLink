@@ -8,20 +8,16 @@ import { Edit, X, Search } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
-import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
-import { useBlockedByOthers, useBlockedRelations } from '@/lib/hooks/useChatSettings'
+import { getAvatarUrl } from '@/lib/utils/helpers'
+import { useBlockedByOthers, useBlockedRelations, useArchiveLockStatus } from '@/lib/hooks/useChatSettings'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
+import { ChatListItem } from '@/components/chat/ChatListItem'
+import { ArchivePasswordWizard } from '@/components/chat/ArchivePasswordWizard'
+import type { Chat } from '@/lib/types/database.types'
 
-interface Chat {
-  id: string
-  participant1_id: string
-  participant2_id: string
-  last_message: string | null
-  last_message_time: string | null
-  last_message_type: string | null
+interface ChatRow extends Chat {
   participant1: { id: string; username: string; avatar_url: string | null }
   participant2: { id: string; username: string; avatar_url: string | null }
-  unread_count?: number
 }
 
 interface SearchProfile {
@@ -34,7 +30,7 @@ interface SearchProfile {
 
 export default function ChatPage() {
   const { user, loading } = useUser()
-  const [chats, setChats] = useState<Chat[]>([])
+  const [chats, setChats] = useState<ChatRow[]>([])
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({})
   const router = useRouter()
   const supabase = createClient()
@@ -45,9 +41,11 @@ export default function ChatPage() {
   const [searching, setSearching] = useState(false)
   const [startingChatWith, setStartingChatWith] = useState<string | null>(null)
   const [startChatError, setStartChatError] = useState('')
+  const [showArchiveWizard, setShowArchiveWizard] = useState<string | null>(null) // chatId pending archive
 
   const { data: blockedByOthers = new Set<string>() } = useBlockedByOthers(user?.id)
   const { data: blockedRelations = new Set<string>() } = useBlockedRelations(user?.id)
+  const { data: archiveLock } = useArchiveLockStatus(user?.id)
 
   const fetchChats = async () => {
     if (!user) return
@@ -59,16 +57,27 @@ export default function ChatPage() {
     // Chats the person deleted from their own inbox stay hidden until a
     // new message brings them back. Chats where the other side blocked me
     // disappear from my list entirely (their account is effectively gone
-    // to me until they unblock).
+    // to me until they unblock). Archived chats live in /chat/archive
+    // instead of here.
     const visible = (data || []).filter((c: any) => {
       if (c.deleted_by?.includes(user.id)) return false
+      if (c.archived_by?.includes(user.id)) return false
       const otherId = c.participant1_id === user.id ? c.participant2_id : c.participant1_id
       if (blockedByOthers.has(otherId)) return false
       return true
     })
-    setChats(visible as Chat[])
+    // Pinned chats first, then most-recently-active.
+    visible.sort((a: any, b: any) => {
+      const aPinned = a.pinned_by?.includes(user.id) ? 1 : 0
+      const bPinned = b.pinned_by?.includes(user.id) ? 1 : 0
+      if (aPinned !== bPinned) return bPinned - aPinned
+      return new Date(b.last_message_time || 0).getTime() - new Date(a.last_message_time || 0).getTime()
+    })
+    setChats(visible as ChatRow[])
 
-    // Unread counts
+    // Unread counts - archived chats never contribute to the badge, that's
+    // what keeps the Archive section quiet/private.
+    const archivedIds = new Set((data || []).filter((c: any) => c.archived_by?.includes(user.id)).map((c: any) => c.id))
     const { data: unread } = await supabase
       .from('messages')
       .select('chat_id')
@@ -76,7 +85,7 @@ export default function ChatPage() {
       .neq('sender_id', user.id)
     if (unread) {
       const counts: Record<string, number> = {}
-      unread.forEach(m => { counts[m.chat_id] = (counts[m.chat_id] || 0) + 1 })
+      unread.forEach(m => { if (!archivedIds.has(m.chat_id)) counts[m.chat_id] = (counts[m.chat_id] || 0) + 1 })
       setUnreadMap(counts)
     }
   }
@@ -202,16 +211,7 @@ export default function ChatPage() {
 
   if (loading) return <PageLoader />
 
-  const getLastMessagePreview = (chat: Chat) => {
-    if (!chat.last_message) return ''
-    if (chat.last_message_type === 'post') return '📎 Shared a post'
-    if (chat.last_message_type === 'reel') return '🎬 Shared a reel'
-    if (chat.last_message_type === 'story') return `💬 Replied to a story: ${chat.last_message}`
-    if (chat.last_message_type === 'aperonix') return '✨ Shared an Aperonix reply'
-    return chat.last_message
-  }
-
-  const getOther = (chat: Chat) =>
+  const getOther = (chat: ChatRow) =>
     chat.participant1_id === user?.id ? chat.participant2 : chat.participant1
 
   return (
@@ -243,40 +243,26 @@ export default function ChatPage() {
       ) : (
         <div>
           {chats.map(chat => {
+            if (!user) return null
             const other = getOther(chat)
             const unread = unreadMap[chat.id] || 0
+            const isPinned = chat.pinned_by?.includes(user.id) ?? false
+            // The main list already hides chats where the other person
+            // blocked me, so if there's still a block relation on record
+            // here, it can only be one I put in place myself.
+            const iBlockedThem = blockedRelations.has(other?.id || '')
             return (
-              <button
+              <ChatListItem
                 key={chat.id}
-                onClick={() => router.push(`/chat/${chat.id}`)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors border-b text-left"
-              >
-                <div className="relative shrink-0">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={getAvatarUrl(other?.avatar_url)} />
-                    <AvatarFallback>{other?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  {/* Unread red dot on avatar */}
-                  {unread > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
-                      {unread > 9 ? '9+' : unread}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className={`text-sm truncate ${unread > 0 ? 'font-bold' : 'font-semibold'}`}>
-                      {other?.username}
-                    </p>
-                    <p className="text-xs text-muted-foreground shrink-0 ml-2">
-                      {chat.last_message_time ? formatTimeAgo(chat.last_message_time) : ''}
-                    </p>
-                  </div>
-                  <p className={`text-xs truncate mt-0.5 ${unread > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                    {getLastMessagePreview(chat)}
-                  </p>
-                </div>
-              </button>
+                chat={chat}
+                other={other}
+                currentUserId={user.id}
+                unread={unread}
+                isPinned={isPinned}
+                isArchived={false}
+                iBlockedThem={iBlockedThem}
+                onArchive={!archiveLock?.hasPassword ? () => setShowArchiveWizard(chat.id) : undefined}
+              />
             )
           })}
         </div>
@@ -346,6 +332,23 @@ export default function ChatPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* First-time archive password setup, triggered from a chat's "Archive" action */}
+      {showArchiveWizard && user && (
+        <ArchivePasswordWizard
+          onClose={() => setShowArchiveWizard(null)}
+          onDone={() => {
+            const chatId = showArchiveWizard
+            setShowArchiveWizard(null)
+            supabase.from('chats').select('archived_by').eq('id', chatId).maybeSingle().then(({ data }) => {
+              const current: string[] = data?.archived_by || []
+              if (!current.includes(user.id)) {
+                supabase.from('chats').update({ archived_by: [...current, user.id] }).eq('id', chatId).then(() => fetchChats())
+              }
+            })
+          }}
+        />
       )}
     </div>
   )
