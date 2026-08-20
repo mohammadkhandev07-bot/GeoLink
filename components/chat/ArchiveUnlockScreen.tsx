@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Lock } from 'lucide-react'
 import { useUser } from '@/lib/hooks/useUser'
 import { useVerifyArchivePassword } from '@/lib/hooks/useChatSettings'
+import { ArchiveChangePasswordWizard } from './ArchiveChangePasswordWizard'
 
 interface ArchiveUnlockScreenProps {
   hint: string | null
@@ -23,6 +24,7 @@ export function ArchiveUnlockScreen({ hint, onUnlock, title = 'Archive is locked
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [showHint, setShowHint] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   const handleSubmit = async () => {
     if (!user) return
@@ -60,14 +62,32 @@ export function ArchiveUnlockScreen({ hint, onUnlock, title = 'Archive is locked
       >
         Unlock
       </button>
-      {hint && (
-        showHint ? (
-          <p className="text-xs text-muted-foreground">Hint: {hint}</p>
-        ) : (
-          <button onClick={() => setShowHint(true)} className="text-xs text-muted-foreground underline">
-            Show hint
-          </button>
-        )
+
+      {/* Hint on the left, "Change password" on the right - always visible
+          (phone and desktop both), even with no hint set, so resetting the
+          password doesn't depend on having one. */}
+      <div className="w-full flex items-center justify-between">
+        <div>
+          {hint && (
+            showHint ? (
+              <p className="text-xs text-muted-foreground text-left">Hint: {hint}</p>
+            ) : (
+              <button onClick={() => setShowHint(true)} className="text-xs text-muted-foreground underline">
+                Show hint
+              </button>
+            )
+          )}
+        </div>
+        <button onClick={() => setShowChangePassword(true)} className="text-xs text-pink-500 underline shrink-0">
+          Change password
+        </button>
+      </div>
+
+      {showChangePassword && (
+        <ArchiveChangePasswordWizard
+          onClose={() => setShowChangePassword(false)}
+          onDone={() => setShowChangePassword(false)}
+        />
       )}
     </div>
   )
