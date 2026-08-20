@@ -75,11 +75,36 @@ export function useSetMessageReaction() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ messageId, userId, emoji }: { messageId: string; userId: string; emoji: string }) => {
+    mutationFn: async ({
+      messageId,
+      userId,
+      emoji,
+      chatId,
+    }: {
+      messageId: string
+      userId: string
+      emoji: string
+      /** Passing chatId also drops a "reacted to a message" preview into
+       *  the chat list, same as every other message type - optional so
+       *  this hook still works anywhere that preview isn't needed. */
+      chatId?: string
+    }) => {
       const { error } = await supabase
         .from('message_reactions')
         .upsert({ message_id: messageId, user_id: userId, emoji }, { onConflict: 'message_id,user_id' })
       if (error) throw error
+
+      if (chatId) {
+        await supabase
+          .from('chats')
+          .update({
+            last_message: emoji,
+            last_message_time: new Date().toISOString(),
+            last_message_type: 'reaction',
+            last_message_sender_id: userId,
+          })
+          .eq('id', chatId)
+      }
     },
     onSuccess: (_, { messageId }) => {
       queryClient.invalidateQueries({ queryKey: ['message-reactions', messageId] })
@@ -145,13 +170,20 @@ export function useForwardMessage() {
         is_forwarded: true,
       }
 
-      const lastMessageType: 'text' | 'post' | 'reel' =
-        message.post_id || message.story_id ? 'post' : message.media_type === 'video' ? 'reel' : 'text'
+      const lastMessageType: 'text' | 'post' | 'reel' | 'image' | 'video' | 'audio' | 'sticker' =
+        message.post_id || message.story_id ? 'post'
+        : message.sticker ? 'sticker'
+        : message.media_type === 'image' ? 'image'
+        : message.media_type === 'video' ? 'video'
+        : message.media_type === 'audio' ? 'audio'
+        : 'text'
       const lastMessagePreview =
-        message.sticker ? message.sticker
-        : message.media_type ? `Sent a ${message.media_type}`
-        : message.post_id || message.story_id ? 'Sent a post'
-        : message.content
+        message.sticker ? `${message.sticker} Sticker`
+        : message.media_type === 'image' ? '📷 Photo'
+        : message.media_type === 'video' ? '🎥 Video'
+        : message.media_type === 'audio' ? '🎤 Voice message'
+        : message.post_id || message.story_id ? '📎 Shared a post'
+        : '💬 New message'
 
       for (const recipientId of recipientIds) {
         let chatId: string | null = null
@@ -177,6 +209,7 @@ export function useForwardMessage() {
           last_message: lastMessagePreview,
           last_message_time: new Date().toISOString(),
           last_message_type: lastMessageType,
+          last_message_sender_id: senderId,
         }).eq('id', chatId)
       }
     },
