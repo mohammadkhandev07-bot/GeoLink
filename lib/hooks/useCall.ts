@@ -74,7 +74,7 @@ function removeTracksOfKind(stream: MediaStream, kind: string) {
  *    up) - see /api/calls/connect for how that's decided server-side
  *
  * Mounted once, high up in the tree (see CallProvider), so an incoming
- * Call can interrupt whatever page the person is currently on.
+ * call can interrupt whatever page the person is currently on.
  */
 export function useCallEngine(currentUserId?: string) {
   const supabase = createClient()
@@ -158,6 +158,23 @@ export function useCallEngine(currentUserId?: string) {
         content: JSON.stringify({ callType: call.type, outcome, durationSec }),
         media_type: 'call',
       })
+      // Also update the chat list preview - without this a call never
+      // shows up there at all, only inside the conversation itself.
+      const preview =
+        outcome === 'completed' ? '📞 Voice call'
+        : outcome === 'missed' ? '📞 Missed call'
+        : outcome === 'rejected' ? '📞 Call declined'
+        : outcome === 'cancelled' ? '📞 Cancelled call'
+        : '📞 Voice call'
+      await supabase
+        .from('chats')
+        .update({
+          last_message: preview,
+          last_message_time: new Date().toISOString(),
+          last_message_type: 'call',
+          last_message_sender_id: call.caller_id,
+        })
+        .eq('id', call.chat_id)
     } catch (e) {
       console.error('[GeoLink Call] failed to log call to chat', e)
     }
