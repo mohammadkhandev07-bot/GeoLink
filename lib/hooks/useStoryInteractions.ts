@@ -217,9 +217,10 @@ export function useReplyToStory() {
       if (msgError) throw new Error('Message is not available.')
 
       await supabase.from('chats').update({
-        last_message: content.trim(),
+        last_message: '💬 Replied to a story',
         last_message_time: new Date().toISOString(),
         last_message_type: 'story',
+        last_message_sender_id: senderId,
       }).eq('id', chatId)
 
       return chatId
