@@ -1,5 +1,5 @@
 {
-  "name": "GeoLink",
+  "name": "SociaLens",
   "crons": [
     {
       "path": "/api/stories/cleanup",
