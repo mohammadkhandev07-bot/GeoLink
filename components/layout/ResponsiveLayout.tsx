@@ -11,7 +11,7 @@ export function ResponsiveLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   // On phones only, an open conversation or the Aperonix chatbot should
   // take the whole screen the way every other chat app does - the top
-  // navbar and bottom tab bar were eating into already-tight space there.
+  // Navbar and bottom tab bar were eating into already-tight space there.
   // Desktop has plenty of room, so it keeps the normal chrome around it.
   const isImmersiveChatPage = /^\/chat\/[^/]+$/.test(pathname || '') || pathname === '/aperonix'
 
