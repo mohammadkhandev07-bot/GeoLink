@@ -7,7 +7,7 @@ import { ArrowLeft, ScrollText } from 'lucide-react'
 const SECTIONS = [
   {
     title: 'Acceptance of Terms',
-    body: "By creating an account or using GeoLink, you agree to these Terms & Conditions and our Privacy Policy. If you don't agree, please don't use GeoLink.",
+    body: "By creating an account or using SociaLens, you agree to these Terms & Conditions and our Privacy Policy. If you don't agree, please don't use SociaLens.",
   },
   {
     title: 'Your Account',
@@ -15,15 +15,15 @@ const SECTIONS = [
   },
   {
     title: 'Acceptable Use',
-    body: "You agree not to use GeoLink to post illegal content, harass others, impersonate someone else, spam, or attempt to disrupt or exploit the platform.",
+    body: "You agree not to use SociaLens to post illegal content, harass others, impersonate someone else, spam, or attempt to disrupt or exploit the platform.",
   },
   {
     title: 'Content You Post',
-    body: "You retain ownership of everything you post — photos, videos, and text. By posting, you give GeoLink permission to display and distribute that content to the audience you've chosen with your privacy settings.",
+    body: "You retain ownership of everything you post — photos, videos, and text. By posting, you give SociaLens permission to display and distribute that content to the audience you've chosen with your privacy settings.",
   },
   {
     title: 'Privacy Controls',
-    body: 'GeoLink gives you controls for your posts, messages, and search visibility. Configuring these to match your preferences is your responsibility.',
+    body: 'SociaLens gives you controls for your posts, messages, and search visibility. Configuring these to match your preferences is your responsibility.',
   },
   {
     title: 'Termination',
@@ -31,11 +31,11 @@ const SECTIONS = [
   },
   {
     title: 'Disclaimer',
-    body: 'GeoLink is provided "as is" without warranties of any kind. We are not liable for content posted by users.',
+    body: 'SociaLens is provided "as is" without warranties of any kind. We are not liable for content posted by users.',
   },
   {
     title: 'Changes to These Terms',
-    body: 'We may update these Terms occasionally. Continuing to use GeoLink after a change means you accept the update.',
+    body: 'We may update these Terms occasionally. Continuing to use SociaLens after a change means you accept the update.',
   },
 ]
 
@@ -65,7 +65,7 @@ export default function TermsPage() {
         </div>
 
         <p className="text-sm text-muted-foreground mt-6 mb-8 leading-relaxed">
-          These Terms & Conditions govern your use of GeoLink. Please read them carefully.
+          These Terms & Conditions govern your use of SociaLens. Please read them carefully.
         </p>
 
         <div className="space-y-3">
