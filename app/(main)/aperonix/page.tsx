@@ -420,7 +420,7 @@ export default function AperonixPage() {
   }, [activeId])
 
   return (
-    <div className="flex h-[calc(100vh-56px)] min-h-0 overflow-hidden">
+    <div className="flex h-[100dvh] lg:h-[calc(100vh-56px)] min-h-0 overflow-hidden">
       {/* History panel */}
       <div className={`
         fixed md:static inset-y-0 left-0 z-30 w-72 bg-card border-r flex-col
