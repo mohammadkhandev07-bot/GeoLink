@@ -50,7 +50,7 @@ export function Navbar({ className }: { className?: string } = {}) {
             </Button>
           </Link>
 
-          {/* Notifications */}
+          {/* Notification */}
           <NotificationPanel />
 
           {/* Profile */}
