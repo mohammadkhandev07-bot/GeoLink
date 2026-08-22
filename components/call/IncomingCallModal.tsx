@@ -34,7 +34,7 @@ export function IncomingCallModal({ callerName, callerAvatar, type, ringtoneId, 
           <AvatarFallback className="text-3xl">{callerName[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
         <h2 className="text-2xl font-bold">{callerName}</h2>
-        <p className="text-white/50 text-sm">is calling you on GeoLink...</p>
+        <p className="text-white/50 text-sm">is calling you on SociaLens...</p>
       </div>
 
       <div className="flex items-center gap-16">
@@ -59,4 +59,4 @@ export function IncomingCallModal({ callerName, callerAvatar, type, ringtoneId, 
       </div>
     </div>
   )
-} 
+}
