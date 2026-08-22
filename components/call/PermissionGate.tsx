@@ -21,7 +21,7 @@ function isInstalledStandaloneApp() {
  *
  * mode="prompt": first time asking - a friendly explainer with our own
  * "Allow" button. Clicking it IS the user gesture that lets the browser's
- * native permission dialog appear right after - people are far more
+ * Native permission dialog appear right after - people are far more
  * likely to hit "Allow" there when they already understand why.
  *
  * mode="blocked": access was already explicitly denied for this site at
