@@ -134,7 +134,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-sm shadow-xl text-center">
         <CardHeader>
           <div className="flex justify-center mb-2">
-            <Image src="/images/geolink-logo.png" alt="GeoLink" width={56} height={56} className="rounded-xl" />
+            <Image src="/images/socialens-logo.png" alt="SociaLens" width={56} height={56} className="rounded-xl" />
           </div>
           <CardTitle>Check your email</CardTitle>
           <CardDescription>
@@ -145,7 +145,7 @@ export default function SignupPage() {
         <CardContent className="space-y-3">
           <div className="text-left bg-muted/60 rounded-lg p-3">
             <p className="text-xs text-muted-foreground">
-              The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected. Open it and click the confirmation link to activate your GeoLink account and go straight to your feed.
+              The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected. Open it and click the confirmation link to activate your SociaLens account and go straight to your feed.
             </p>
           </div>
           {providerLink && (
@@ -172,8 +172,8 @@ export default function SignupPage() {
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
           <Image
-            src="/images/geolink-logo.png"
-            alt="GeoLink"
+            src="/images/socialens-logo.png"
+            alt="SociaLens"
             width={56}
             height={56}
             className="rounded-xl"
@@ -182,7 +182,7 @@ export default function SignupPage() {
         <CardTitle className="text-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
           Create Account
         </CardTitle>
-        <CardDescription>Join GeoLink today</CardDescription>
+        <CardDescription>Join SociaLens today</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -257,7 +257,7 @@ export default function SignupPage() {
               className="mt-0.5 h-3.5 w-3.5 shrink-0"
             />
             <span>
-              I agree to GeoLink's{' '}
+              I agree to SociaLens's{' '}
               <Link href="/terms" target="_blank" className="text-pink-500 hover:underline">Terms &amp; Conditions</Link>
               {' '}and{' '}
               <Link href="/privacy-policy" target="_blank" className="text-pink-500 hover:underline">Privacy Policy</Link>.
