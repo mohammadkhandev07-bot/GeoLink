@@ -7,11 +7,11 @@ import { ArrowLeft, ShieldCheck } from 'lucide-react'
 const SECTIONS = [
   {
     title: 'Information We Collect',
-    body: "When you use GeoLink, we collect information you provide directly — your username, email, profile details, and anything you post: photos, videos, text, comments, and messages. We also collect basic usage data, like login times and how you interact with posts, to keep the app running smoothly.",
+    body: "When you use SociaLens, we collect information you provide directly — your username, email, profile details, and anything you post: photos, videos, text, comments, and messages. We also collect basic usage data, like login times and how you interact with posts, to keep the app running smoothly.",
   },
   {
     title: 'How We Use Your Information',
-    body: "Your information powers GeoLink's core features — your feed, following people, messaging, and showing your posts to the audience you choose. We never sell your personal information to third parties.",
+    body: "Your information powers SociaLens's core features — your feed, following people, messaging, and showing your posts to the audience you choose. We never sell your personal information to third parties.",
   },
   {
     title: 'Your Privacy Controls',
@@ -19,7 +19,7 @@ const SECTIONS = [
   },
   {
     title: 'Data Sharing',
-    body: 'We only share information with service providers that help run GeoLink, like hosting and database providers, and only as much as needed. We may disclose information if required by law.',
+    body: 'We only share information with service providers that help run SociaLens, like hosting and database providers, and only as much as needed. We may disclose information if required by law.',
   },
   {
     title: 'Data Retention & Deletion',
@@ -27,15 +27,15 @@ const SECTIONS = [
   },
   {
     title: "Children's Privacy",
-    body: "GeoLink isn't intended for children under the minimum age required by your local law, and we don't knowingly collect information from anyone below that age.",
+    body: "SociaLens isn't intended for children under the minimum age required by your local law, and we don't knowingly collect information from anyone below that age.",
   },
   {
     title: 'Changes to This Policy',
-    body: 'We may update this Privacy Policy occasionally. Continuing to use GeoLink after a change means you accept the update.',
+    body: 'We may update this Privacy Policy occasionally. Continuing to use SociaLens after a change means you accept the update.',
   },
   {
     title: 'Contact',
-    body: 'Questions about this policy? Reach out through the contact details provided on GeoLink.',
+    body: 'Questions about this policy? Reach out through the contact details provided on SociaLens.',
   },
 ]
 
@@ -65,7 +65,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <p className="text-sm text-muted-foreground mt-6 mb-8 leading-relaxed">
-          This Privacy Policy explains what information GeoLink collects, how it's used, and the controls you have over your own data.
+          This Privacy Policy explains what information SociaLens collects, how it's used, and the controls you have over your own data.
         </p>
 
         <div className="space-y-3">
