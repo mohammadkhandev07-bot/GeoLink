@@ -1,4 +1,4 @@
-# GeoLink 🌐
+# SociaLens 🌐
 
 A full-stack social media app built with **Next.js 15**, **TypeScript**, **Tailwind CSS**, and **Supabase** — Instagram-style features including feed, reels, real-time chat, follow system, and more.
 
@@ -74,7 +74,7 @@ In Supabase Dashboard: **Authentication → URL Configuration**
 ### 5. Install & Run
 
 ```bash
-cd geolink
+cd socialens
 npm install
 npm run dev
 ```
@@ -121,7 +121,7 @@ After deploy, update in Supabase:
 ## 📁 Project Structure
 
 ```
-geolink/
+socialens/
 ├── app/
 │   ├── (auth)/          # Login, Signup, Verify Email
 │   ├── (main)/          # Feed, Explore, Reels, Chat, Profile, Settings
@@ -142,7 +142,7 @@ geolink/
 │   ├── utils/           # helpers.ts, validation.ts
 │   └── types/           # database.types.ts
 ├── public/
-│   └── images/          # geolink-logo.png, default-avatar.svg
+│   └── images/          # socialens-logo.png, default-avatar.svg
 ├── middleware.ts          # Route protection
 ├── supabase-setup.sql     # Complete DB setup — run this first!
 └── .env.local            # Your environment variables
