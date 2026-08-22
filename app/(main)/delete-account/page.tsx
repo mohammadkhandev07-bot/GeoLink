@@ -49,7 +49,7 @@ export default function DeleteAccountPage() {
         <div className="text-center space-y-4 max-w-sm">
           <div className="text-5xl">👋</div>
           <h1 className="text-2xl font-bold">Account Deleted</h1>
-          <p className="text-muted-foreground">Your GeoLink account and all data has been permanently deleted.</p>
+          <p className="text-muted-foreground">Your SociaLens account and all data has been permanently deleted.</p>
           <p className="text-sm text-muted-foreground">Redirecting to home...</p>
         </div>
       </div>
