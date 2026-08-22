@@ -31,8 +31,8 @@ export function useCallContext() {
 
 /**
  * Mounted once near the root (see ResponsiveLayout) so a call can ring in
- * From anywhere in the app, not just the chat page. Renders the incoming
- * Call screen, the active call screen, and a self-contained error banner
+ * from anywhere in the app, not just the chat page. Renders the incoming
+ * call screen, the active call screen, and a self-contained error banner
  * as global overlays.
  *
  * The error banner is driven directly by this component's own state
@@ -63,7 +63,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }
 
   const startCall = async (peer: StartCallPeer, chatId: string | null, type: CallType) => {
-    console.log('[GeoLink Call] startCall requested', { peer, chatId, type, phase: engine.phase })
+    console.log('[SociaLens Call] startCall requested', { peer, chatId, type, phase: engine.phase })
     if (engine.phase !== 'idle') {
       reportBlocked('You are already on a call.')
       return
