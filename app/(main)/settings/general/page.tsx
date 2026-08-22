@@ -187,7 +187,7 @@ export default function GeneralSettingsPage() {
               <Users className="h-4 w-4 text-pink-500" />
               <p className="font-semibold">Add another account</p>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">Log in with a different GeoLink account to add it here.</p>
+            <p className="text-xs text-muted-foreground mb-3">Log in with a different SociaLens account to add it here.</p>
 
             <div className="space-y-2">
               <input
