@@ -4,7 +4,7 @@ import { sendPushToUser } from '@/lib/server/push'
 
 /**
  * Called right after a call row is inserted (client-side) to notify the
- * Callee even if they don't have GeoLink open in a tab right now.
+ * callee even if they don't have SociaLens open in a tab right now.
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
