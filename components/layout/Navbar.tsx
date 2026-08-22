@@ -8,12 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { NotificationPanel } from '@/components/shared/NotificationPanel'
+import { cn } from '@/lib/utils/helpers'
 
-export function Navbar() {
+export function Navbar({ className }: { className?: string } = {}) {
   const { profile } = useUser()
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className={cn("sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
       <div className="flex h-14 items-center px-4 gap-4">
         <Link href="/feed" className="flex items-center gap-2">
           <Image src="/images/geolink-logo.png" alt="GeoLink" width={32} height={32} className="rounded-lg" />
