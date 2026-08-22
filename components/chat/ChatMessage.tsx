@@ -126,7 +126,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
       const ext = mediaType === 'video' ? 'mp4' : 'jpg'
       const a = document.createElement('a')
       a.href = blobUrl
-      a.download = `geolink-${mediaType}-${message.id}.${ext}`
+      a.download = `socialens-${mediaType}-${message.id}.${ext}`
       document.body.appendChild(a)
       a.click()
       a.remove()
