@@ -12,9 +12,9 @@ export default function LandingPage() {
       <header className="border-b sticky top-0 z-40 bg-background/95 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/images/geolink-logo.png" alt="GeoLink" width={32} height={32} className="rounded-lg" />
+            <Image src="/images/socialens-logo.png" alt="SociaLens" width={32} height={32} className="rounded-lg" />
             <span className="font-bold text-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
-              GeoLink
+              SociaLens
             </span>
           </div>
           <div className="flex gap-2">
@@ -32,7 +32,7 @@ export default function LandingPage() {
           <div className="relative">
             <div className="absolute inset-0 rounded-3xl blur-2xl opacity-40 scale-110"
               style={{ background: 'linear-gradient(135deg, #ec4899, #a855f7, #06b6d4)' }} />
-            <Image src="/images/geolink-logo.png" alt="GeoLink" width={100} height={100}
+            <Image src="/images/socialens-logo.png" alt="SociaLens" width={100} height={100}
               className="relative rounded-3xl shadow-2xl" />
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t py-8 text-center">
-        <p className="text-sm text-muted-foreground">© 2025 GeoLink. All rights reserved.</p>
+        <p className="text-sm text-muted-foreground">© 2025 SociaLens. All rights reserved.</p>
         <div className="flex justify-center gap-4 mt-3 text-xs text-muted-foreground">
           <Link href="/login" className="hover:text-foreground">Log In</Link>
           <span>·</span>
