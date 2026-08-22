@@ -29,7 +29,7 @@ export default function NotificationsSettingsPage() {
         setNotifyMessages((data as any).notify_messages || 'everyone')
         setNotifyPosts((data as any).notify_posts || 'everyone')
       }
-      const stored = localStorage.getItem('geolink-push-enabled')
+      const stored = localStorage.getItem('socialens-push-enabled')
       setPushEnabled(stored !== 'false')
     }
     load()
@@ -37,7 +37,7 @@ export default function NotificationsSettingsPage() {
 
   const togglePush = (checked: boolean) => {
     setPushEnabled(checked)
-    localStorage.setItem('geolink-push-enabled', String(checked))
+    localStorage.setItem('socialens-push-enabled', String(checked))
   }
 
   const updateField = async (field: 'notify_messages' | 'notify_posts', value: PrivacyLevel) => {
