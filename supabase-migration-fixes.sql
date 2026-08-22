@@ -1,5 +1,5 @@
 -- ============================================================
--- GeoLink - Bug Fix Migration
+-- SociaLens - Bug Fix Migration
 -- Run this in your EXISTING Supabase project's SQL Editor.
 -- Safe to run even if some parts already exist (idempotent).
 -- This does NOT delete or touch any existing data.
