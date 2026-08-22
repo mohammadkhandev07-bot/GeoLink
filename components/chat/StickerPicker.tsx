@@ -1,6 +1,6 @@
 'use client'
 
-// GeoLink doesn't ship illustrated sticker packs (that's a whole art asset
+// SociaLens doesn't ship illustrated sticker packs (that's a whole art asset
 // library), so "stickers" here are large, borderless mood emoji sent at
 // sticker size - same tap-a-mood UX as a real sticker tray, grouped by
 // feeling rather than the alphabetical emoji-picker layout.
