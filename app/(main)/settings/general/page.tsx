@@ -109,7 +109,7 @@ export default function GeneralSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Switch Accounts */}
+      {/* Switch accounts */}
       <Card>
         <CardContent className="pt-4 divide-y">
           <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide pb-2">Accounts</p>
