@@ -19,7 +19,7 @@ const SYSTEM_PROMPT = 'You are Aperonix, SociaLens\'s official AI assistant, mad
 export async function POST(request: NextRequest) {
   try {
     // Same cost-abuse guard as the chat/speak routes - this also calls
-    // Gemini, so it must never be reachable by a signed-out visitor.
+    // Gemini, So it must never be reachable by a signed-out visitor.
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
