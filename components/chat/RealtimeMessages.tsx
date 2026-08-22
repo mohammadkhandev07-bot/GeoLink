@@ -22,6 +22,7 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsern
   const containerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef<string | null>(null)
+  const hasDoneInitialScrollRef = useRef(false)
   const [localMessages, setLocalMessages] = useState<Message[]>(messages)
 
   useEffect(() => {
@@ -34,11 +35,29 @@ export function RealtimeMessages({ messages, currentUserId, isTyping, otherUsern
     return el.scrollHeight - el.scrollTop - el.clientHeight < 150
   }
 
+  // The very first time this conversation has messages to show, jump
+  // straight to the bottom (latest message) instantly - no animation, no
+  // "already near bottom" check. Without this, opening a long chat left
+  // you looking at the oldest messages and having to scroll all the way
+  // down yourself, unlike every other chat app.
+  useEffect(() => {
+    if (hasDoneInitialScrollRef.current) return
+    if (localMessages.length === 0) return
+    hasDoneInitialScrollRef.current = true
+    lastMessageIdRef.current = localMessages[localMessages.length - 1]?.id ?? null
+    // Wait a tick so the messages have actually painted (and images/media
+    // have laid out) before measuring scrollHeight, or this can land short.
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    })
+  }, [localMessages])
+
   // Only jumps to the bottom when there's an actual new message (or the
   // Typing dots appear) AND the person is already near the bottom - not on
   // Every re-render, which used to yank them back down while they were
-  // Scrolled up reading older messages.
+  // scrolled up reading older messages.
   useEffect(() => {
+    if (!hasDoneInitialScrollRef.current) return
     const lastMsg = localMessages[localMessages.length - 1]
     const isNewMessage = !!lastMsg && lastMsg.id !== lastMessageIdRef.current
     lastMessageIdRef.current = lastMsg?.id ?? null
