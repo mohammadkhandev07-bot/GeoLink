@@ -81,11 +81,11 @@ export function CallScreen({
       {/* Dim overlay so controls/text stay readable over video */}
       {isVideoCall && <div className="absolute inset-0 bg-black/30" />}
 
-      {/* Top bar - GeoLink branded, mirrors a normal call app's header */}
+      {/* Top bar - SociaLens branded, mirrors a normal call app's header */}
       <div className="relative z-10 flex items-center justify-center px-5 pt-5">
         <div className="flex items-center gap-1.5 text-xs text-white/50">
           <ShieldCheck className="h-3.5 w-3.5" />
-          <span>GeoLink secure call</span>
+          <span>SociaLens secure call</span>
         </div>
       </div>
 
