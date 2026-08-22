@@ -1,5 +1,5 @@
 -- ============================================================
--- GeoLink - Account Privacy Controls (Post / Message / Search)
+-- SociaLens - Account Privacy Controls (Post / Message / Search)
 -- Run this in your Supabase project's SQL Editor.
 -- Safe to run even if already applied (idempotent). No data is deleted.
 -- New accounts default to fully public ('everyone') on every setting, so
