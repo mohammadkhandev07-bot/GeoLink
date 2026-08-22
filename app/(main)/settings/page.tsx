@@ -54,11 +54,11 @@ export default function SettingsPage() {
     }
 
     if (isIOS) {
-      alert('To install GeoLink on iPhone:\n\n1. Open this page in Safari\n2. Tap the Share button (bottom center)\n3. Tap "Add to Home Screen"\n4. Tap "Add"')
+      alert('To install SociaLens on iPhone:\n\n1. Open this page in Safari\n2. Tap the Share button (bottom center)\n3. Tap "Add to Home Screen"\n4. Tap "Add"')
       return
     }
 
-    alert("Your browser doesn't support installing GeoLink yet. Try opening this page in Chrome or Edge.")
+    alert("Your browser doesn't support installing SociaLens yet. Try opening this page in Chrome or Edge.")
   }
 
   const handleLogout = async () => {
@@ -121,10 +121,10 @@ export default function SettingsPage() {
                 <Smartphone className="h-5 w-5" />
                 <div>
                   <p className="text-sm font-medium">
-                    {installing ? 'Installing...' : 'Install GeoLink'}
+                    {installing ? 'Installing...' : 'Install SociaLens'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Add GeoLink to your home screen for quick access
+                    Add SociaLens to your home screen for quick access
                   </p>
                 </div>
               </div>
@@ -140,7 +140,7 @@ export default function SettingsPage() {
         Log Out
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground pb-4">GeoLink v1.0.0</p>
+      <p className="text-center text-xs text-muted-foreground pb-4">SociaLens v1.0.0</p>
     </div>
   )
 }
