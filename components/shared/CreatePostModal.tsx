@@ -22,13 +22,13 @@ interface CreatePostModalProps {
 // attempting the request and failing with a confusing technical error.
 const MAX_AI_MEDIA_BYTES = 3.5 * 1024 * 1024 // ~3.5MB raw file (safely under Vercel's ~4.5MB request limit once base64-encoded)
 
-// Curated GeoLink hashtag suggestions - shown as autocomplete while typing
+// Curated SociaLens hashtag suggestions - shown as autocomplete while typing
 const SUGGESTED_HASHTAGS = [
-  'geolink', 'reels', 'trending', 'viral', 'explore', 'photography',
+  'socialens', 'reels', 'trending', 'viral', 'explore', 'photography',
   'travel', 'foodie', 'fashion', 'nature', 'love', 'instagood',
   'fitness', 'art', 'music', 'throwback', 'selfie', 'friends',
   'memories', 'life', 'sunset', 'ootd', 'motivation', 'reelsindia',
-  'reelitfeelit', 'explorepage', 'geolinkers',
+  'reelitfeelit', 'explorepage', 'socialensers',
 ]
 
 // Converts a File into a raw base64 string (no "data:mime;base64," prefix) for
@@ -466,7 +466,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
                   onChange={handleHashtagsChange}
                   onBlur={() => setTimeout(() => setShowHashtagSuggestions(false), 150)}
                   onFocus={() => { if (hashtagSuggestions.length > 0) setShowHashtagSuggestions(true) }}
-                  placeholder="#geolink #trending #viral"
+                  placeholder="#socialens #trending #viral"
                   className="mt-1.5"
                   autoComplete="off"
                 />
