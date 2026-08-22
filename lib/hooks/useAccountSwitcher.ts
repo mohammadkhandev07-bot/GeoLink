@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-// Lets someone add more than one GeoLink account on this device and switch
+// Lets someone add more than one SociaLens account on this device and switch
 // between them with one tap - like Instagram/Facebook's account switcher.
 //
 // IMPORTANT: this never stores a password anywhere. When an account is
@@ -19,7 +19,7 @@ export interface StoredAccount {
   refreshToken: string
 }
 
-const STORAGE_KEY = 'geolink-accounts'
+const STORAGE_KEY = 'socialens-accounts'
 
 function loadAccounts(): StoredAccount[] {
   if (typeof window === 'undefined') return []
