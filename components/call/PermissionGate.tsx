@@ -49,7 +49,7 @@ export function PermissionGate({ mode, type, peerName, onAllow, onCancel }: Perm
         <>
           <h2 className="text-xl font-bold mb-2">Allow microphone{needsCamera ? ' & camera' : ''} access</h2>
           <p className="text-white/60 text-sm max-w-xs mb-8">
-            GeoLink needs your {needsCamera ? 'microphone and camera' : 'microphone'} to connect this call with {peerName}.
+            SociaLens needs your {needsCamera ? 'microphone and camera' : 'microphone'} to connect this call with {peerName}.
             Your browser will ask you to confirm next.
           </p>
           <button
@@ -98,7 +98,7 @@ export function PermissionGate({ mode, type, peerName, onAllow, onCancel }: Perm
       </button>
 
       <p className="flex items-center gap-1.5 text-[11px] text-white/30 mt-8">
-        <ShieldCheck className="h-3 w-3" /> GeoLink only uses this while you're on a call
+        <ShieldCheck className="h-3 w-3" /> SociaLens only uses this while you're on a call
       </p>
     </div>
   )
