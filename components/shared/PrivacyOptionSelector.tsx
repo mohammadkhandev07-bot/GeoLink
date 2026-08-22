@@ -11,7 +11,7 @@ export type PrivacyLevel = 'everyone' | 'followers' | 'following' | 'selected' |
 export type PrivacyCategory = 'post' | 'message' | 'search' | 'notify_message' | 'notify_post'
 
 const LEVEL_OPTIONS: { value: PrivacyLevel; label: string; hint: string }[] = [
-  { value: 'everyone', label: 'Everyone', hint: 'Anyone on GeoLink' },
+  { value: 'everyone', label: 'Everyone', hint: 'Anyone on SociaLens' },
   { value: 'followers', label: 'Followers', hint: 'People who follow you' },
   { value: 'following', label: 'Following', hint: 'People you follow' },
   { value: 'selected', label: 'Selected People', hint: 'Only people you pick' },
