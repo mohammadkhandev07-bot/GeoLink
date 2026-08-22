@@ -18,49 +18,49 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'GeoLink - Connect With The World',
-    template: '%s | GeoLink',
+    default: 'SociaLens - Connect With The World',
+    template: '%s | SociaLens',
   },
-  description: 'Share moments, discover stories, and connect with people around you. GeoLink is a social media platform for everyone.',
-  keywords: ['GeoLink', 'social media', 'reels', 'connect', 'share', 'photos', 'videos'],
-  authors: [{ name: 'GeoLink' }],
-  creator: 'GeoLink',
-  publisher: 'GeoLink',
-  applicationName: 'GeoLink',
-  generator: 'GeoLink',
+  description: 'Share moments, discover stories, and connect with people around you. SociaLens is a social media platform for everyone.',
+  keywords: ['SociaLens', 'social media', 'reels', 'connect', 'share', 'photos', 'videos'],
+  authors: [{ name: 'SociaLens' }],
+  creator: 'SociaLens',
+  publisher: 'SociaLens',
+  applicationName: 'SociaLens',
+  generator: 'SociaLens',
   referrer: 'origin-when-cross-origin',
   manifest: '/manifest.json',
-  metadataBase: new URL('https://geo-link-one.vercel.app'),
+  metadataBase: new URL('https://social-lens-one.vercel.app'),
   alternates: {
-    canonical: 'https://geo-link-one.vercel.app',
+    canonical: 'https://social-lens-one.vercel.app',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'GeoLink',
+    title: 'SociaLens',
   },
   formatDetection: { telephone: false },
   openGraph: {
     type: 'website',
-    url: 'https://geo-link-one.vercel.app',
-    siteName: 'GeoLink',
-    title: 'GeoLink - Connect With The World',
+    url: 'https://social-lens-one.vercel.app',
+    siteName: 'SociaLens',
+    title: 'SociaLens - Connect With The World',
     description: 'Share moments, discover stories, and connect with people around you.',
     images: [
       {
         url: '/icons/icon-512x512.png',
         width: 512,
         height: 512,
-        alt: 'GeoLink Logo',
+        alt: 'SociaLens Logo',
       },
     ],
     locale: 'en_US',
   },
   twitter: {
     card: 'summary',
-    site: '@GeoLink',
-    creator: '@GeoLink',
-    title: 'GeoLink - Connect With The World',
+    site: '@SociaLens',
+    creator: '@SociaLens',
+    title: 'SociaLens - Connect With The World',
     description: 'Share moments, discover stories, and connect with people around you.',
     images: ['/icons/icon-512x512.png'],
   },
@@ -97,8 +97,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="GeoLink" />
-        <meta name="application-name" content="GeoLink" />
+        <meta name="apple-mobile-web-app-title" content="SociaLens" />
+        <meta name="application-name" content="SociaLens" />
         <meta name="msapplication-TileColor" content="#ec4899" />
         <script
           async
