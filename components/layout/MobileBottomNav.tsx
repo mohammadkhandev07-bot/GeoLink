@@ -23,7 +23,7 @@ const rightNavItems = [
   { href: '/chat', icon: Send, label: 'Chat' },
 ]
 
-export function MobileBottomNav() {
+export function MobileBottomNav({ className }: { className?: string } = {}) {
   const pathname = usePathname()
   const { profile, user } = useUser()
   const [unreadMessages, setUnreadMessages] = useState(0)
@@ -56,7 +56,7 @@ export function MobileBottomNav() {
 
   return (
     <>
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className={cn("lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
         <div className="flex items-center justify-around h-14">
           {leftNavItems.map(({ href, icon: Icon, label }) => (
             <Link key={href} href={href}
