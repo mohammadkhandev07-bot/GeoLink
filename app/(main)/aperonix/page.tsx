@@ -531,7 +531,7 @@ export default function AperonixPage() {
           <Image src="/images/aperonix-logo.png" alt="Aperonix" width={28} height={28} className="rounded-full" />
           <div>
             <p className="font-semibold text-sm">Aperonix</p>
-            <p className="text-xs text-muted-foreground">GeoLink's official AI</p>
+            <p className="text-xs text-muted-foreground">SociaLens's official AI</p>
           </div>
         </div>
 
@@ -542,7 +542,7 @@ export default function AperonixPage() {
                 <Sparkles className="h-8 w-8 text-white" />
               </div>
               <p className="font-semibold text-foreground">Hey, I'm Aperonix 👋</p>
-              <p className="text-sm max-w-xs">Ask me anything about GeoLink, or just chat with me about whatever's on your mind.</p>
+              <p className="text-sm max-w-xs">Ask me anything about SociaLens, or just chat with me about whatever's on your mind.</p>
             </div>
           )}
 
