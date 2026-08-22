@@ -110,10 +110,10 @@ export default function OnboardingPage() {
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <Image src="/images/geolink-logo.png" alt="GeoLink" width={56} height={56} className="rounded-xl" />
+          <Image src="/images/socialens-logo.png" alt="SociaLens" width={56} height={56} className="rounded-xl" />
         </div>
         <CardTitle className="text-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
-          Welcome to GeoLink!
+          Welcome to SociaLens!
         </CardTitle>
         <CardDescription>Just one last step - pick your username</CardDescription>
       </CardHeader>
@@ -152,7 +152,7 @@ export default function OnboardingPage() {
           )}
 
           <Button type="submit" className="w-full" variant="gradient" disabled={loading}>
-            {loading ? 'Saving...' : 'Continue to GeoLink'}
+            {loading ? 'Saving...' : 'Continue to SociaLens'}
           </Button>
         </form>
       </CardContent>
