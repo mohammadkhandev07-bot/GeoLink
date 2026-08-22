@@ -1,5 +1,5 @@
 -- ============================================================
--- GeoLink - Complete Supabase Database Setup
+-- SociaLens - Complete Supabase Database Setup
 -- Run this entire file in Supabase SQL Editor
 -- ============================================================
 
