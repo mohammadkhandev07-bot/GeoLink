@@ -87,7 +87,7 @@ export function ColorPickerPanel({ label, initialValue, onPreview, onCancel, onD
 
           {/* Preview */}
           <div className="flex-1">
-            <p className="text-[10px] text-muted-foreground mb-1">GeoLink Color Preview</p>
+            <p className="text-[10px] text-muted-foreground mb-1">SociaLens Color Preview</p>
             <div
               className="h-9 rounded-lg flex items-center justify-center text-sm font-semibold"
               style={
