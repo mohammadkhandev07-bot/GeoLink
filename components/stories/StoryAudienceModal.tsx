@@ -23,7 +23,7 @@ interface StoryAudienceModalProps {
 }
 
 const OPTIONS: { value: StoryVisibility; label: string; sub: string; icon: typeof Globe }[] = [
-  { value: 'everyone', label: 'Everyone', sub: 'Anyone on GeoLink can view this story', icon: Globe },
+  { value: 'everyone', label: 'Everyone', sub: 'Anyone on SociaLens can view this story', icon: Globe },
   { value: 'followers', label: 'Followers', sub: 'Only people who follow you', icon: Users },
   { value: 'following', label: 'Following', sub: 'Only people you follow', icon: UserCheck },
   { value: 'selected', label: 'Selected people', sub: 'Choose exactly who can see it', icon: ListChecks },
