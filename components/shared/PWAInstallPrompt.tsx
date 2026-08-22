@@ -71,7 +71,7 @@ export function PWAInstallPrompt() {
               <Smartphone className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-bold text-sm">Install GeoLink</p>
+              <p className="font-bold text-sm">Install SociaLens</p>
               <p className="text-xs text-muted-foreground">Add to home screen</p>
             </div>
           </div>
