@@ -17,9 +17,9 @@ export function Navbar({ className }: { className?: string } = {}) {
     <header className={cn("sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
       <div className="flex h-14 items-center px-4 gap-4">
         <Link href="/feed" className="flex items-center gap-2">
-          <Image src="/images/geolink-logo.png" alt="GeoLink" width={32} height={32} className="rounded-lg" />
+          <Image src="/images/socialens-logo.png" alt="SociaLens" width={32} height={32} className="rounded-lg" />
           <span className="font-bold text-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent hidden sm:block">
-            GeoLink
+            SociaLens
           </span>
         </Link>
 
