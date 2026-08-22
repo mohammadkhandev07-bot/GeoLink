@@ -61,10 +61,10 @@ export default function LoginPage() {
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-2">
-          <Image src="/images/geolink-logo.png" alt="GeoLink" width={56} height={56} className="rounded-xl" />
+          <Image src="/images/socialens-logo.png" alt="SociaLens" width={56} height={56} className="rounded-xl" />
         </div>
         <CardTitle className="text-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent">
-          GeoLink
+          SociaLens
         </CardTitle>
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
@@ -107,7 +107,7 @@ export default function LoginPage() {
               className="mt-0.5 h-3.5 w-3.5 shrink-0"
             />
             <span>
-              I agree to GeoLink's{' '}
+              I agree to SociaLens's{' '}
               <Link href="/terms" target="_blank" className="text-pink-500 hover:underline">Terms &amp; Conditions</Link>
               {' '}and{' '}
               <Link href="/privacy-policy" target="_blank" className="text-pink-500 hover:underline">Privacy Policy</Link>.
@@ -143,4 +143,4 @@ export default function LoginPage() {
       </CardContent>
     </Card>
   )
-} 
+}
