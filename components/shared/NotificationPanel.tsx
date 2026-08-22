@@ -30,7 +30,7 @@ function setBadge(count: number) {
       type: count > 0 ? 'SET_BADGE' : 'CLEAR_BADGE', count
     })
   }
-  document.title = count > 0 ? `(${count}) GeoLink` : 'GeoLink - Connect With The World'
+  document.title = count > 0 ? `(${count}) SociaLens` : 'SociaLens - Connect With The World'
 }
 
 async function showNativeNotification(title: string, body: string, url: string) {
@@ -39,7 +39,7 @@ async function showNativeNotification(title: string, body: string, url: string) 
     const reg = await navigator.serviceWorker.ready
     await reg.showNotification(title, {
       body, icon: '/icons/icon-192x192.png', badge: '/icons/icon-72x72.png',
-      vibrate: [200, 100, 200], data: { url }, tag: 'geolink', renotify: true,
+      vibrate: [200, 100, 200], data: { url }, tag: 'socialens', renotify: true,
     } as any)
   } catch { new Notification(title, { body, icon: '/icons/icon-192x192.png' }) }
 }
@@ -96,7 +96,7 @@ export function NotificationPanel() {
       if (unread > prevCountRef.current && document.hidden) {
         const newest = data.find(n => !n.is_read)
         if (newest) {
-          await showNativeNotification('GeoLink', `${newest.actor?.username} ${getNotifText(newest)}`, getNotifLink(newest))
+          await showNativeNotification('SociaLens', `${newest.actor?.username} ${getNotifText(newest)}`, getNotifLink(newest))
         }
       }
       prevCountRef.current = unread
