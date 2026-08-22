@@ -236,7 +236,7 @@ export default function ChatPage() {
         <Image src="/images/aperonix-logo.png" alt="Aperonix" width={48} height={48} className="rounded-full shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">Aperonix AI</p>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">Ask me anything about GeoLink</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">Ask me anything about SociaLens</p>
         </div>
       </Link>
 
