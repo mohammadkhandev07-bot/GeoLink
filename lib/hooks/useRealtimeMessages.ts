@@ -28,7 +28,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
     // Supabase realtime websockets can silently drop (mobile tabs getting
     // throttled in the background, wifi/cellular handoff, the socket just
     // going quiet) without the UI ever finding out, which is exactly what
-    // Causes "message only shows up after I refresh the page". This
+    // causes "message only shows up after I refresh the page". This
     // re-fetches the last few messages every few seconds and merges in
     // anything realtime missed, so a message never has to wait for a
     // manual refresh - at most a few seconds behind, never stuck.
@@ -171,7 +171,7 @@ export function useRealtimeMessages(chatId: string, currentUserId: string) {
       if (data) {
         setMessages((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]))
         // Fire-and-forget - notifies the other person even if they don't
-        // have GeoLink open right now. Never blocks/breaks sending if it fails.
+        // have SociaLens open right now. Never blocks/breaks sending if it fails.
         fetch('/api/push/notify-message', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
