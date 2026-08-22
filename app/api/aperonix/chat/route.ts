@@ -18,7 +18,7 @@ interface MediaInput {
 export async function POST(request: NextRequest) {
   try {
     // Aperonix calls out to the Gemini API, which costs real money per
-    // request - require a signed-in GeoLink user so a stranger can't script
+    // request - require a signed-in SociaLens user so a stranger can't script
     // requests straight at this endpoint and burn through the API quota.
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
