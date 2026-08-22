@@ -137,14 +137,14 @@ export default function ChatRoomPage() {
         supabase.from('follows').select('id').eq('follower_id', user.id).eq('following_id', other.id).eq('status', 'accepted').maybeSingle(),
         supabase.from('follows').select('id').eq('follower_id', other.id).eq('following_id', user.id).eq('status', 'accepted').maybeSingle(),
       ])
-      console.log('[GeoLink Call] canCall check', { iFollowThem, theyFollowMe, e1, e2, myId: user.id, otherId: other.id })
+      console.log('[SociaLens Call] canCall check', { iFollowThem, theyFollowMe, e1, e2, myId: user.id, otherId: other.id })
       if (!cancelled) setCanCall(!!iFollowThem || !!theyFollowMe)
     })()
     return () => { cancelled = true }
   }, [user?.id, other?.id])
 
   const handleStartCall = async (type: 'audio' | 'video') => {
-    console.log('[GeoLink Call] call button clicked', { type, canCall, theyBlockedMe, iBlockedThem, other })
+    console.log('[SociaLens Call] call button clicked', { type, canCall, theyBlockedMe, iBlockedThem, other })
     if (!other) return
     if (theyBlockedMe || iBlockedThem) {
       reportBlocked(iBlockedThem ? "You've blocked this user." : 'You cannot call this user.')
@@ -256,7 +256,7 @@ export default function ChatRoomPage() {
   // If they blocked me, their profile shows anonymized in my view of this
   // chat - and messages I already exchanged with them from their side
   // still render, but as an unavailable placeholder (see isMessageUnavailable).
-  const displayName = theyBlockedMe ? 'GeoLink User' : (myNicknameForThem || other.username)
+  const displayName = theyBlockedMe ? 'SociaLens User' : (myNicknameForThem || other.username)
   const displayAvatar = theyBlockedMe ? null : getAvatarUrl(other.avatar_url)
   const canSendFinal = canSend && !theyBlockedMe && !iBlockedThem
 
