@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
   if (!provider || !roomName) {
     provider = await pickCallProvider()
-    roomName = `geolink-call-${call.id}`
+    roomName = `socialens-call-${call.id}`
 
     const admin = createAdminClient()
     // Only set it if it's still null - if the other participant's request
