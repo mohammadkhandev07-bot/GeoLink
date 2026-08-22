@@ -61,7 +61,7 @@ export default function VerifyEmailPage() {
     <Card className="w-full max-w-sm shadow-xl text-center">
       <CardHeader>
         <div className="flex justify-center mb-2">
-          <Image src="/images/geolink-logo.png" alt="GeoLink" width={48} height={48} className="rounded-xl" />
+          <Image src="/images/socialens-logo.png" alt="SociaLens" width={48} height={48} className="rounded-xl" />
         </div>
         <CardTitle>Verify your email</CardTitle>
         <CardDescription>
@@ -75,7 +75,7 @@ export default function VerifyEmailPage() {
           <>
             <div className="text-left bg-muted/60 rounded-lg p-3">
               <p className="text-xs text-muted-foreground">
-                The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected. Open it and click the confirmation link to activate your GeoLink account.
+                The email will arrive from <span className="font-medium text-foreground">&quot;Supabase Auth&quot;</span> — this is expected. Open it and click the confirmation link to activate your SociaLens account.
               </p>
             </div>
             {providerLink && (
