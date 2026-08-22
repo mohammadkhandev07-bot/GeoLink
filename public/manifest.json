@@ -1,6 +1,6 @@
 {
-  "name": "GeoLink - Connect With The World",
-  "short_name": "GeoLink",
+  "name": "SociaLens - Connect With The World",
+  "short_name": "SociaLens",
   "description": "Share moments, discover stories, and connect with people around you.",
   "start_url": "/feed",
   "scope": "/",
@@ -32,14 +32,14 @@
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "GeoLink Feed"
+      "label": "SociaLens Feed"
     },
     {
       "src": "/screenshots/reels.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "GeoLink Reels"
+      "label": "SociaLens Reels"
     }
   ],
   "shortcuts": [
