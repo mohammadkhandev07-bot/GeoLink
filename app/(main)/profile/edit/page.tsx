@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { Camera, ArrowLeft } from 'lucide-react'
@@ -12,8 +12,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
-import { compressImageIfNeeded } from '@/lib/utils/imageCompression'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
+import { PhotoEditorModal } from '@/components/shared/PhotoEditorModal'
 
 interface EditProfileForm {
   full_name: string
@@ -28,8 +28,7 @@ export default function EditProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const avatarRef = useRef<HTMLInputElement>(null)
-  const coverRef = useRef<HTMLInputElement>(null)
+  const [editingPhoto, setEditingPhoto] = useState<'avatar' | 'cover' | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -41,6 +40,13 @@ export default function EditProfilePage() {
     },
   })
 
+  const handlePhotoEdited = (file: File) => {
+    const url = URL.createObjectURL(file)
+    if (editingPhoto === 'avatar') { setAvatarFile(file); setAvatarPreview(url) }
+    else if (editingPhoto === 'cover') { setCoverFile(file); setCoverPreview(url) }
+    setEditingPhoto(null)
+  }
+
   const onSubmit = async (data: EditProfileForm) => {
     if (!user || !profile) return
     setSaving(true)
@@ -49,22 +55,26 @@ export default function EditProfilePage() {
       let cover_photo_url = profile.cover_photo_url
 
       if (avatarFile) {
-        const compressedAvatar = await compressImageIfNeeded(avatarFile)
-        const path = `${user.id}/avatar.${compressedAvatar.name.split('.').pop()}`
-        await supabase.storage.from('avatars').upload(path, compressedAvatar, { upsert: true })
+        // A timestamped filename (not a fixed "avatar.ext") is essential
+        // here - Supabase Storage's CDN caches aggressively by URL, so
+        // reusing the same filename on every upload meant the old cached
+        // image kept showing even after a successful upload/save.
+        const path = `${user.id}/avatar-${Date.now()}.jpg`
+        const { error: upErr } = await supabase.storage.from('avatars').upload(path, avatarFile)
+        if (upErr) { alert('Could not upload profile photo: ' + upErr.message); return }
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
         avatar_url = urlData.publicUrl
       }
 
       if (coverFile) {
-        const compressedCover = await compressImageIfNeeded(coverFile)
-        const path = `${user.id}/cover.${compressedCover.name.split('.').pop()}`
-        await supabase.storage.from('covers').upload(path, compressedCover, { upsert: true })
+        const path = `${user.id}/cover-${Date.now()}.jpg`
+        const { error: upErr } = await supabase.storage.from('covers').upload(path, coverFile)
+        if (upErr) { alert('Could not upload cover photo: ' + upErr.message); return }
         const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
         cover_photo_url = urlData.publicUrl
       }
 
-      await supabase.from('profiles').update({
+      const { error: updateErr } = await supabase.from('profiles').update({
         full_name: data.full_name,
         username: data.username,
         bio: data.bio,
@@ -72,6 +82,8 @@ export default function EditProfilePage() {
         cover_photo_url,
         updated_at: new Date().toISOString(),
       }).eq('id', user.id)
+
+      if (updateErr) { alert('Could not save changes: ' + updateErr.message); return }
 
       router.push(`/profile/${data.username || profile.username}`)
     } finally {
@@ -96,20 +108,18 @@ export default function EditProfilePage() {
           <div>
             <p className="text-sm font-medium mb-2">Cover Photo</p>
             <div className="relative h-28 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 cursor-pointer overflow-hidden"
-              onClick={() => coverRef.current?.click()}>
+              onClick={() => setEditingPhoto('cover')}>
               {(coverPreview || profile.cover_photo_url) && (
                 <img src={coverPreview || profile.cover_photo_url!} alt="Cover" className="w-full h-full object-cover" />
               )}
               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                 <Camera className="h-6 w-6 text-white" />
               </div>
-              <input ref={coverRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCoverFile(f); setCoverPreview(URL.createObjectURL(f)) } }} />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="relative cursor-pointer" onClick={() => avatarRef.current?.click()}>
+            <div className="relative cursor-pointer" onClick={() => setEditingPhoto('avatar')}>
               <Avatar className="h-20 w-20">
                 <AvatarImage src={avatarPreview || getAvatarUrl(profile.avatar_url)} />
                 <AvatarFallback className="text-2xl">{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
@@ -117,8 +127,6 @@ export default function EditProfilePage() {
               <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
                 <Camera className="h-5 w-5 text-white" />
               </div>
-              <input ref={avatarRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAvatarFile(f); setAvatarPreview(URL.createObjectURL(f)) } }} />
             </div>
             <div>
               <p className="font-semibold">{profile.username}</p>
@@ -145,6 +153,14 @@ export default function EditProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      {editingPhoto && (
+        <PhotoEditorModal
+          variant={editingPhoto}
+          onDone={handlePhotoEdited}
+          onClose={() => setEditingPhoto(null)}
+        />
+      )}
     </div>
   )
-} 
+}
