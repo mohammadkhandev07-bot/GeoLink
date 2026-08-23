@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
-import { Grid3x3, Film, Lock, X, Play, Heart, MessageCircle, Send } from 'lucide-react'
+import { Grid3x3, Film, Lock, X, Play, Heart, MessageCircle, Send, MoreVertical, Trash2 } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase/client'
 import { PostWithProfile } from '@/lib/types/database.types'
@@ -32,6 +32,8 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
   const [comment, setComment] = useState('')
   const [comments, setComments] = useState<any[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
+  const [showPostMenu, setShowPostMenu] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: posts = [], isLoading } = useQuery({
@@ -52,6 +54,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
     setSelectedPost(post)
     setLikesCount(post.likes_count)
     setComment('')
+    setShowPostMenu(false)
 
     // Check if liked
     if (user) {
@@ -113,6 +116,41 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
       }
     }
     setComment('')
+  }
+
+  const handleDeletePost = async () => {
+    if (!selectedPost || !user) return
+    if (!confirm('Delete this post? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      // .select() after delete means Supabase actually tells us whether a
+      // row was removed - without it, a silently-rejected delete (RLS,
+      // network hiccup, whatever) looks identical to a successful one and
+      // the post just reappears next time the grid refreshes, with no
+      // indication anything went wrong.
+      const { data, error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', selectedPost.id)
+        .eq('user_id', user.id)
+        .select('id')
+
+      if (error) {
+        alert('Could not delete this post: ' + error.message)
+        return
+      }
+      if (!data || data.length === 0) {
+        alert('Could not delete this post. Please try again.')
+        return
+      }
+
+      setSelectedPost(null)
+      setShowPostMenu(false)
+      queryClient.invalidateQueries({ queryKey: ['profile-posts', profileId] })
+      queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (!canView) {
@@ -209,6 +247,30 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             className="absolute top-4 right-4 z-10 bg-white/20 rounded-full p-2 text-white hover:bg-white/30">
             <X className="h-5 w-5" />
           </button>
+
+          {isOwn && (
+            <div className="absolute top-4 right-16 z-10" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setShowPostMenu(v => !v)}
+                className="bg-white/20 rounded-full p-2 text-white hover:bg-white/30">
+                <MoreVertical className="h-5 w-5" />
+              </button>
+              {showPostMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowPostMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 bg-card border rounded-xl shadow-xl overflow-hidden w-44 z-20">
+                    <button
+                      onClick={handleDeletePost}
+                      disabled={deleting}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-60"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {deleting ? 'Deleting...' : 'Delete post'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row w-full max-w-3xl max-h-[90vh] bg-card rounded-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}>
