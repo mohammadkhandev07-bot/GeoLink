@@ -8,7 +8,7 @@ export interface PhotoFilter {
 
 // A systematic set of filters, generated from a handful of base looks x
 // intensity levels, plus some named one-off looks - comfortably over 100
-// distinct, genuinely different results rather than 100 near-duplicates.
+// distinct, Genuinely different results rather than 100 near-duplicates.
 function buildFilters(): PhotoFilter[] {
   const filters: PhotoFilter[] = [{ id: 'none', name: 'Normal', css: 'none' }]
 
