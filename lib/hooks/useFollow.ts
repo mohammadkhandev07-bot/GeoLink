@@ -44,8 +44,11 @@ export function useFollowUser() {
       if (error) throw error
 
       if (!isPrivate) {
-        await supabase.rpc('increment_followers', { profile_id: followingId })
-        await supabase.rpc('increment_following', { profile_id: followerId })
+        // followers_count/following_count are maintained entirely by a
+        // database trigger on the follows table now (see
+        // supabase-migration-follow-counts-fix.sql) - it recalculates the
+        // real count every time a row here changes, so there's nothing to
+        // increment by hand. Calling an RPC here too would double-count.
         await supabase.from('notifications').insert({
           user_id: followingId,
           actor_id: followerId,
@@ -65,8 +68,10 @@ export function useUnfollowUser() {
 
   return useMutation({
     mutationFn: async ({ followerId, followingId }: { followerId: string; followingId: string }) => {
-      // Check current status first - counts were only incremented when the
-      // follow was 'accepted', so we should only decrement in that case.
+      // Only send an "unfollow" notification if this was an accepted
+      // follow (an unfollow notification for a pending request that was
+      // simply withdrawn would be confusing - they were never told about
+      // a "follow" in the first place).
       const { data: existing } = await supabase
         .from('follows')
         .select('status')
@@ -81,9 +86,9 @@ export function useUnfollowUser() {
         .eq('following_id', followingId)
       if (error) throw error
 
+      // Counts update themselves via the follows-table trigger - see the
+      // note in useFollowUser above.
       if (existing?.status === 'accepted') {
-        await supabase.rpc('decrement_followers', { profile_id: followingId })
-        await supabase.rpc('decrement_following', { profile_id: followerId })
         await supabase.from('notifications').insert({
           user_id: followingId,
           actor_id: followerId,
@@ -135,8 +140,7 @@ export function useRespondToFollowRequest() {
     }) => {
       if (action === 'accepted') {
         await supabase.from('follows').update({ status: 'accepted' }).eq('id', followId)
-        await supabase.rpc('increment_followers', { profile_id: followingId })
-        await supabase.rpc('increment_following', { profile_id: followerId })
+        // Counts update themselves via the follows-table trigger.
         await supabase.from('notifications').insert({
           user_id: followingId,
           actor_id: followerId,
