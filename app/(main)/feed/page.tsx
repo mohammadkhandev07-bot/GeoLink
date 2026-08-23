@@ -17,7 +17,18 @@ export default function FeedPage() {
   const queryClient = useQueryClient()
 
   const handleDeletePost = async (postId: string) => {
-    await supabase.from('posts').delete().eq('id', postId)
+    if (!user) return
+    const { data, error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', user.id)
+      .select('id')
+
+    if (error || !data || data.length === 0) {
+      alert('Could not delete this post. Please try again.')
+      return
+    }
     queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
   }
 
@@ -51,4 +62,4 @@ export default function FeedPage() {
       </div>
     </div>
   )
-} 
+}
