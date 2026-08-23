@@ -472,7 +472,7 @@ export default function AperonixPage() {
                 <div className="relative shrink-0">
                   <button
                     onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === convo.id ? null : convo.id) }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-muted transition-opacity text-muted-foreground"
+                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 rounded-lg hover:bg-muted transition-opacity text-muted-foreground"
                   >
                     <MoreVertical className="h-3.5 w-3.5" />
                   </button>
