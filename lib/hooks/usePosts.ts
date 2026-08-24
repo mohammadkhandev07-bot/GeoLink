@@ -44,7 +44,33 @@ export function useFeedPosts(userId?: string) {
         .limit(50)
 
       if (error) throw error
-      return fetchPostsWithLikes(data as PostWithProfile[], userId)
+      const ownPosts = await fetchPostsWithLikes(data as PostWithProfile[], userId)
+
+      // Reposts by people you follow (and your own reposts) also show up
+      // in the feed - the post itself still displays the ORIGINAL
+      // author's name/avatar, only a small "X reposted" badge on top
+      // shows who reposted it. Sorted into the feed by when it was
+      // reposted, not when the original post was first made.
+      const { data: reposts } = await supabase
+        .from('reposts')
+        .select('created_at, profiles!reposts_user_id_fkey(id,username,avatar_url), posts(*, profiles(*))')
+        .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      const repostedPosts: PostWithProfile[] = (reposts || [])
+        .filter((r: any) => r.posts)
+        .map((r: any) => ({
+          ...(r.posts as PostWithProfile),
+          created_at: r.created_at, // sort position = when it was reposted
+          reposted_by: r.profiles,
+        }))
+      const repostedWithLikes = await fetchPostsWithLikes(repostedPosts, userId)
+
+      const merged = [...ownPosts, ...repostedWithLikes]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+      return merged
     },
     enabled: !!userId,
     staleTime: 30000,
