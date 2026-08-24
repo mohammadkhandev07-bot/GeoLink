@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send } from 'lucide-react'
+import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send, Repeat2, Eye } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
@@ -11,6 +11,7 @@ import { PostWithProfile } from '@/lib/types/database.types'
 import { formatCount, getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
+import { useIsReposted, useToggleRepost } from '@/lib/hooks/useRepost'
 
 interface ReelCardProps {
   post: PostWithProfile
@@ -21,6 +22,7 @@ interface ReelCardProps {
 
 export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const seekBarRef = useRef<HTMLDivElement>(null)
   const [liked, setLiked] = useState(post.is_liked ?? false)
   const [likesCount, setLikesCount] = useState(post.likes_count)
   const [paused, setPaused] = useState(false)
@@ -30,18 +32,43 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
   const [commentsLoaded, setCommentsLoaded] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [progress, setProgress] = useState(0) // 0-100
+  const [seeking, setSeeking] = useState(false)
+  const hasCountedViewRef = useRef(false)
   const { user } = useUser()
   const supabase = createClient()
+
+  const { data: isReposted = false } = useIsReposted(post.id, user?.id)
+  const toggleRepost = useToggleRepost()
 
   useEffect(() => {
     if (!videoRef.current) return
     if (isActive && !showComments && !showShare) {
-      videoRef.current.play().catch(() => {})
+      // Browsers can block autoplay-with-sound without a prior tap on the
+      // page - if that happens, fall back to starting muted rather than
+      // the video just not playing at all, and let the mute button take
+      // over from there.
+      videoRef.current.play().catch(() => {
+        if (videoRef.current) {
+          videoRef.current.muted = true
+          videoRef.current.play().catch(() => {})
+        }
+      })
       setPaused(false)
+      if (!hasCountedViewRef.current) {
+        hasCountedViewRef.current = true
+        supabase.rpc('increment_post_views', { post_id: post.id }).then(() => {})
+      }
     } else {
       videoRef.current.pause()
+      // Scrolling away and back should always restart from the beginning,
+      // like every other short-video feed - not resume from wherever it
+      // was left off.
+      videoRef.current.currentTime = 0
+      setProgress(0)
+      hasCountedViewRef.current = false
     }
-  }, [isActive, showComments, showShare])
+  }, [isActive, showComments, showShare, post.id])
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = isMuted
@@ -58,6 +85,37 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
     if (!videoRef.current || showComments || showShare) return
     if (videoRef.current.paused) { videoRef.current.play(); setPaused(false) }
     else { videoRef.current.pause(); setPaused(true) }
+  }
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current
+    if (!v || !v.duration || seeking) return
+    setProgress((v.currentTime / v.duration) * 100)
+  }
+
+  const seekFromClientX = (clientX: number) => {
+    const bar = seekBarRef.current
+    const v = videoRef.current
+    if (!bar || !v || !v.duration) return
+    const rect = bar.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    v.currentTime = ratio * v.duration
+    setProgress(ratio * 100)
+  }
+
+  const handleSeekPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation()
+    setSeeking(true)
+    seekFromClientX(e.clientX)
+  }
+  const handleSeekPointerMove = (e: React.PointerEvent) => {
+    if (!seeking) return
+    e.stopPropagation()
+    seekFromClientX(e.clientX)
+  }
+  const handleSeekPointerUp = (e: React.PointerEvent) => {
+    e.stopPropagation()
+    setSeeking(false)
   }
 
   const handleLike = async () => {
@@ -77,6 +135,11 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
       await supabase.from('likes').delete().eq('post_id', post.id).eq('user_id', user.id)
       await supabase.rpc('decrement_likes', { post_id: post.id })
     }
+  }
+
+  const handleRepost = () => {
+    if (!user) return
+    toggleRepost.mutate({ postId: post.id, userId: user.id, postOwnerId: post.user_id, repost: !isReposted })
   }
 
   const openComments = async () => {
@@ -114,6 +177,7 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
       {/* Video */}
       <video ref={videoRef} src={post.media_url ?? ''} loop playsInline muted={isMuted}
         onClick={handleTap}
+        onTimeUpdate={handleTimeUpdate}
         className="absolute inset-0 w-full h-full object-cover" />
 
       {paused && (
@@ -128,6 +192,24 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
 
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, transparent 25%, transparent 55%, rgba(0,0,0,0.7) 100%)' }} />
+
+      {/* Seek bar - YouTube-style, drag anywhere along it to jump to that point */}
+      <div
+        ref={seekBarRef}
+        onPointerDown={handleSeekPointerDown}
+        onPointerMove={handleSeekPointerMove}
+        onPointerUp={handleSeekPointerUp}
+        onPointerLeave={handleSeekPointerUp}
+        className="absolute bottom-0 left-0 right-0 z-20 h-4 flex items-center touch-none cursor-pointer group/seek"
+      >
+        <div className="relative w-full h-1 group-hover/seek:h-1.5 bg-white/25 transition-all">
+          <div className="absolute inset-y-0 left-0 bg-pink-500" style={{ width: `${progress}%` }} />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-pink-500 opacity-0 group-hover/seek:opacity-100 transition-opacity"
+            style={{ left: `${progress}%` }}
+          />
+        </div>
+      </div>
 
       {/* Right actions */}
       <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5 z-10">
@@ -147,12 +229,20 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
           <span className="text-white text-xs font-semibold drop-shadow">{formatCount(post.comments_count)}</span>
         </button>
 
-        {/* Share - NOW WORKING */}
+        {/* Share */}
         <button onClick={() => setShowShare(true)} className="flex flex-col items-center gap-1">
           <div className="p-2 rounded-full bg-black/30 backdrop-blur-sm">
             <Share2 className="h-6 w-6 text-white" />
           </div>
-          <span className="text-white text-xs font-semibold drop-shadow">Share</span>
+          <span className="text-white text-xs font-semibold drop-shadow">{post.shares_count > 0 ? formatCount(post.shares_count) : 'Share'}</span>
+        </button>
+
+        {/* Repost */}
+        <button onClick={handleRepost} disabled={toggleRepost.isPending} className="flex flex-col items-center gap-1">
+          <div className={`p-2 rounded-full backdrop-blur-sm ${isReposted ? 'bg-green-500/20' : 'bg-black/30'}`}>
+            <Repeat2 className={`h-6 w-6 ${isReposted ? 'text-green-500' : 'text-white'}`} />
+          </div>
+          <span className="text-white text-xs font-semibold drop-shadow">Repost</span>
         </button>
 
         {/* Save */}
@@ -161,6 +251,16 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
           className="p-2 rounded-full bg-black/30 backdrop-blur-sm"
           iconClassName="h-6 w-6 text-white"
         />
+
+        {/* Views */}
+        {post.views_count > 0 && (
+          <div className="flex flex-col items-center gap-1">
+            <div className="p-2 rounded-full bg-black/30 backdrop-blur-sm">
+              <Eye className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-white text-xs font-semibold drop-shadow">{formatCount(post.views_count)}</span>
+          </div>
+        )}
 
         {/* Mute */}
         <button onClick={onToggleMute}>
@@ -214,12 +314,17 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
               <p className="text-sm text-muted-foreground text-center py-6">No comments yet!</p>
             ) : comments.map(c => (
               <div key={c.id} className="flex gap-2">
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                  <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${c.profiles?.username}`} className="shrink-0">
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                    <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </Link>
                 <div>
-                  <p className="text-sm"><span className="font-semibold mr-1">{c.profiles?.username}</span>{c.content}</p>
+                  <p className="text-sm">
+                    <Link href={`/profile/${c.profiles?.username}`} className="font-semibold mr-1 hover:underline">{c.profiles?.username}</Link>
+                    {c.content}
+                  </p>
                   <p className="text-[10px] text-muted-foreground">{formatTimeAgo(c.created_at)}</p>
                 </div>
               </div>
