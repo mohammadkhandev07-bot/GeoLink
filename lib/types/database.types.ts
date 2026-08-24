@@ -37,6 +37,7 @@ export type Post = {
   likes_count: number
   comments_count: number
   shares_count: number
+  views_count: number
   created_at: string
   updated_at: string
 }
@@ -295,6 +296,11 @@ export type StoryHiddenViewer = {
 export type PostWithProfile = Post & {
   profiles: Profile
   is_liked?: boolean
+  /** Set when this post is showing up because someone reposted it - the
+   *  post itself still displays the ORIGINAL author's name/avatar as the
+   *  owner; this is only used for the small "reposted by" indicator. */
+  reposted_by?: { id: string; username: string; avatar_url: string | null } | null
+  is_reposted?: boolean
 }
 
 export type CommentWithProfile = Comment & {
