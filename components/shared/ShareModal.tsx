@@ -84,6 +84,11 @@ export function ShareModal({ post, onClose }: ShareModalProps) {
         post_id: post.id,
       })
 
+      // Records the share so shares_count (shown next to the Share button
+      // everywhere) actually reflects reality - a database trigger keeps
+      // that count in sync with this table automatically.
+      await supabase.from('shares').insert({ post_id: post.id, shared_by_id: user.id, shared_to_chat_id: chatId })
+
       // Update chat last message
       await supabase.from('chats').update({
         last_message: preview,
