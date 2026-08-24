@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,12 +36,14 @@ export function FollowRequestsDialog({ userId }: { userId: string }) {
           {requests.map((req: any) => (
             <div key={req.id} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={getAvatarUrl(req.profiles?.avatar_url)} />
-                  <AvatarFallback>{req.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${req.profiles?.username}`}>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={getAvatarUrl(req.profiles?.avatar_url)} />
+                    <AvatarFallback>{req.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </Link>
                 <div>
-                  <p className="font-semibold text-sm">{req.profiles?.username}</p>
+                  <Link href={`/profile/${req.profiles?.username}`} className="font-semibold text-sm hover:underline block">{req.profiles?.username}</Link>
                   <p className="text-xs text-muted-foreground">{req.profiles?.full_name}</p>
                 </div>
               </div>
