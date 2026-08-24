@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import Image from 'next/image'
 import { Heart, MessageCircle, Share2, Play, X, Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -166,11 +167,13 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
               {/* Header */}
               <div className="flex items-center justify-between p-3 border-b">
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={getAvatarUrl(post.profiles?.avatar_url)} />
-                    <AvatarFallback>{post.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <p className="font-semibold text-sm">@{post.profiles?.username}</p>
+                  <Link href={`/profile/${post.profiles?.username}`} onClick={e => e.stopPropagation()}>
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={getAvatarUrl(post.profiles?.avatar_url)} />
+                      <AvatarFallback>{post.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <Link href={`/profile/${post.profiles?.username}`} onClick={e => e.stopPropagation()} className="font-semibold text-sm hover:underline">@{post.profiles?.username}</Link>
                 </div>
                 <button onClick={() => setShowViewer(false)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
@@ -190,12 +193,14 @@ export function SharedPostMessage({ postId }: SharedPostMessageProps) {
                   <p className="text-xs text-muted-foreground text-center py-4">No comments yet!</p>
                 ) : comments.map(c => (
                   <div key={c.id} className="flex gap-2">
-                    <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                      <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    <Link href={`/profile/${c.profiles?.username}`} className="shrink-0">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                        <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </Link>
                     <div>
-                      <p className="text-xs"><span className="font-semibold mr-1">{c.profiles?.username}</span>{c.content}</p>
+                      <p className="text-xs"><Link href={`/profile/${c.profiles?.username}`} className="font-semibold mr-1 hover:underline">{c.profiles?.username}</Link>{c.content}</p>
                       <p className="text-[10px] text-muted-foreground">{formatTimeAgo(c.created_at)}</p>
                     </div>
                   </div>
