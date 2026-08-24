@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
-import { Grid3x3, Film, Lock, X, Play, Heart, MessageCircle, Send, MoreVertical, Trash2 } from 'lucide-react'
+import { Grid3x3, Film, Lock, X, Play, Heart, MessageCircle, Send, MoreVertical, Trash2, Share2, Repeat2, Eye } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase/client'
 import { PostWithProfile } from '@/lib/types/database.types'
@@ -12,8 +13,10 @@ import { formatCount } from '@/lib/utils/helpers'
 import { useUser } from '@/lib/hooks/useUser'
 import { PostCaption } from '@/components/shared/PostCaption'
 import { SaveButton } from '@/components/shared/SaveButton'
+import { ShareModal } from '@/components/shared/ShareModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { useIsReposted, useToggleRepost } from '@/lib/hooks/useRepost'
 
 interface ProfileTabsProps {
   profileId: string
@@ -34,7 +37,11 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [showPostMenu, setShowPostMenu] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const queryClient = useQueryClient()
+
+  const { data: isReposted = false } = useIsReposted(selectedPost?.id ?? '', user?.id)
+  const toggleRepost = useToggleRepost()
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['profile-posts', profileId],
@@ -45,7 +52,28 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
         .eq('user_id', profileId)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as PostWithProfile[]
+      const ownPosts = data as PostWithProfile[]
+
+      // Posts this profile reposted also show up in their grid - still
+      // showing the ORIGINAL author's name/photo as the post owner, with
+      // only a small "reposted" badge indicating this profile shared it.
+      const { data: reposts } = await supabase
+        .from('reposts')
+        .select('created_at, profiles!reposts_user_id_fkey(id,username,avatar_url), posts(*, profiles(*))')
+        .eq('user_id', profileId)
+        .order('created_at', { ascending: false })
+
+      const repostedPosts: PostWithProfile[] = (reposts || [])
+        .filter((r: any) => r.posts)
+        .map((r: any) => ({
+          ...(r.posts as PostWithProfile),
+          created_at: r.created_at,
+          reposted_by: r.profiles,
+        }))
+
+      return [...ownPosts, ...repostedPosts].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
     },
     enabled: canView,
   })
@@ -55,6 +83,10 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
     setLikesCount(post.likes_count)
     setComment('')
     setShowPostMenu(false)
+    // Opening the full view is a deliberate look at the post, so it always
+    // counts as a view here - unlike the grid thumbnail, no need to wait
+    // for anything to scroll into place first.
+    supabase.rpc('increment_post_views', { post_id: post.id }).then(() => {})
 
     // Check if liked
     if (user) {
@@ -123,11 +155,6 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
     if (!confirm('Delete this post? This cannot be undone.')) return
     setDeleting(true)
     try {
-      // .select() after delete means Supabase actually tells us whether a
-      // row was removed - without it, a silently-rejected delete (RLS,
-      // network hiccup, whatever) looks identical to a successful one and
-      // the post just reappears next time the grid refreshes, with no
-      // indication anything went wrong.
       const { data, error } = await supabase
         .from('posts')
         .delete()
@@ -144,6 +171,21 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
         return
       }
 
+      setSelectedPost(null)
+      setShowPostMenu(false)
+      queryClient.invalidateQueries({ queryKey: ['profile-posts', profileId] })
+      queryClient.invalidateQueries({ queryKey: ['feed-posts'] })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleRemoveRepost = async () => {
+    if (!selectedPost || !user) return
+    setDeleting(true)
+    try {
+      const { error } = await supabase.from('reposts').delete().eq('post_id', selectedPost.id).eq('user_id', user.id)
+      if (error) { alert('Could not remove repost: ' + error.message); return }
       setSelectedPost(null)
       setShowPostMenu(false)
       queryClient.invalidateQueries({ queryKey: ['profile-posts', profileId] })
@@ -192,6 +234,11 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
               {imagePosts.map(post => (
                 <button key={post.id} onClick={() => openPost(post)}
                   className="relative aspect-square bg-muted overflow-hidden group">
+                  {post.reposted_by && (
+                    <div className="absolute top-1.5 right-1.5 z-10 bg-black/50 rounded-full p-1">
+                      <Repeat2 className="h-3 w-3 text-white" />
+                    </div>
+                  )}
                   {post.media_url ? (
                     <Image src={post.media_url} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-200" />
                   ) : (
@@ -222,6 +269,11 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 <button key={post.id} onClick={() => openPost(post)}
                   className="relative aspect-[9/16] bg-muted overflow-hidden group">
                   <video src={post.media_url ?? ''} className="w-full h-full object-cover" preload="metadata" muted />
+                  {post.reposted_by && (
+                    <div className="absolute top-1.5 left-1.5 z-10 bg-black/50 rounded-full p-1">
+                      <Repeat2 className="h-3 w-3 text-white" />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all" />
                   <div className="absolute inset-0 flex items-center justify-center opacity-60 group-hover:opacity-100 transition-opacity">
                     <div className="bg-black/40 rounded-full p-2">
@@ -248,7 +300,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             <X className="h-5 w-5" />
           </button>
 
-          {isOwn && (
+          {user && (selectedPost.user_id === user.id || selectedPost.reposted_by?.id === user.id) && (
             <div className="absolute top-4 right-16 z-10" onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowPostMenu(v => !v)}
                 className="bg-white/20 rounded-full p-2 text-white hover:bg-white/30">
@@ -258,14 +310,26 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowPostMenu(false)} />
                   <div className="absolute right-0 top-full mt-2 bg-card border rounded-xl shadow-xl overflow-hidden w-44 z-20">
-                    <button
-                      onClick={handleDeletePost}
-                      disabled={deleting}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-60"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      {deleting ? 'Deleting...' : 'Delete post'}
-                    </button>
+                    {selectedPost.user_id === user.id && (
+                      <button
+                        onClick={handleDeletePost}
+                        disabled={deleting}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {deleting ? 'Deleting...' : 'Delete post'}
+                      </button>
+                    )}
+                    {selectedPost.reposted_by?.id === user.id && (
+                      <button
+                        onClick={handleRemoveRepost}
+                        disabled={deleting}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {deleting ? 'Removing...' : 'Remove repost'}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -296,10 +360,15 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             <div className="w-full md:w-80 flex flex-col bg-card max-h-[90vh]">
               {/* Post info */}
               <div className="p-4 border-b flex items-center gap-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>{selectedPost.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <p className="font-semibold text-sm">@{selectedPost.profiles?.username}</p>
+                <Link href={`/profile/${selectedPost.profiles?.username}`}>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={getAvatarUrl(selectedPost.profiles?.avatar_url)} />
+                    <AvatarFallback>{selectedPost.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </Link>
+                <Link href={`/profile/${selectedPost.profiles?.username}`} className="font-semibold text-sm hover:underline">
+                  @{selectedPost.profiles?.username}
+                </Link>
               </div>
 
               {/* Caption */}
@@ -318,12 +387,14 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 ) : (
                   comments.map(c => (
                     <div key={c.id} className="flex gap-2">
-                      <Avatar className="h-6 w-6 shrink-0">
-                        <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                        <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
+                      <Link href={`/profile/${c.profiles?.username}`} className="shrink-0">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                          <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      </Link>
                       <div>
-                        <span className="font-semibold text-xs">{c.profiles?.username} </span>
+                        <Link href={`/profile/${c.profiles?.username}`} className="font-semibold text-xs hover:underline">{c.profiles?.username} </Link>
                         <span className="text-xs">{c.content}</span>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{formatTimeAgo(c.created_at)}</p>
                       </div>
@@ -334,12 +405,32 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
 
               {/* Actions */}
               <div className="border-t p-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <button onClick={handleLike} className="flex items-center gap-1.5 text-sm font-semibold">
+                <div className="flex items-center gap-1">
+                  <button onClick={handleLike} className="flex items-center gap-1.5 text-sm font-semibold p-1.5">
                     <Heart className={`h-6 w-6 transition-all ${liked ? 'fill-red-500 text-red-500 scale-110' : 'text-foreground'}`} />
                   </button>
-                  <span className="text-sm font-semibold">{formatCount(likesCount)} likes</span>
+                  <div className="flex items-center">
+                    <button onClick={() => setShowShare(true)} className="p-1.5">
+                      <Share2 className="h-5 w-5" />
+                    </button>
+                    {selectedPost.shares_count > 0 && <span className="text-xs text-muted-foreground -ml-1 mr-1">{formatCount(selectedPost.shares_count)}</span>}
+                  </div>
+                  <button
+                    onClick={() => user && toggleRepost.mutate({ postId: selectedPost.id, userId: user.id, postOwnerId: selectedPost.user_id, repost: !isReposted })}
+                    disabled={toggleRepost.isPending}
+                    className="p-1.5"
+                  >
+                    <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500' : ''}`} />
+                  </button>
                   <SaveButton postId={selectedPost.id} className="ml-auto text-muted-foreground hover:text-foreground transition-colors" iconClassName="h-5 w-5" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold">{formatCount(likesCount)} likes</span>
+                  {selectedPost.views_count > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Eye className="h-3.5 w-3.5" /> {formatCount(selectedPost.views_count)} views
+                    </span>
+                  )}
                 </div>
 
                 {/* Comment input */}
@@ -358,6 +449,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                   </form>
                 )}
               </div>
+              {showShare && <ShareModal post={selectedPost} onClose={() => setShowShare(false)} />}
             </div>
           </div>
         </div>
