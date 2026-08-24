@@ -200,10 +200,12 @@ export default function LikedPage() {
             <div className="w-full md:w-80 flex flex-col bg-card">
               <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={getAvatarUrl(selectedPost.profiles?.avatar_url)} />
-                    <AvatarFallback>{selectedPost.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
+                  <Link href={`/profile/${selectedPost.profiles?.username}`} onClick={() => setSelectedPost(null)}>
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={getAvatarUrl(selectedPost.profiles?.avatar_url)} />
+                      <AvatarFallback>{selectedPost.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </Link>
                   <Link href={`/profile/${selectedPost.profiles?.username}`} onClick={() => setSelectedPost(null)}
                     className="font-semibold text-sm hover:underline">@{selectedPost.profiles?.username}</Link>
                 </div>
@@ -223,12 +225,14 @@ export default function LikedPage() {
                   <p className="text-xs text-muted-foreground text-center py-4">No comments yet!</p>
                 ) : comments.map(c => (
                   <div key={c.id} className="flex gap-2">
-                    <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                      <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    <Link href={`/profile/${c.profiles?.username}`} className="shrink-0">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                        <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </Link>
                     <div>
-                      <p className="text-xs"><span className="font-semibold mr-1">{c.profiles?.username}</span>{c.content}</p>
+                      <p className="text-xs"><Link href={`/profile/${c.profiles?.username}`} className="font-semibold mr-1 hover:underline">{c.profiles?.username}</Link>{c.content}</p>
                       <p className="text-[10px] text-muted-foreground">{formatTimeAgo(c.created_at)}</p>
                     </div>
                   </div>
