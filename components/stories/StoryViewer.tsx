@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2, Eye } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -616,13 +617,15 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                 ) : (
                   views.map((v) => (
                     <div key={v.viewer_id} className="flex items-center gap-2.5">
-                      <Avatar className="h-9 w-9 shrink-0">
-                        <AvatarImage src={getAvatarUrl(v.profiles?.avatar_url)} />
-                        <AvatarFallback>{v.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{v.profiles?.username}</p>
-                      </div>
+                      <Link href={`/profile/${v.profiles?.username}`} onClick={e => e.stopPropagation()}>
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarImage src={getAvatarUrl(v.profiles?.avatar_url)} />
+                          <AvatarFallback>{v.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      </Link>
+                      <Link href={`/profile/${v.profiles?.username}`} onClick={e => e.stopPropagation()} className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate hover:underline">{v.profiles?.username}</p>
+                      </Link>
                       <p className="text-[11px] text-muted-foreground shrink-0">{formatTimeAgo(v.viewed_at)}</p>
                     </div>
                   ))
@@ -649,13 +652,15 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                 ) : (
                   likers.map((l) => (
                     <div key={l.user_id} className="flex items-center gap-2.5">
-                      <Avatar className="h-9 w-9 shrink-0">
-                        <AvatarImage src={getAvatarUrl(l.profiles?.avatar_url)} />
-                        <AvatarFallback>{l.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{l.profiles?.username}</p>
-                      </div>
+                      <Link href={`/profile/${l.profiles?.username}`} onClick={e => e.stopPropagation()}>
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarImage src={getAvatarUrl(l.profiles?.avatar_url)} />
+                          <AvatarFallback>{l.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      </Link>
+                      <Link href={`/profile/${l.profiles?.username}`} onClick={e => e.stopPropagation()} className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate hover:underline">{l.profiles?.username}</p>
+                      </Link>
                       <Heart className="h-4 w-4 fill-red-500 text-red-500 shrink-0" />
                     </div>
                   ))
