@@ -66,3 +66,13 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Repost indicator - the small "reposted by" avatar slides in from the
+   left like Instagram's repost badge, instead of just appearing flat. */
+@keyframes repost-in {
+  from { transform: translateX(-12px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-repost-in {
+  animation: repost-in 0.4s ease-out;
+}
