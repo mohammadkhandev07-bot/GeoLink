@@ -64,7 +64,7 @@ function SponsoredCard() {
 
 export function ReelsFeed({ reels, isLoading }: ReelsFeedProps) {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleScroll = useCallback(() => {
