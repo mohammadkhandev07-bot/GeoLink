@@ -13,7 +13,7 @@ interface ReelsFeedProps {
 // Only one ad instance actually loads the real Adsterra script + container at a
 // time (its container id is fixed by Adsterra, so two copies in the DOM at once
 // would collide). Whichever Sponsored card mounts first "claims" it; if the user
-// leaves Reels the claim is released so the next visit loads a fresh ad again.
+// Leaves Reels the claim is released so the next visit loads a fresh ad again.
 let adSlotClaimed = false
 
 function SponsoredCard() {
