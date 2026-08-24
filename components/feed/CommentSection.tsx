@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Send } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -60,12 +61,14 @@ export function CommentSection({ postId }: { postId: string }) {
         <div className="space-y-3 max-h-60 overflow-y-auto mb-3">
           {comments.map((comment) => (
             <div key={comment.id} className="flex items-start gap-2">
-              <Avatar className="h-7 w-7 shrink-0">
-                <AvatarImage src={getAvatarUrl(comment.profiles.avatar_url)} />
-                <AvatarFallback>{comment.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
-              </Avatar>
+              <Link href={`/profile/${comment.profiles.username}`} className="shrink-0">
+                <Avatar className="h-7 w-7">
+                  <AvatarImage src={getAvatarUrl(comment.profiles.avatar_url)} />
+                  <AvatarFallback>{comment.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </Link>
               <div className="flex-1 min-w-0">
-                <span className="font-semibold text-sm">{comment.profiles.username} </span>
+                <Link href={`/profile/${comment.profiles.username}`} className="font-semibold text-sm hover:underline">{comment.profiles.username} </Link>
                 <span className="text-sm">{comment.content}</span>
                 <p className="text-xs text-muted-foreground mt-0.5">{formatTimeAgo(comment.created_at)}</p>
               </div>
