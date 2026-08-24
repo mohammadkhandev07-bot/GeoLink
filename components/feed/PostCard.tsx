@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send } from 'lucide-react'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send, Repeat2, Eye } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -15,6 +15,7 @@ import { formatTimeAgo, formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { useQueryClient } from '@tanstack/react-query'
+import { useIsReposted, useToggleRepost } from '@/lib/hooks/useRepost'
 
 interface PostCardProps {
   post: PostWithProfile
@@ -33,6 +34,11 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   const [showShare, setShowShare] = useState(false)
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const articleRef = useRef<HTMLElement>(null)
+  const hasCountedViewRef = useRef(false)
+
+  const { data: isReposted = false } = useIsReposted(post.id, user?.id)
+  const toggleRepost = useToggleRepost()
 
   useEffect(() => {
     if (!user) return
@@ -40,6 +46,27 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     supabase.from('likes').select('id').eq('post_id', post.id).eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setLiked(!!data))
   }, [post.id, user?.id])
+
+  // Counts a view the first time this post actually scrolls into view -
+  // not just when the component mounts (it might be far down an
+  // unopened feed) and never more than once per mount, so scrolling past
+  // it back and forth doesn't inflate the count.
+  useEffect(() => {
+    const el = articleRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !hasCountedViewRef.current) {
+          hasCountedViewRef.current = true
+          supabase.rpc('increment_post_views', { post_id: post.id }).then(() => {})
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.5 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [post.id])
 
   const loadComments = async () => {
     if (commentsLoaded) return
@@ -75,6 +102,11 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     queryClient.invalidateQueries({ queryKey: ['explore-posts'] })
   }
 
+  const handleRepost = () => {
+    if (!user) return
+    toggleRepost.mutate({ postId: post.id, userId: user.id, postOwnerId: post.user_id, repost: !isReposted })
+  }
+
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user || !newComment.trim()) return
@@ -98,7 +130,18 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   const isOwner = user?.id === post.user_id
 
   return (
-    <article className="border-b bg-card">
+    <article ref={articleRef} className="border-b bg-card">
+      {post.reposted_by && (
+        <Link href={`/profile/${post.reposted_by.username}`} className="flex items-center gap-2 px-4 pt-3 text-xs text-muted-foreground hover:text-foreground">
+          <Avatar className="h-4 w-4 animate-repost-in">
+            <AvatarImage src={getAvatarUrl(post.reposted_by.avatar_url)} />
+            <AvatarFallback className="text-[8px]">{post.reposted_by.username?.[0]?.toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <Repeat2 className="h-3.5 w-3.5" />
+          <span className="font-medium">{post.reposted_by.username} reposted</span>
+        </Link>
+      )}
+
       <div className="flex items-center justify-between px-4 py-3">
         <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-2.5">
           <Avatar className="h-9 w-9">
@@ -153,11 +196,26 @@ export function PostCard({ post, onDelete }: PostCardProps) {
           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleComments}>
             <MessageCircle className={`h-5 w-5 ${showComments ? 'fill-foreground' : ''}`} />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowShare(true)}>
-            <Share2 className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowShare(true)}>
+              <Share2 className="h-5 w-5" />
+            </Button>
+            {post.shares_count > 0 && <span className="text-xs text-muted-foreground -ml-1 mr-1">{formatCount(post.shares_count)}</span>}
+          </div>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleRepost} disabled={toggleRepost.isPending}>
+              <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500' : ''}`} />
+            </Button>
+          </div>
         </div>
-        <SaveButton postId={post.id} className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-accent transition-colors" />
+        <div className="flex items-center gap-3">
+          {post.views_count > 0 && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Eye className="h-3.5 w-3.5" /> {formatCount(post.views_count)}
+            </span>
+          )}
+          <SaveButton postId={post.id} className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-accent transition-colors" />
+        </div>
       </div>
 
       {likesCount > 0 && <p className="px-4 text-sm font-semibold pb-1">{formatCount(likesCount)} likes</p>}
@@ -169,12 +227,17 @@ export function PostCard({ post, onDelete }: PostCardProps) {
               <p className="text-xs text-muted-foreground text-center py-2">No comments yet!</p>
             ) : comments.map(c => (
               <div key={c.id} className="flex gap-2">
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                  <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${c.profiles?.username}`} className="shrink-0">
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
+                    <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </Link>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm"><span className="font-semibold mr-1">{c.profiles?.username}</span>{c.content}</p>
+                  <p className="text-sm">
+                    <Link href={`/profile/${c.profiles?.username}`} className="font-semibold mr-1 hover:underline">{c.profiles?.username}</Link>
+                    {c.content}
+                  </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{formatTimeAgo(c.created_at)}</p>
                 </div>
               </div>
