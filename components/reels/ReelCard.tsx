@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send, Repeat2, Eye } from 'lucide-react'
+import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send, Repeat2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
@@ -211,67 +211,76 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
         </div>
       </div>
 
-      {/* Right actions */}
-      <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5 z-10">
+      {/* Mute - top-left, out of the way of everything else */}
+      <button onClick={onToggleMute} className="absolute top-3 left-3 z-20">
+        <div className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm">
+          {isMuted ? <VolumeX className="h-4 w-4 text-white" /> : <Volume2 className="h-4 w-4 text-white" />}
+        </div>
+      </button>
+
+      {/* Right actions - compact so Like never gets pushed off-screen on
+          short phone viewports. */}
+      <div className="absolute right-2 bottom-24 flex flex-col items-center gap-3.5 z-10">
         {/* Like */}
-        <button onClick={handleLike} className="flex flex-col items-center gap-1">
-          <div className={`p-2 rounded-full backdrop-blur-sm ${liked ? 'bg-red-500/20' : 'bg-black/30'}`}>
-            <Heart className={`h-6 w-6 ${liked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+        <button onClick={handleLike} className="flex flex-col items-center gap-0.5">
+          <div className={`p-1.5 rounded-full backdrop-blur-sm ${liked ? 'bg-red-500/20' : 'bg-black/30'}`}>
+            <Heart className={`h-5 w-5 ${liked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
           </div>
-          <span className="text-white text-xs font-semibold drop-shadow">{formatCount(likesCount)}</span>
+          <span className="text-white text-[10px] font-semibold drop-shadow">{formatCount(likesCount)}</span>
         </button>
 
         {/* Comment */}
-        <button onClick={openComments} className="flex flex-col items-center gap-1">
-          <div className="p-2 rounded-full bg-black/30 backdrop-blur-sm">
-            <MessageCircle className="h-6 w-6 text-white" />
+        <button onClick={openComments} className="flex flex-col items-center gap-0.5">
+          <div className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+            <MessageCircle className="h-5 w-5 text-white" />
           </div>
-          <span className="text-white text-xs font-semibold drop-shadow">{formatCount(post.comments_count)}</span>
+          <span className="text-white text-[10px] font-semibold drop-shadow">{formatCount(post.comments_count)}</span>
         </button>
 
         {/* Share */}
-        <button onClick={() => setShowShare(true)} className="flex flex-col items-center gap-1">
-          <div className="p-2 rounded-full bg-black/30 backdrop-blur-sm">
-            <Share2 className="h-6 w-6 text-white" />
+        <button onClick={() => setShowShare(true)} className="flex flex-col items-center gap-0.5">
+          <div className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+            <Share2 className="h-5 w-5 text-white" />
           </div>
-          <span className="text-white text-xs font-semibold drop-shadow">{post.shares_count > 0 ? formatCount(post.shares_count) : 'Share'}</span>
+          <span className="text-white text-[10px] font-semibold drop-shadow">{post.shares_count > 0 ? formatCount(post.shares_count) : 'Share'}</span>
         </button>
 
-        {/* Repost */}
-        <button onClick={handleRepost} disabled={toggleRepost.isPending} className="flex flex-col items-center gap-1">
-          <div className={`p-2 rounded-full backdrop-blur-sm ${isReposted ? 'bg-green-500/20' : 'bg-black/30'}`}>
-            <Repeat2 className={`h-6 w-6 ${isReposted ? 'text-green-500' : 'text-white'}`} />
+        {/* Repost - the arrows spin in place when you repost, on top of
+            the icon turning green, instead of just a flat color change. */}
+        <button onClick={handleRepost} disabled={toggleRepost.isPending} className="flex flex-col items-center gap-0.5">
+          <div className={`p-1.5 rounded-full backdrop-blur-sm ${isReposted ? 'bg-green-500/20' : 'bg-black/30'}`}>
+            <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500 animate-repost-spin' : 'text-white'}`} />
           </div>
-          <span className="text-white text-xs font-semibold drop-shadow">Repost</span>
+          <span className="text-white text-[10px] font-semibold drop-shadow">Repost</span>
         </button>
 
         {/* Save */}
         <SaveButton
           postId={post.id}
-          className="p-2 rounded-full bg-black/30 backdrop-blur-sm"
-          iconClassName="h-6 w-6 text-white"
+          className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm"
+          iconClassName="h-5 w-5 text-white"
         />
-
-        {/* Views */}
-        {post.views_count > 0 && (
-          <div className="flex flex-col items-center gap-1">
-            <div className="p-2 rounded-full bg-black/30 backdrop-blur-sm">
-              <Eye className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-white text-xs font-semibold drop-shadow">{formatCount(post.views_count)}</span>
-          </div>
-        )}
-
-        {/* Mute */}
-        <button onClick={onToggleMute}>
-          <div className="p-2 rounded-full bg-black/30 backdrop-blur-sm">
-            {isMuted ? <VolumeX className="h-6 w-6 text-white" /> : <Volume2 className="h-6 w-6 text-white" />}
-          </div>
-        </button>
       </div>
 
+      {/* "X reposted" badge - a small floating avatar with a repost icon
+          badge, distinct from the video owner shown at the bottom. */}
+      {post.reposted_by && (
+        <Link href={`/profile/${post.reposted_by.username}`} className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-1 pr-3 py-1">
+          <div className="relative shrink-0">
+            <Avatar className="h-6 w-6 animate-repost-in">
+              <AvatarImage src={getAvatarUrl(post.reposted_by.avatar_url)} />
+              <AvatarFallback className="text-[8px]">{post.reposted_by.username?.[0]?.toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="absolute -bottom-0.5 -right-0.5 bg-purple-500 rounded-full p-[3px] border border-black">
+              <Repeat2 className="h-2 w-2 text-white" />
+            </div>
+          </div>
+          <span className="text-white text-[11px] font-medium">{post.reposted_by.username} reposted</span>
+        </Link>
+      )}
+
       {/* Bottom info */}
-      <div className="absolute bottom-6 left-3 right-20 z-10">
+      <div className="absolute bottom-6 left-3 right-16 z-10">
         <Link href={`/profile/${post.profiles.username}`} className="flex items-center gap-2.5 mb-2">
           <Avatar className="h-9 w-9 border-2 border-white/80">
             <AvatarImage src={getAvatarUrl(post.profiles.avatar_url)} />
