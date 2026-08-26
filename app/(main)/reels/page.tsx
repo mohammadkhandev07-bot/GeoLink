@@ -9,29 +9,15 @@ export default function ReelsPage() {
   const { data: reels = [], isLoading } = useReelsPosts(user?.id)
 
   return (
-    <div className="flex justify-center items-start bg-black min-h-[calc(100vh-3.5rem)]">
-      <div
-        className="relative bg-black"
-        style={{
-          width: '100%',
-          maxWidth: '420px',
-          height: 'calc(100vh - 3.5rem)',
-        }}
-      >
-        {/* Mobile pe 80% height - 20% chota */}
-        <style>{`
-          @media (max-width: 768px) {
-            .reels-container {
-              height: 80vh !important;
-              margin: auto;
-              border-radius: 12px;
-              overflow: hidden;
-            }
-          }
-        `}</style>
-        <div className="reels-container w-full h-full">
-          <ReelsFeed reels={reels} isLoading={isLoading} />
-        </div>
+    <div className="flex justify-center items-center bg-black h-[100dvh] lg:h-[calc(100vh-3.5rem)] overflow-hidden">
+      {/* Edge-to-edge on mobile (matches every other reels/shorts app);
+          a centered phone-width card only on desktop, where there's
+          plenty of room around it. A fixed height here - never min-height
+          - is what stops the whole page from scrolling behind the reel:
+          content taller than the viewport used to leak out and scroll the
+          page itself along with it. */}
+      <div className="relative bg-black w-full h-full lg:max-w-[420px] lg:h-[92%] lg:rounded-xl lg:overflow-hidden">
+        <ReelsFeed reels={reels} isLoading={isLoading} />
       </div>
     </div>
   )
