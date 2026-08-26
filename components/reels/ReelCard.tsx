@@ -46,7 +46,7 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
     if (isActive && !showComments && !showShare) {
       // Browsers can block autoplay-with-sound without a prior tap on the
       // page - if that happens, fall back to starting muted rather than
-      // the video just not playing at all, and let the mute button take
+      // The video just not playing at all, and let the mute button take
       // over from there.
       videoRef.current.play().catch(() => {
         if (videoRef.current) {
