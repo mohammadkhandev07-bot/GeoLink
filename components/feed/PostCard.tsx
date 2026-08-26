@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send, Repeat2, Eye } from 'lucide-react'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send, Repeat2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -204,16 +204,11 @@ export function PostCard({ post, onDelete }: PostCardProps) {
           </div>
           <div className="flex items-center">
             <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleRepost} disabled={toggleRepost.isPending}>
-              <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500' : ''}`} />
+              <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500 animate-repost-spin' : ''}`} />
             </Button>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {post.views_count > 0 && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Eye className="h-3.5 w-3.5" /> {formatCount(post.views_count)}
-            </span>
-          )}
           <SaveButton postId={post.id} className="h-9 w-9 flex items-center justify-center rounded-md hover:bg-accent transition-colors" />
         </div>
       </div>
