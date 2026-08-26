@@ -420,13 +420,15 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                     disabled={toggleRepost.isPending}
                     className="p-1.5"
                   >
-                    <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500' : ''}`} />
+                    <Repeat2 className={`h-5 w-5 ${isReposted ? 'text-green-500 animate-repost-spin' : ''}`} />
                   </button>
                   <SaveButton postId={selectedPost.id} className="ml-auto text-muted-foreground hover:text-foreground transition-colors" iconClassName="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold">{formatCount(likesCount)} likes</span>
-                  {selectedPost.views_count > 0 && (
+                  {/* Views are private - only the person who made the post
+                      gets to see them, and only on their own post. */}
+                  {selectedPost.user_id === user?.id && selectedPost.views_count > 0 && (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Eye className="h-3.5 w-3.5" /> {formatCount(selectedPost.views_count)} views
                     </span>
