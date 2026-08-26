@@ -111,9 +111,33 @@ export function useReelsPosts(userId?: string) {
         .limit(20)
 
       if (error) throw error
-      if (!userId) return data as PostWithProfile[]
-      return fetchPostsWithLikes(data as PostWithProfile[], userId)
+      let posts = data as PostWithProfile[]
+      if (userId) posts = await fetchPostsWithLikes(posts, userId)
+      if (!userId || posts.length === 0) return posts
+
+      // Reels already show everyone's videos (not just people you follow),
+      // so reposts don't need a separate duplicate entry here like the
+      // home feed does - this just checks whether someone you follow
+      // reposted one of these same videos, so the "X reposted" badge can
+      // still show on it.
+      const { data: following } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+        .eq('status', 'accepted')
+      const followingIds = (following || []).map(f => f.following_id)
+      if (followingIds.length === 0) return posts
+
+      const { data: reposts } = await supabase
+        .from('reposts')
+        .select('post_id, profiles!reposts_user_id_fkey(id,username,avatar_url)')
+        .in('post_id', posts.map(p => p.id))
+        .in('user_id', followingIds)
+
+      if (!reposts || reposts.length === 0) return posts
+      const repostMap = new Map(reposts.map((r: any) => [r.post_id, r.profiles]))
+      return posts.map(p => repostMap.has(p.id) ? { ...p, reposted_by: repostMap.get(p.id) } : p)
     },
     staleTime: 30000,
   })
-} 
+}
