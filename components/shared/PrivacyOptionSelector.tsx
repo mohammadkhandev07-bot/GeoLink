@@ -8,7 +8,9 @@ import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 
 export type PrivacyLevel = 'everyone' | 'followers' | 'following' | 'selected' | 'none'
-export type PrivacyCategory = 'post' | 'message' | 'search' | 'notify_message' | 'notify_post'
+export type PrivacyCategory =
+  | 'post' | 'message' | 'search' | 'notify_message' | 'notify_post'
+  | 'suggestions' | 'story' | 'post_comment' | 'story_comment' | 'call'
 
 const LEVEL_OPTIONS: { value: PrivacyLevel; label: string; hint: string }[] = [
   { value: 'everyone', label: 'Everyone', hint: 'Anyone on SociaLens' },
@@ -177,4 +179,4 @@ export function PrivacyOptionSelector({
       )}
     </Card>
   )
-} 
+}
