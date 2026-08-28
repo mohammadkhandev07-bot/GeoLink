@@ -54,6 +54,8 @@ export type Comment = {
   post_id: string
   user_id: string
   content: string
+  parent_id?: string | null
+  hidden?: boolean
   created_at: string
   updated_at: string
 }
@@ -279,11 +281,31 @@ export type StoryComment = {
   story_id: string
   user_id: string
   content: string
+  parent_id?: string | null
+  hidden?: boolean
   created_at: string
 }
 
 export type StoryCommentWithProfile = StoryComment & {
   profiles: Profile
+}
+
+// A comment or reply (post or story) enriched with likes, the viewer's
+// own reaction, and (for top-level comments) its nested replies - what
+// the shared CommentThread UI actually renders.
+export type EnrichedComment = {
+  id: string
+  user_id: string
+  content: string
+  parent_id: string | null
+  hidden: boolean
+  created_at: string
+  profiles: Profile
+  likes_count: number
+  is_liked: boolean
+  my_reaction: string | null
+  reaction_counts: Record<string, number>
+  replies: EnrichedComment[]
 }
 
 export type StoryHiddenViewer = {
@@ -299,8 +321,12 @@ export type PostWithProfile = Post & {
   /** Set when this post is showing up because someone reposted it - the
    *  post itself still displays the ORIGINAL author's name/avatar as the
    *  owner; this is only used for the small "reposted by" indicator. */
-  reposted_by?: { id: string; username: string; avatar_url: string | null } | null
+  reposted_by?: { id: string; username: string; avatar_url: string | null }[] | null
   is_reposted?: boolean
+  /** Set when this post was added to fill out a thin/empty feed (not
+   *  from someone the viewer follows) - lets the UI show a small
+   *  "Suggested for you" divider before it, Instagram-style. */
+  is_suggested?: boolean
 }
 
 export type CommentWithProfile = Comment & {
