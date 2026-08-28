@@ -18,7 +18,7 @@ interface CommentThreadProps {
   variant?: 'compact' | 'default'
   /** Hide the "add a comment" composer entirely (e.g. story owners don't
    *  post fresh top-level comments on their own story, same as before -
-   *  They can still like/react/reply to existing ones). */
+   *  they can still like/react/reply to existing ones). */
   hideComposer?: boolean
   className?: string
   listClassName?: string
@@ -61,7 +61,7 @@ export function CommentThread({
 
   return (
     <div className={className}>
-      <div className={`space-y-3 overflow-y-auto ${listClassName}`}>
+      <div className={`space-y-3 overflow-y-auto overflow-x-hidden scrollbar-hide ${listClassName}`}>
         {isLoading ? (
           <p className="text-xs text-muted-foreground text-center py-4">Loading comments...</p>
         ) : thread.length === 0 ? (
