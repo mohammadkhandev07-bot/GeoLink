@@ -63,7 +63,7 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
     .slice(0, 3)
     .map(([emoji]) => emoji)
   // Only the post/story owner gets to see who reacted and with what -
-  // everyone else just sees the compact count, same as everyone else's view.
+  // Everyone else just sees the compact count, same as everyone else's view.
   const isOwnerViewing = !!currentUserId && !!ownerId && currentUserId === ownerId
 
   return (
