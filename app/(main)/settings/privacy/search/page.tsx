@@ -14,4 +14,4 @@ export default function SearchPrivacyPage() {
       category="search"
     />
   )
-}
+} 
