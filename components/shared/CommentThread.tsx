@@ -18,7 +18,7 @@ interface CommentThreadProps {
   variant?: 'compact' | 'default'
   /** Hide the "add a comment" composer entirely (e.g. story owners don't
    *  post fresh top-level comments on their own story, same as before -
-   *  they can still like/react/reply to existing ones). */
+   *  They can still like/react/reply to existing ones). */
   hideComposer?: boolean
   className?: string
   listClassName?: string
