@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { EnrichedComment } from '@/lib/types/database.types'
+import { canAccessByPrivacy } from '@/lib/utils/privacyAccess'
 
 export type CommentTarget = 'post' | 'story'
 
@@ -43,6 +44,18 @@ export function useCommentThread(target: CommentTarget, targetId?: string, userI
     queryKey: ['comment-thread', target, targetId, userId],
     queryFn: async (): Promise<EnrichedComment[]> => {
       if (!targetId) return []
+
+      // Post/story owners can restrict who's even allowed to see the
+      // comments section at all (Post/Story Comment Privacy in
+      // Settings). The owner themselves can always see every comment on
+      // their own content, no matter what this is set to.
+      if (ownerId && userId !== ownerId) {
+        const privacyField = target === 'story' ? 'story_comment_privacy' : 'post_comment_privacy'
+        const { data: ownerProfile } = await supabase.from('profiles').select(privacyField).eq('id', ownerId).single()
+        const level = (ownerProfile as any)?.[privacyField]
+        const allowed = await canAccessByPrivacy(supabase, userId, ownerId, level, target === 'story' ? 'story_comment' : 'post_comment')
+        if (!allowed) return []
+      }
 
       const { data: rows, error } = await supabase
         .from(cfg.comments)
