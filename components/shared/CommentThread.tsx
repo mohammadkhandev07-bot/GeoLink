@@ -17,7 +17,7 @@ interface CommentThreadProps {
    *  overlay panel) vs the roomier feed card layout. */
   variant?: 'compact' | 'default'
   /** Hide the "add a comment" composer entirely (e.g. story owners don't
-   *  post fresh top-level comments on their own story, same as before -
+   *  Post fresh top-level comments on their own story, same as before -
    *  they can still like/react/reply to existing ones). */
   hideComposer?: boolean
   className?: string
