@@ -59,8 +59,10 @@ export default function SuggestionsPage() {
       const visible = candidates.filter(p => {
         if (blockedRelationSet.has(p.id)) return false
         switch ((p as any).suggestions_privacy) {
-          case 'followers': return followsMeSet.has(p.id)
-          case 'following': return iFollowSet.has(p.id)
+          // 'followers' = p's followers, i.e. the viewer must follow p.
+          // 'following' = people p follows, i.e. p must follow the viewer.
+          case 'followers': return iFollowSet.has(p.id)
+          case 'following': return followsMeSet.has(p.id)
           case 'selected': return selectedMeSet.has(p.id)
           case 'none': return false
           case 'everyone':
