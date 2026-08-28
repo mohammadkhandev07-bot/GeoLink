@@ -49,7 +49,7 @@ export function useFeedPosts(userId?: string) {
       // Reposts by people you follow (and your own reposts) also show up
       // in the feed - the post itself still displays the ORIGINAL
       // author's name/avatar, only a small "X reposted" badge on top
-      // shows who reposted it. Sorted into the feed by when it was
+      // Shows who reposted it. Sorted into the feed by when it was
       // reposted, not when the original post was first made.
       const { data: reposts } = await supabase
         .from('reposts')
