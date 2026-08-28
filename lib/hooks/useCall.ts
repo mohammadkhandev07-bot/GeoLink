@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { RING_TIMEOUT_MS } from '@/lib/utils/webrtc'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { canAccessByPrivacy } from '@/lib/utils/privacyAccess'
 
 export type CallType = 'audio' | 'video'
 export type CallStatus = 'ringing' | 'accepted' | 'rejected' | 'missed' | 'ended' | 'cancelled' | 'busy'
@@ -431,6 +432,17 @@ export function useCallEngine(currentUserId?: string) {
     setError(null)
     roleRef.current = 'caller'
     try {
+      // Call Privacy gate (Settings > Privacy > Call Privacy) - checked
+      // before ever creating the call row, so a disallowed call never
+      // even starts ringing on the other end.
+      const { data: calleeProfileRow } = await supabase.from('profiles').select('call_privacy').eq('id', calleeId).single()
+      const allowed = await canAccessByPrivacy(supabase, currentUserId, calleeId, (calleeProfileRow as any)?.call_privacy, 'call')
+      if (!allowed) {
+        setError("This person isn't accepting calls right now")
+        roleRef.current = null
+        return
+      }
+
       console.log('[SociaLens Call] inserting call row into Supabase...', { calleeId, chatId, type })
       const { data: newCall, error: insertError } = await supabase
         .from('calls')
