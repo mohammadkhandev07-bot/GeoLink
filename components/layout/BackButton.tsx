@@ -25,13 +25,17 @@ const CHAT_THREAD = /^\/chat\/[^/]+$/
 // Matches any profile page, e.g. /profile/mohammad_khan.
 const PROFILE_PAGE = /^\/profile\/[^/]+$/
 
+// Matches the settings hub and every settings sub-page.
+const SETTINGS_PAGE = /^\/settings(\/.*)?$/
+
 export function BackButton() {
   const router = useRouter()
   const pathname = usePathname() || ''
 
   const isChatThread = CHAT_THREAD.test(pathname) && pathname !== '/chat/archive'
   const isProfilePage = PROFILE_PAGE.test(pathname)
-  if (EXACT_EXCLUDE.has(pathname) || isChatThread || isProfilePage) return null
+  const isSettingsPage = SETTINGS_PAGE.test(pathname)
+  if (EXACT_EXCLUDE.has(pathname) || isChatThread || isProfilePage || isSettingsPage) return null
 
   const isReels = pathname === '/reels'
 
