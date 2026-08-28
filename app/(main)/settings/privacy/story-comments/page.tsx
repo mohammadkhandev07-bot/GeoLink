@@ -15,4 +15,4 @@ export default function StoryCommentPrivacyPage() {
       note="You can always see every comment on your own story, no matter what this is set to."
     />
   )
-}
+} 
