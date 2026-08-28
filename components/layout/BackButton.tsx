@@ -3,12 +3,14 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 
-// Pages that already have their own dedicated back arrow / header bar
-// baked into the page itself - showing a second floating one on top of
-// Those would just duplicate what's already there. Everything else in
-// the app gets this floating button so there's always a consistent way
-// back, even on pages that don't otherwise have one.
+// Pages that already have their own dedicated back arrow / header bar,
+// or that are primary tabs where a "back" affordance doesn't make sense
+// (Home, Explore, Messages list, Profile) - showing this floating button
+// on top of those just adds clutter, so it's skipped there.
 const EXACT_EXCLUDE = new Set([
+  '/feed',
+  '/explore',
+  '/chat',
   '/chat/archive',
   '/delete-account',
   '/profile/edit',
@@ -20,12 +22,16 @@ const EXACT_EXCLUDE = new Set([
 // /chat/archive, which are handled separately above/below).
 const CHAT_THREAD = /^\/chat\/[^/]+$/
 
+// Matches any profile page, e.g. /profile/mohammad_khan.
+const PROFILE_PAGE = /^\/profile\/[^/]+$/
+
 export function BackButton() {
   const router = useRouter()
   const pathname = usePathname() || ''
 
   const isChatThread = CHAT_THREAD.test(pathname) && pathname !== '/chat/archive'
-  if (EXACT_EXCLUDE.has(pathname) || isChatThread) return null
+  const isProfilePage = PROFILE_PAGE.test(pathname)
+  if (EXACT_EXCLUDE.has(pathname) || isChatThread || isProfilePage) return null
 
   const isReels = pathname === '/reels'
 
