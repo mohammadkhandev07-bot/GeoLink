@@ -6,6 +6,7 @@ import { Heart, MoreHorizontal, Trash2, EyeOff, Eye, MessageCircle } from 'lucid
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { CommentReactionPicker } from '@/components/shared/CommentReactionPicker'
+import { CommentReactorsDialog } from '@/components/shared/CommentReactorsDialog'
 import {
   CommentTarget,
   useToggleCommentLike,
@@ -30,6 +31,7 @@ interface CommentItemProps {
 
 export function CommentItem({ comment, target, targetId, currentUserId, ownerId, isReply, onReply }: CommentItemProps) {
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [showReactorsList, setShowReactorsList] = useState(false)
 
   const toggleLike = useToggleCommentLike(target)
   const setReaction = useSetCommentReaction(target)
@@ -60,6 +62,9 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([emoji]) => emoji)
+  // Only the post/story owner gets to see who reacted and with what -
+  // everyone else just sees the compact count, same as everyone else's view.
+  const isOwnerViewing = !!currentUserId && !!ownerId && currentUserId === ownerId
 
   return (
     <div className={`flex items-start gap-2 ${isReply ? 'mt-2.5' : ''}`}>
@@ -78,15 +83,25 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
           {comment.content}
         </p>
 
-        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
           <span>{formatTimeAgo(comment.created_at)}</span>
 
           {comment.likes_count > 0 && <span>{formatCount(comment.likes_count)} like{comment.likes_count !== 1 ? 's' : ''}</span>}
 
           {totalReactions > 0 && (
-            <span className="flex items-center gap-0.5">
-              {topReactionEmojis.join('')} {totalReactions}
-            </span>
+            isOwnerViewing ? (
+              <button
+                type="button"
+                onClick={() => setShowReactorsList(true)}
+                className="flex items-center gap-0.5 hover:text-foreground"
+              >
+                <span>{topReactionEmojis.join('')}</span> {formatCount(totalReactions)}
+              </button>
+            ) : (
+              <span className="flex items-center gap-0.5">
+                {topReactionEmojis.join('')} {formatCount(totalReactions)}
+              </span>
+            )
           )}
 
           <button onClick={handleLike} disabled={!currentUserId} className="font-semibold hover:text-foreground">
@@ -172,6 +187,15 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      {isOwnerViewing && totalReactions > 0 && (
+        <CommentReactorsDialog
+          target={target}
+          commentId={comment.id}
+          open={showReactorsList}
+          onOpenChange={setShowReactorsList}
+        />
+      )}
     </div>
   )
-} 
+}
