@@ -15,6 +15,10 @@ export interface StoryGroup {
 // author, most-recently-posted author first. "Active" here just means the
 // Row is visible at all - the database RLS policy already hides anything
 // past its 24h expires_at, so nothing extra needs to be checked here.
+// On top of each individual story's own "who can see this?" audience
+// (chosen when it was posted), this also respects the author's account-
+// wide Story Privacy default from Settings, so a change there applies
+// immediately without needing to touch every existing story row.
 export function useActiveStories(userId?: string) {
   const supabase = createClient()
 
@@ -30,7 +34,33 @@ export function useActiveStories(userId?: string) {
 
       if (error) throw error
 
-      const stories = (data as StoryWithProfile[]) || []
+      let stories = (data as StoryWithProfile[]) || []
+
+      const authorIds = Array.from(new Set(stories.map((s) => s.user_id).filter((id) => id !== userId)))
+      if (authorIds.length > 0) {
+        const [{ data: iFollow }, { data: followMe }, { data: selectedMe }] = await Promise.all([
+          supabase.from('follows').select('following_id').eq('follower_id', userId).eq('status', 'accepted').in('following_id', authorIds),
+          supabase.from('follows').select('follower_id').eq('following_id', userId).eq('status', 'accepted').in('follower_id', authorIds),
+          supabase.from('privacy_selected_users').select('owner_id').eq('category', 'story').eq('selected_user_id', userId).in('owner_id', authorIds),
+        ])
+        const iFollowSet = new Set((iFollow || []).map((r: any) => r.following_id))
+        const followsMeSet = new Set((followMe || []).map((r: any) => r.follower_id))
+        const selectedMeSet = new Set((selectedMe || []).map((r: any) => r.owner_id))
+
+        stories = stories.filter((s) => {
+          if (s.user_id === userId) return true
+          const level = (s.profiles as any)?.story_privacy ?? 'everyone'
+          switch (level) {
+            case 'everyone': return true
+            case 'followers': return followsMeSet.has(s.user_id)
+            case 'following': return iFollowSet.has(s.user_id)
+            case 'selected': return selectedMeSet.has(s.user_id)
+            case 'none': return false
+            default: return true
+          }
+        })
+      }
+
       const groups = new Map<string, StoryGroup>()
 
       for (const story of stories) {
