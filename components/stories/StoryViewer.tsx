@@ -15,15 +15,14 @@ import {
   useStoryReaction,
   useSetStoryReaction,
   useRemoveStoryReaction,
-  useStoryComments,
-  useAddStoryComment,
-  useDeleteStoryComment,
   useReplyToStory,
   useRecordStoryView,
   useStoryViews,
   useStoryLikers,
   useStoryReactors,
 } from '@/lib/hooks/useStoryInteractions'
+import { useCommentThread, countThread } from '@/lib/hooks/useComments'
+import { CommentThread } from '@/components/shared/CommentThread'
 import { StoryEditModal } from './StoryEditModal'
 import { StoryHideViewersModal } from './StoryHideViewersModal'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
@@ -73,7 +72,6 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const [showLikers, setShowLikers] = useState(false)
   const [showReactors, setShowReactors] = useState(false)
   const [messageText, setMessageText] = useState('')
-  const [commentText, setCommentText] = useState('')
   const [sendError, setSendError] = useState<string | null>(null)
   const [messageSent, setMessageSent] = useState(false)
 
@@ -96,7 +94,6 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     setShowLikers(false)
     setShowReactors(false)
     setMessageText('')
-    setCommentText('')
     setSendError(null)
     setMessageSent(false)
   }, [groupIndex, storyIndex])
@@ -106,9 +103,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const { data: myReaction } = useStoryReaction(story?.id, currentUserId)
   const setReaction = useSetStoryReaction()
   const removeReaction = useRemoveStoryReaction()
-  const { data: comments = [] } = useStoryComments(story?.id)
-  const addComment = useAddStoryComment()
-  const deleteComment = useDeleteStoryComment()
+  const { data: commentThread = [] } = useCommentThread('story', story?.id, currentUserId, story?.user_id)
   const replyToStory = useReplyToStory()
   const recordView = useRecordStoryView()
   const { data: views = [] } = useStoryViews(story?.id, isOwn)
@@ -349,12 +344,6 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     setShowReactionBar(false)
   }
 
-  const handleAddComment = async () => {
-    if (!commentText.trim() || !currentUserId) return
-    await addComment.mutateAsync({ storyId: story.id, userId: currentUserId, content: commentText.trim() })
-    setCommentText('')
-  }
-
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUserId) return
     try {
@@ -562,7 +551,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                   <span className="text-base leading-none">😊</span> {reactors.length}
                 </button>
                 <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5">
-                  <MessageCircle className="h-4 w-4" /> {comments.length}
+                  <MessageCircle className="h-4 w-4" /> {countThread(commentThread)}
                 </button>
               </div>
             </div>
@@ -714,53 +703,19 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="overflow-y-auto flex-1 p-3 space-y-3">
-                {comments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">No comments yet.</p>
-                ) : (
-                  comments.map((c) => (
-                    <div key={c.id} className="flex items-start gap-2.5">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                        <AvatarFallback>{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm">
-                          <span className="font-medium">{c.profiles?.username}</span>{' '}
-                          <span className="text-muted-foreground">{c.content}</span>
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{formatTimeAgo(c.created_at)}</p>
-                      </div>
-                      {(isOwn || c.user_id === currentUserId) && (
-                        <button
-                          onClick={() => deleteComment.mutate({ commentId: c.id, storyId: story.id })}
-                          className="text-muted-foreground hover:text-red-500 shrink-0"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))
-                )}
+              <div className="p-3 flex-1 overflow-hidden flex flex-col">
+                <CommentThread
+                  target="story"
+                  targetId={story.id}
+                  currentUserId={currentUserId}
+                  ownerId={story.user_id}
+                  hideComposer={isOwn}
+                  emptyText="No comments yet."
+                  variant="compact"
+                  className="flex-1 flex flex-col min-h-0"
+                  listClassName="flex-1"
+                />
               </div>
-              {!isOwn && (
-                <div className="p-3 border-t border-border flex items-center gap-2 shrink-0">
-                  <input
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment() }}
-                    placeholder="Add a comment..."
-                    className="flex-1 bg-muted rounded-full px-4 py-2 text-sm outline-none"
-                  />
-                  <button
-                    onClick={handleAddComment}
-                    disabled={!commentText.trim() || addComment.isPending}
-                    className="text-pink-500 disabled:opacity-40 shrink-0"
-                  >
-                    <Send className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
