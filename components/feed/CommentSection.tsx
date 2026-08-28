@@ -18,4 +18,4 @@ export function CommentSection({ postId, postOwnerId }: { postId: string; postOw
       />
     </div>
   )
-}
+} 
