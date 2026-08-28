@@ -2,13 +2,15 @@
 
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Send, Repeat2 } from 'lucide-react'
+import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Repeat2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
 import { SaveButton } from '@/components/shared/SaveButton'
+import { RepostBadge } from '@/components/shared/RepostBadge'
+import { CommentThread } from '@/components/shared/CommentThread'
 import { PostWithProfile } from '@/lib/types/database.types'
-import { formatCount, getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { useIsReposted, useToggleRepost } from '@/lib/hooks/useRepost'
@@ -28,10 +30,6 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
   const [paused, setPaused] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
-  const [comments, setComments] = useState<any[]>([])
-  const [commentsLoaded, setCommentsLoaded] = useState(false)
-  const [newComment, setNewComment] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const [progress, setProgress] = useState(0) // 0-100
   const [seeking, setSeeking] = useState(false)
   const hasCountedViewRef = useRef(false)
@@ -142,34 +140,8 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
     toggleRepost.mutate({ postId: post.id, userId: user.id, postOwnerId: post.user_id, repost: !isReposted })
   }
 
-  const openComments = async () => {
-    if (!commentsLoaded) {
-      const { data } = await supabase.from('comments').select('*, profiles(*)')
-        .eq('post_id', post.id).order('created_at', { ascending: true })
-      setComments(data || [])
-      setCommentsLoaded(true)
-    }
+  const openComments = () => {
     setShowComments(true)
-  }
-
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || !newComment.trim()) return
-    setSubmitting(true)
-    const { data } = await supabase.from('comments')
-      .insert({ post_id: post.id, user_id: user.id, content: newComment.trim() })
-      .select('*, profiles(*)').single()
-    if (data) {
-      setComments(prev => [...prev, data])
-      await supabase.rpc('increment_comments', { post_id: post.id })
-      if (user.id !== post.user_id) {
-        await supabase.from('notifications').insert({
-          user_id: post.user_id, actor_id: user.id, type: 'comment', message: newComment.trim(), post_id: post.id,
-        })
-      }
-    }
-    setNewComment('')
-    setSubmitting(false)
   }
 
   return (
@@ -262,22 +234,9 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
         />
       </div>
 
-      {/* "X reposted" badge - a small floating avatar with a repost icon
-          badge, distinct from the video owner shown at the bottom. */}
-      {post.reposted_by && (
-        <Link href={`/profile/${post.reposted_by.username}`} className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-1 pr-3 py-1">
-          <div className="relative shrink-0">
-            <Avatar className="h-6 w-6 animate-repost-in">
-              <AvatarImage src={getAvatarUrl(post.reposted_by.avatar_url)} />
-              <AvatarFallback className="text-[8px]">{post.reposted_by.username?.[0]?.toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="absolute -bottom-0.5 -right-0.5 bg-purple-500 rounded-full p-[3px] border border-black">
-              <Repeat2 className="h-2 w-2 text-white" />
-            </div>
-          </div>
-          <span className="text-white text-[11px] font-medium">{post.reposted_by.username} reposted</span>
-        </Link>
-      )}
+      {/* "X reposted" badge - shows every follower who reposted this reel,
+          stacked neatly instead of collapsing down to just one name. */}
+      <RepostBadge reposters={post.reposted_by ?? []} variant="overlay" />
 
       {/* Bottom info */}
       <div className="absolute bottom-6 left-3 right-16 z-10">
@@ -310,45 +269,25 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
 
       {/* Comments Panel */}
       {showComments && (
-        <div className="absolute inset-x-0 bottom-0 z-20 bg-card/95 backdrop-blur-md rounded-t-2xl"
+        <div className="absolute inset-x-0 bottom-0 z-20 bg-card/95 backdrop-blur-md rounded-t-2xl flex flex-col"
           style={{ maxHeight: '60%' }} onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <h3 className="font-bold text-sm">Comments ({comments.length})</h3>
+          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+            <h3 className="font-bold text-sm">Comments ({formatCount(post.comments_count)})</h3>
             <button onClick={() => setShowComments(false)} className="text-muted-foreground hover:text-foreground">
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="overflow-y-auto px-4 py-3 space-y-3" style={{ maxHeight: 'calc(60vh - 120px)' }}>
-            {comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No comments yet!</p>
-            ) : comments.map(c => (
-              <div key={c.id} className="flex gap-2">
-                <Link href={`/profile/${c.profiles?.username}`} className="shrink-0">
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={getAvatarUrl(c.profiles?.avatar_url)} />
-                    <AvatarFallback className="text-[10px]">{c.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div>
-                  <p className="text-sm">
-                    <Link href={`/profile/${c.profiles?.username}`} className="font-semibold mr-1 hover:underline">{c.profiles?.username}</Link>
-                    {c.content}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">{formatTimeAgo(c.created_at)}</p>
-                </div>
-              </div>
-            ))}
+          <div className="px-4 py-3 flex-1 overflow-hidden flex flex-col">
+            <CommentThread
+              target="post"
+              targetId={post.id}
+              currentUserId={user?.id}
+              ownerId={post.user_id}
+              variant="compact"
+              className="flex-1 flex flex-col min-h-0"
+              listClassName="flex-1"
+            />
           </div>
-          {user && (
-            <form onSubmit={handleComment} className="flex gap-2 px-4 py-3 border-t">
-              <input value={newComment} onChange={e => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
-                className="flex-1 bg-muted rounded-full px-3 py-2 text-sm outline-none border border-transparent focus:border-pink-500" />
-              <button type="submit" disabled={!newComment.trim() || submitting} className="text-pink-500 disabled:opacity-40">
-                <Send className="h-5 w-5" />
-              </button>
-            </form>
-          )}
         </div>
       )}
 
