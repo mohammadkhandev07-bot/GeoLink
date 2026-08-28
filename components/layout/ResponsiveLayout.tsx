@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { Navbar } from './Navbar'
 import { Sidebar } from './Sidebar'
 import { MobileBottomNav } from './MobileBottomNav'
+import { BackButton } from './BackButton'
 import { CallProvider } from '@/components/call/CallProvider'
 import { GlobalToast } from '@/components/shared/GlobalToast'
 
@@ -26,6 +27,7 @@ export function ResponsiveLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <MobileBottomNav className={isImmersivePage ? 'hidden' : undefined} />
+        <BackButton />
         <GlobalToast />
       </div>
     </CallProvider>
