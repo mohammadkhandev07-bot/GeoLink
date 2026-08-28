@@ -10,7 +10,7 @@ import { Profile } from '@/lib/types/database.types'
 export const STORY_REACTION_EMOJIS = ['😍', '😂', '😮', '😢', '🔥', '👏', '😡', '🙏']
 
 // ------------------------------------------------------------------
-// Likes
+// Likes Function
 // ------------------------------------------------------------------
 export function useStoryLike(storyId?: string, userId?: string) {
   const supabase = createClient()
