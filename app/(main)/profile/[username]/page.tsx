@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { ProfileHeader } from '@/components/profile/ProfileHeader'
 import { ProfileTabs } from '@/components/profile/ProfileTabs'
+import { LockedProfileView } from '@/components/profile/LockedProfileView'
 import { FollowRequestsDialog } from '@/components/profile/FollowRequestsDialog'
 
 interface ProfilePageProps {
@@ -22,18 +23,26 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   if (!profile) notFound()
 
+  const isOwn = user?.id === profile.id
+
   let isFollowing = false
-  if (user && user.id !== profile.id) {
-    const { data: follow } = await supabase
-      .from('follows')
-      .select('status')
-      .eq('follower_id', user.id)
-      .eq('following_id', profile.id)
-      .single()
+  // Whether the PROFILE OWNER follows this viewer back - a fully locked
+  // private account only opens up to people the owner themselves follows.
+  let ownerFollowsViewer = false
+  if (user && !isOwn) {
+    const [{ data: follow }, { data: ownerFollowsMe }] = await Promise.all([
+      supabase.from('follows').select('status').eq('follower_id', user.id).eq('following_id', profile.id).single(),
+      supabase.from('follows').select('id').eq('follower_id', profile.id).eq('following_id', user.id).eq('status', 'accepted').maybeSingle(),
+    ])
     isFollowing = follow?.status === 'accepted'
+    ownerFollowsViewer = !!ownerFollowsMe
   }
 
-  const isOwn = user?.id === profile.id
+  const isLocked = profile.is_private && !isOwn && !ownerFollowsViewer
+
+  if (isLocked) {
+    return <LockedProfileView profile={profile} currentUserId={user?.id} />
+  }
 
   return (
     <div className="max-w-xl mx-auto">
@@ -51,4 +60,4 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       />
     </div>
   )
-} 
+}
