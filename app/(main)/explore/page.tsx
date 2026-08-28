@@ -58,8 +58,8 @@ export default function ExplorePage() {
         if (blockedRelationSet.has(p.id)) return false
         switch (p.search_privacy) {
           case 'everyone': return true
-          case 'followers': return followsMeSet.has(p.id) // people who follow p can find p
-          case 'following': return iFollowSet.has(p.id) // people p follows can find p
+          case 'followers': return iFollowSet.has(p.id) // p's followers = people who follow p; the viewer must follow p
+          case 'following': return followsMeSet.has(p.id) // p's "following" = people p follows; p must follow the viewer
           case 'selected': return selectedMeSet.has(p.id)
           case 'none': return false
           default: return true
@@ -231,4 +231,4 @@ export default function ExplorePage() {
       )}
     </div>
   )
-} 
+}
