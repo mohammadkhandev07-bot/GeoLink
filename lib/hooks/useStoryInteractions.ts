@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { StoryCommentWithProfile, Profile } from '@/lib/types/database.types'
+import { Profile } from '@/lib/types/database.types'
 
 // Quick-pick mood emojis shown directly on the React button, one tap each -
 // same idea as Instagram/Facebook's reaction bar. "More" opens the full
@@ -106,61 +106,11 @@ export function useRemoveStoryReaction() {
 }
 
 // ------------------------------------------------------------------
-// Comments
+// Comments now live in lib/hooks/useComments.ts (useCommentThread /
+// useAddComment / etc. with target='story') so the same like, react,
+// reply, hide, and delete-for-me features work for both post and
+// story comments from one place.
 // ------------------------------------------------------------------
-export function useStoryComments(storyId?: string) {
-  const supabase = createClient()
-
-  return useQuery({
-    queryKey: ['story-comments', storyId],
-    queryFn: async () => {
-      if (!storyId) return []
-      const { data, error } = await supabase
-        .from('story_comments')
-        .select('*, profiles(*)')
-        .eq('story_id', storyId)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      return data as unknown as StoryCommentWithProfile[]
-    },
-    enabled: !!storyId,
-  })
-}
-
-export function useAddStoryComment() {
-  const supabase = createClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ storyId, userId, content }: { storyId: string; userId: string; content: string }) => {
-      const { data, error } = await supabase
-        .from('story_comments')
-        .insert({ story_id: storyId, user_id: userId, content: content.trim() })
-        .select('*, profiles(*)')
-        .single()
-      if (error) throw error
-      return data as StoryCommentWithProfile
-    },
-    onSuccess: (_, { storyId }) => {
-      queryClient.invalidateQueries({ queryKey: ['story-comments', storyId] })
-    },
-  })
-}
-
-export function useDeleteStoryComment() {
-  const supabase = createClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ commentId }: { commentId: string; storyId: string }) => {
-      const { error } = await supabase.from('story_comments').delete().eq('id', commentId)
-      if (error) throw error
-    },
-    onSuccess: (_, { storyId }) => {
-      queryClient.invalidateQueries({ queryKey: ['story-comments', storyId] })
-    },
-  })
-}
 
 // ------------------------------------------------------------------
 // "Reply to your story" - sends a normal chat message that also carries
