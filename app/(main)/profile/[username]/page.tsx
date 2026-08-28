@@ -27,7 +27,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   let isFollowing = false
   // Whether the PROFILE OWNER follows this viewer back - a fully locked
-  // private account only opens up to people the owner themselves follows.
+  // Private account only opens up to people the owner themselves follows.
   let ownerFollowsViewer = false
   if (user && !isOwn) {
     const [{ data: follow }, { data: ownerFollowsMe }] = await Promise.all([
