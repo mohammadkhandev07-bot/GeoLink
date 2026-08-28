@@ -17,6 +17,11 @@ export type Profile = {
   post_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   message_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   search_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  suggestions_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  story_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  post_comment_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  story_comment_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  call_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   notify_messages: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   notify_posts: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   is_verified: boolean
@@ -165,8 +170,8 @@ export type TextScene = {
   id: string
   text: string
   duration: number
-  backgroundColor: string   // Hex, or "gradient:#hex1:#hex2"
-  textColor: string         // Hex, or "gradient:#hex1:#hex2"
+  backgroundColor: string   // hex, or "gradient:#hex1:#hex2"
+  textColor: string         // hex, or "gradient:#hex1:#hex2"
   fontFamily?: string
   textX: number              // percent from left, where the text box sits
   textY: number              // percent from top
