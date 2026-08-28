@@ -68,7 +68,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
         .map((r: any) => ({
           ...(r.posts as PostWithProfile),
           created_at: r.created_at,
-          reposted_by: r.profiles,
+          reposted_by: [r.profiles],
         }))
 
       return [...ownPosts, ...repostedPosts].sort(
@@ -234,7 +234,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
               {imagePosts.map(post => (
                 <button key={post.id} onClick={() => openPost(post)}
                   className="relative aspect-square bg-muted overflow-hidden group">
-                  {post.reposted_by && (
+                  {post.reposted_by && post.reposted_by.length > 0 && (
                     <div className="absolute top-1.5 right-1.5 z-10 bg-black/50 rounded-full p-1">
                       <Repeat2 className="h-3 w-3 text-white" />
                     </div>
@@ -269,7 +269,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 <button key={post.id} onClick={() => openPost(post)}
                   className="relative aspect-[9/16] bg-muted overflow-hidden group">
                   <video src={post.media_url ?? ''} className="w-full h-full object-cover" preload="metadata" muted />
-                  {post.reposted_by && (
+                  {post.reposted_by && post.reposted_by.length > 0 && (
                     <div className="absolute top-1.5 left-1.5 z-10 bg-black/50 rounded-full p-1">
                       <Repeat2 className="h-3 w-3 text-white" />
                     </div>
@@ -300,7 +300,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             <X className="h-5 w-5" />
           </button>
 
-          {user && (selectedPost.user_id === user.id || selectedPost.reposted_by?.id === user.id) && (
+          {user && (selectedPost.user_id === user.id || selectedPost.reposted_by?.[0]?.id === user.id) && (
             <div className="absolute top-4 right-16 z-10" onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowPostMenu(v => !v)}
                 className="bg-white/20 rounded-full p-2 text-white hover:bg-white/30">
@@ -320,7 +320,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                         {deleting ? 'Deleting...' : 'Delete post'}
                       </button>
                     )}
-                    {selectedPost.reposted_by?.id === user.id && (
+                    {selectedPost.reposted_by?.[0]?.id === user.id && (
                       <button
                         onClick={handleRemoveRepost}
                         disabled={deleting}
