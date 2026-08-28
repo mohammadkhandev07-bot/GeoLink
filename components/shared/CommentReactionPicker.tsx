@@ -9,7 +9,7 @@ interface CommentReactionPickerProps {
 }
 
 // A tiny quick-pick emoji bar for reacting to a comment - opens right
-// above the React button and closes itself on an outside click.
+// Above the React button and closes itself on an outside click.
 export function CommentReactionPicker({ onSelect, onClose }: CommentReactionPickerProps) {
   const ref = useRef<HTMLDivElement>(null)
 
