@@ -63,12 +63,38 @@ export function useFeedPosts(userId?: string) {
         .map((r: any) => ({
           ...(r.posts as PostWithProfile),
           created_at: r.created_at, // sort position = when it was reposted
-          reposted_by: r.profiles,
+          reposted_by: [r.profiles],
         }))
       const repostedWithLikes = await fetchPostsWithLikes(repostedPosts, userId)
 
       const merged = [...ownPosts, ...repostedWithLikes]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+      // The feed should never sit empty just because you don't follow
+      // anyone yet (or the people you follow haven't posted much) - once
+      // it's running thin, top it up with public posts from everyone
+      // else, the same way Instagram fills your feed with "Suggested"
+      // content. Row Level Security still applies here, so private
+      // accounts and restricted post_privacy settings stay hidden exactly
+      // like they do everywhere else in the app.
+      const MIN_FEED_SIZE = 5
+      if (merged.length < MIN_FEED_SIZE) {
+        const excludeIds = merged.map((p) => p.id)
+        let suggestedQuery = supabase
+          .from('posts')
+          .select('*, profiles(*)')
+          .order('created_at', { ascending: false })
+          .limit(20)
+        if (excludeIds.length > 0) {
+          suggestedQuery = suggestedQuery.not('id', 'in', `(${excludeIds.join(',')})`)
+        }
+        const { data: suggested } = await suggestedQuery
+        if (suggested && suggested.length > 0) {
+          const suggestedWithLikes = await fetchPostsWithLikes(suggested as PostWithProfile[], userId)
+          const tagged = suggestedWithLikes.map((p) => ({ ...p, is_suggested: true }))
+          return [...merged, ...tagged]
+        }
+      }
 
       return merged
     },
@@ -130,12 +156,21 @@ export function useReelsPosts(userId?: string) {
 
       const { data: reposts } = await supabase
         .from('reposts')
-        .select('post_id, profiles!reposts_user_id_fkey(id,username,avatar_url)')
+        .select('post_id, created_at, profiles!reposts_user_id_fkey(id,username,avatar_url)')
         .in('post_id', posts.map(p => p.id))
         .in('user_id', followingIds)
+        .order('created_at', { ascending: false })
 
       if (!reposts || reposts.length === 0) return posts
-      const repostMap = new Map(reposts.map((r: any) => [r.post_id, r.profiles]))
+      // Multiple people you follow can repost the same reel - collect ALL of
+      // them per post (most recent first) instead of overwriting down to
+      // just the last one, so the "X reposted" badge can show everyone.
+      const repostMap = new Map<string, any[]>()
+      for (const r of reposts as any[]) {
+        const existing = repostMap.get(r.post_id) ?? []
+        existing.push(r.profiles)
+        repostMap.set(r.post_id, existing)
+      }
       return posts.map(p => repostMap.has(p.id) ? { ...p, reposted_by: repostMap.get(p.id) } : p)
     },
     staleTime: 30000,
