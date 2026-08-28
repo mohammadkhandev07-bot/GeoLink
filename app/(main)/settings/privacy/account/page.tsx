@@ -9,6 +9,14 @@ import { createClient } from '@/lib/supabase/client'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { useState } from 'react'
 
+// Turning Private Account ON locks the account down completely: nobody
+// can see your posts, story, message you, or call you - except people
+// YOU follow (not just anyone who follows you). The account still shows
+// up in search/suggestions as usual, just marked locked - people can
+// still find it and send a follow request, they just can't see anything
+// or reach you until you follow them back.
+const LOCK_DOWN_FIELDS = ['post_privacy', 'story_privacy', 'message_privacy', 'call_privacy'] as const
+
 export default function AccountPrivacyPage() {
   const { user, profile, loading } = useUser()
   const supabase = createClient()
@@ -17,7 +25,12 @@ export default function AccountPrivacyPage() {
   const togglePrivateAccount = async () => {
     if (!user || !profile) return
     setPrivacyLoading(true)
-    await supabase.from('profiles').update({ is_private: !profile.is_private }).eq('id', user.id)
+    const goingPrivate = !profile.is_private
+    const update: Record<string, any> = { is_private: goingPrivate }
+    for (const field of LOCK_DOWN_FIELDS) {
+      update[field] = goingPrivate ? 'following' : 'everyone'
+    }
+    await supabase.from('profiles').update(update).eq('id', user.id)
     setPrivacyLoading(false)
   }
 
@@ -40,8 +53,10 @@ export default function AccountPrivacyPage() {
               <Lock className="h-5 w-5" />
               <div>
                 <p className="text-sm font-medium">Private Account</p>
-                <p className="text-xs text-muted-foreground max-w-[240px]">
-                  New followers need your approval before they can follow you.
+                <p className="text-xs text-muted-foreground max-w-[260px]">
+                  Locks your account completely - only people you follow can see your
+                  posts and story, or message and call you. Your account still shows
+                  up in search and suggestions, just marked as private.
                 </p>
               </div>
             </div>
