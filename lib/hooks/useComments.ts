@@ -7,7 +7,7 @@ import { EnrichedComment } from '@/lib/types/database.types'
 export type CommentTarget = 'post' | 'story'
 
 // Quick-pick reaction emojis shown right on each comment - same set used
-// For story reactions elsewhere in the app, for a consistent feel.
+// for story reactions elsewhere in the app, for a consistent feel.
 export const COMMENT_REACTION_EMOJIS = ['😍', '😂', '😮', '😢', '🔥', '👏', '😡', '🙏']
 
 function tableConfig(target: CommentTarget) {
@@ -283,6 +283,30 @@ export function useSetCommentHidden(target: CommentTarget) {
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['comment-thread', target, vars.targetId] })
     },
+  })
+}
+
+// Full list of who reacted to a comment and with what emoji - fetched
+// on demand (only when the reaction breakdown popup is actually opened)
+// since most viewers never need this and it isn't part of the main
+// thread query.
+export function useCommentReactors(target: CommentTarget, commentId?: string, enabled = true) {
+  const supabase = createClient()
+  const cfg = tableConfig(target)
+
+  return useQuery({
+    queryKey: ['comment-reactors', target, commentId],
+    queryFn: async () => {
+      if (!commentId) return []
+      const { data, error } = await supabase
+        .from(cfg.reactions)
+        .select('emoji, created_at, profiles(*)')
+        .eq('comment_id', commentId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as unknown as { emoji: string; created_at: string; profiles: any }[]
+    },
+    enabled: enabled && !!commentId,
   })
 }
 
