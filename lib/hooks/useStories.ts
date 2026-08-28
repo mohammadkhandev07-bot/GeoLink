@@ -17,7 +17,7 @@ export interface StoryGroup {
 // past its 24h expires_at, so nothing extra needs to be checked here.
 // On top of each individual story's own "who can see this?" audience
 // (chosen when it was posted), this also respects the author's account-
-// wide Story Privacy default from Settings, so a change there applies
+// Wide Story Privacy default from Settings, so a change there applies
 // immediately without needing to touch every existing story row.
 export function useActiveStories(userId?: string) {
   const supabase = createClient()
