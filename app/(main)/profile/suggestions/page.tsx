@@ -32,11 +32,43 @@ export default function SuggestionsPage() {
         .from('profiles')
         .select('*')
         .eq('is_private', false)
-        .eq('search_privacy', 'everyone')
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(80)
 
-      return ((data as Profile[]) || []).filter(p => !excludeIds.has(p.id)).slice(0, 30)
+      const candidates = ((data as Profile[]) || []).filter(p => !excludeIds.has(p.id))
+      if (candidates.length === 0 || !user) return []
+
+      // Suggestions Privacy (Settings > Privacy > Suggestions Privacy) -
+      // separate from Search Result Privacy, so someone can be findable
+      // by search without necessarily being pushed into everyone's
+      // suggestions feed, or vice versa.
+      const ids = candidates.map(p => p.id)
+      const [{ data: iFollow }, { data: followMe }, { data: selectedMe }, { data: blockRows }] = await Promise.all([
+        supabase.from('follows').select('following_id').eq('follower_id', user.id).eq('status', 'accepted').in('following_id', ids),
+        supabase.from('follows').select('follower_id').eq('following_id', user.id).eq('status', 'accepted').in('follower_id', ids),
+        supabase.from('privacy_selected_users').select('owner_id').eq('category', 'suggestions').eq('selected_user_id', user.id).in('owner_id', ids),
+        supabase.from('blocks').select('blocker_id, blocked_id').or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`),
+      ])
+      const iFollowSet = new Set((iFollow || []).map((r: any) => r.following_id))
+      const followsMeSet = new Set((followMe || []).map((r: any) => r.follower_id))
+      const selectedMeSet = new Set((selectedMe || []).map((r: any) => r.owner_id))
+      const blockedRelationSet = new Set(
+        (blockRows || []).flatMap((b: any) => [b.blocker_id, b.blocked_id]).filter((id: string) => id !== user.id)
+      )
+
+      const visible = candidates.filter(p => {
+        if (blockedRelationSet.has(p.id)) return false
+        switch ((p as any).suggestions_privacy) {
+          case 'followers': return followsMeSet.has(p.id)
+          case 'following': return iFollowSet.has(p.id)
+          case 'selected': return selectedMeSet.has(p.id)
+          case 'none': return false
+          case 'everyone':
+          default: return true
+        }
+      })
+
+      return visible.slice(0, 30)
     },
     enabled: !!user,
   })
