@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 
 // Pages that already have their own dedicated back arrow / header bar
 // baked into the page itself - showing a second floating one on top of
-// those would just duplicate what's already there. Everything else in
+// Those would just duplicate what's already there. Everything else in
 // the app gets this floating button so there's always a consistent way
 // back, even on pages that don't otherwise have one.
 const EXACT_EXCLUDE = new Set([
