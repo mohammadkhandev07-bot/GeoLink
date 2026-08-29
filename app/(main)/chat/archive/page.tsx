@@ -93,7 +93,7 @@ export default function ArchivePage() {
 
   return (
     <div className="max-w-xl mx-auto">
-      <div className="sticky top-14 z-10 bg-background border-b px-4 py-3 flex items-center gap-3">
+      <div className="sticky top-14 z-20 bg-background border-b px-4 py-3 flex items-center gap-3">
         <button onClick={() => router.push('/chat')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </button>
