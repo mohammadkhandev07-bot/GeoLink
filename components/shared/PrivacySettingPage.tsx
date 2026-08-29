@@ -26,7 +26,7 @@ interface PrivacySettingPageProps {
 // and privacy_selected_users category, so all 8 of them behave and look
 // identically and only need to be built once.
 export function PrivacySettingPage({ pageTitle, icon, optionTitle, optionDescription, column, category, note }: PrivacySettingPageProps) {
-  const { user, profile, loading } = useUser()
+  const { user, profile, loading, refreshProfile } = useUser()
   const supabase = createClient()
   const [value, setValue] = useState<PrivacyLevel>('everyone')
 
@@ -39,6 +39,7 @@ export function PrivacySettingPage({ pageTitle, icon, optionTitle, optionDescrip
     if (!user) return
     setValue(v)
     await supabase.from('profiles').update({ [column]: v }).eq('id', user.id)
+    await refreshProfile()
   }
 
   if (loading) return <PageLoader />
