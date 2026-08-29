@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/lib/types/database.types'
@@ -51,5 +51,14 @@ export function useUser() {
     return () => subscription.unsubscribe()
   }, [])
 
-  return { user, profile, loading }
+  // Re-pulls the profile row from the database into local state - call
+  // this right after updating any profiles column elsewhere (a privacy
+  // toggle, dark mode, editing the bio, etc.) so the change shows up
+  // immediately instead of needing a full page refresh to see it.
+  const refreshProfile = useCallback(async () => {
+    if (!user) return
+    await fetchProfile(user.id)
+  }, [user?.id])
+
+  return { user, profile, loading, refreshProfile }
 }
