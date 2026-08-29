@@ -21,7 +21,7 @@ export function useUser() {
   }
 
   useEffect(() => {
-    // getSession use karo - localStorage se milega
+    // GetSession use karo - localStorage se milega
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       
