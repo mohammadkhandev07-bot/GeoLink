@@ -79,12 +79,43 @@ export function NotificationPanel() {
 
   const fetchNotifications = async () => {
     if (!user) return
-    const { data } = await supabase
+
+    const { data: myProfile } = await supabase
+      .from('profiles')
+      .select('notifications_muted')
+      .eq('id', user.id)
+      .single()
+
+    if ((myProfile as any)?.notifications_muted) {
+      setNotifications([])
+      setUnreadCount(0)
+      setBadge(0)
+      prevCountRef.current = 0
+      return
+    }
+
+    const { data: onlyFrom } = await supabase
+      .from('privacy_selected_users')
+      .select('selected_user_id')
+      .eq('owner_id', user.id)
+      .eq('category', 'notify')
+    const allowedActorIds = (onlyFrom || []).map((r: any) => r.selected_user_id)
+
+    let query = supabase
       .from('notifications')
       .select('*, actor:profiles!notifications_actor_id_fkey(id, username, avatar_url)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(30)
+
+    // "Notify me about" list (Settings > Notifications) - when the user
+    // has picked specific people, only their activity shows up here.
+    // An empty list means no restriction (notified about everyone).
+    if (allowedActorIds.length > 0) {
+      query = query.in('actor_id', allowedActorIds)
+    }
+
+    const { data } = await query
 
     if (data) {
       setNotifications(data as Notification[])
