@@ -22,6 +22,7 @@ export type Profile = {
   post_comment_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   story_comment_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   call_privacy: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
+  notifications_muted: boolean
   notify_messages: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   notify_posts: 'everyone' | 'followers' | 'following' | 'selected' | 'none'
   is_verified: boolean
