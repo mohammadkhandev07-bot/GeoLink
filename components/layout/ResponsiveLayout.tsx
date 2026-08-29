@@ -12,9 +12,15 @@ export function ResponsiveLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   // On phones only, an open conversation or the Aperonix chatbot should
   // take the whole screen the way every other chat app does - the top
-  // Navbar and bottom tab bar were eating into already-tight space there.
+  // navbar and bottom tab bar were eating into already-tight space there.
   // Desktop has plenty of room, so it keeps the normal chrome around it.
-  const isImmersivePage = /^\/chat\/[^/]+$/.test(pathname || '') || pathname === '/aperonix' || pathname === '/reels'
+  // /chat/archive is a static page, NOT a chat thread - it must not match
+  // the /chat/[chatId] pattern below, or the navbar disappears on mobile
+  // there too and the page's own sticky header ends up overlapping its
+  // first list item (there's no more navbar height for it to stick under).
+  const isImmersivePage =
+    (/^\/chat\/[^/]+$/.test(pathname || '') && pathname !== '/chat/archive') ||
+    pathname === '/aperonix' || pathname === '/reels'
 
   return (
     <CallProvider>
