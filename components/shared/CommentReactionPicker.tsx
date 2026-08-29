@@ -16,7 +16,7 @@ const PICKER_HEIGHT = 84
 // A tiny quick-pick emoji grid for reacting to a comment. Positioned with
 // `fixed` + coordinates read straight off the React button (not `absolute`
 // inside the comment), so it's never clipped by a comment list's own
-// scroll container - which is exactly what happened when this opened on
+// Scroll container - which is exactly what happened when this opened on
 // a comment sitting near the top of a scrollable panel (e.g. the first
 // comment in a story's comments sheet): it flips to open downward
 // instead of upward whenever there isn't room above, and stays clear of
