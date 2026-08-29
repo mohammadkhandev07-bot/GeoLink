@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { Heart, MoreHorizontal, Trash2, EyeOff, Eye, MessageCircle } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -32,6 +32,7 @@ interface CommentItemProps {
 export function CommentItem({ comment, target, targetId, currentUserId, ownerId, isReply, onReply }: CommentItemProps) {
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [showReactorsList, setShowReactorsList] = useState(false)
+  const reactButtonRef = useRef<HTMLButtonElement>(null)
 
   const toggleLike = useToggleCommentLike(target)
   const setReaction = useSetCommentReaction(target)
@@ -63,7 +64,7 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
     .slice(0, 3)
     .map(([emoji]) => emoji)
   // Only the post/story owner gets to see who reacted and with what -
-  // Everyone else just sees the compact count, same as everyone else's view.
+  // everyone else just sees the compact count, same as everyone else's view.
   const isOwnerViewing = !!currentUserId && !!ownerId && currentUserId === ownerId
 
   return (
@@ -110,13 +111,16 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
 
           <div className="relative">
             <button
+              ref={reactButtonRef}
               onClick={() => setShowReactionPicker((v) => !v)}
               disabled={!currentUserId}
               className={`font-semibold hover:text-foreground ${comment.my_reaction ? 'text-foreground' : ''}`}
             >
               {comment.my_reaction ? comment.my_reaction : 'React'}
             </button>
-            {showReactionPicker && <CommentReactionPicker onSelect={handleReact} onClose={() => setShowReactionPicker(false)} />}
+            {showReactionPicker && (
+              <CommentReactionPicker anchorRef={reactButtonRef} onSelect={handleReact} onClose={() => setShowReactionPicker(false)} />
+            )}
           </div>
 
           <button
