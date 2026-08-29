@@ -2,49 +2,36 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Bell, MessageCircle, Image as ImageIcon } from 'lucide-react'
+import { ChevronLeft, Bell, BellOff, Users } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
 import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
-import { PrivacyOptionSelector, PrivacyLevel } from '@/components/shared/PrivacyOptionSelector'
+import { SelectedPeoplePicker } from '@/components/shared/SelectedPeoplePicker'
 
 export default function NotificationsSettingsPage() {
-  const { user, loading } = useUser()
+  const { user, profile, loading, refreshProfile } = useUser()
   const supabase = createClient()
   const [pushEnabled, setPushEnabled] = useState(true)
-  const [notifyMessages, setNotifyMessages] = useState<PrivacyLevel>('everyone')
-  const [notifyPosts, setNotifyPosts] = useState<PrivacyLevel>('everyone')
+  const [muted, setMuted] = useState(false)
 
   useEffect(() => {
-    if (!user) return
-    const load = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('notify_messages, notify_posts')
-        .eq('id', user.id)
-        .single()
-      if (data) {
-        setNotifyMessages((data as any).notify_messages || 'everyone')
-        setNotifyPosts((data as any).notify_posts || 'everyone')
-      }
-      const stored = localStorage.getItem('socialens-push-enabled')
-      setPushEnabled(stored !== 'false')
-    }
-    load()
-  }, [user])
+    if (profile) setMuted(!!(profile as any).notifications_muted)
+    const stored = localStorage.getItem('socialens-push-enabled')
+    setPushEnabled(stored !== 'false')
+  }, [profile])
 
   const togglePush = (checked: boolean) => {
     setPushEnabled(checked)
     localStorage.setItem('socialens-push-enabled', String(checked))
   }
 
-  const updateField = async (field: 'notify_messages' | 'notify_posts', value: PrivacyLevel) => {
+  const toggleMuted = async (checked: boolean) => {
     if (!user) return
-    if (field === 'notify_messages') setNotifyMessages(value)
-    if (field === 'notify_posts') setNotifyPosts(value)
-    await supabase.from('profiles').update({ [field]: value }).eq('id', user.id)
+    setMuted(checked)
+    await supabase.from('profiles').update({ notifications_muted: checked }).eq('id', user.id)
+    await refreshProfile()
   }
 
   if (loading) return <PageLoader />
@@ -61,7 +48,6 @@ export default function NotificationsSettingsPage() {
 
       <Card>
         <CardContent className="pt-4 divide-y">
-          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide pb-2">Push Notifications</p>
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
               <Bell className="h-5 w-5" />
@@ -74,38 +60,36 @@ export default function NotificationsSettingsPage() {
             </div>
             <Switch checked={pushEnabled} onCheckedChange={togglePush} />
           </div>
+
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              <BellOff className="h-5 w-5" />
+              <div>
+                <p className="text-sm font-medium">All Notifications</p>
+                <p className="text-xs text-muted-foreground max-w-[220px]">
+                  Turn this on and no notifications will come in at all, from anyone
+                </p>
+              </div>
+            </div>
+            <Switch checked={muted} onCheckedChange={toggleMuted} />
+          </div>
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground px-1">
-        By default you're notified about everything. Change these anytime - if you never touch them, nothing changes.
-      </p>
-
-      <div>
-        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2 px-1">Message Notifications</p>
-        <PrivacyOptionSelector
-          icon={<MessageCircle className="h-5 w-5" />}
-          title="Who's messages notify you"
-          description="Choose whose messages should trigger a notification"
-          value={notifyMessages}
-          onChange={v => updateField('notify_messages', v)}
-          category="notify_message"
-          userId={user.id}
-        />
-      </div>
-
-      <div>
-        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2 px-1">Post Notifications</p>
-        <PrivacyOptionSelector
-          icon={<ImageIcon className="h-5 w-5" />}
-          title="Whose new posts notify you"
-          description="Choose whose new posts should trigger a notification"
-          value={notifyPosts}
-          onChange={v => updateField('notify_posts', v)}
-          category="notify_post"
-          userId={user.id}
-        />
-      </div>
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-3 mb-1">
+            <Users className="h-5 w-5" />
+            <div>
+              <p className="text-sm font-semibold">Notify me about</p>
+              <p className="text-xs text-muted-foreground">Choose whose activity (likes, comments, messages, follows) notifies you</p>
+            </div>
+          </div>
+          <div className="pt-2">
+            <SelectedPeoplePicker userId={user.id} category="notify" emptyHint="Leave empty to get notified about everyone. Add people to only get notified about them." />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
