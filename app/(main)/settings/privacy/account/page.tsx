@@ -18,7 +18,7 @@ import { useState } from 'react'
 const LOCK_DOWN_FIELDS = ['post_privacy', 'story_privacy', 'message_privacy', 'call_privacy'] as const
 
 export default function AccountPrivacyPage() {
-  const { user, profile, loading } = useUser()
+  const { user, profile, loading, refreshProfile } = useUser()
   const supabase = createClient()
   const [privacyLoading, setPrivacyLoading] = useState(false)
 
@@ -31,6 +31,7 @@ export default function AccountPrivacyPage() {
       update[field] = goingPrivate ? 'following' : 'everyone'
     }
     await supabase.from('profiles').update(update).eq('id', user.id)
+    await refreshProfile()
     setPrivacyLoading(false)
   }
 
