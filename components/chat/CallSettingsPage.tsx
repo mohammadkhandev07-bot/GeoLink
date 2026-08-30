@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Check, Play, Volume2, Volume1, VolumeX } from 'lucide-react'
 import { RINGTONES, previewRingtone, stopRingtone } from '@/lib/utils/ringtone'
 import { useCallSettings, useUpdateCallSettings } from '@/lib/hooks/useChatSettings'
@@ -20,10 +20,20 @@ export function CallSettingsPage({ userId, onBack }: CallSettingsPageProps) {
   const updateSettings = useUpdateCallSettings()
   const [previewing, setPreviewing] = useState<string | null>(null)
 
-  const ringtone = settings?.ringtone
-  const volume = settings?.volume ?? 1
+  // Local, optimistic copies - the buttons/slider read from these instead
+  // of straight off the fetched `settings`, so a tap updates the
+  // checkmark and the volume readout instantly instead of waiting on a
+  // network round trip (which was the "need to refresh" bug).
+  const [ringtone, setRingtone] = useState<string | undefined>(settings?.ringtone)
+  const [volume, setVolume] = useState(settings?.volume ?? 1)
+
+  useEffect(() => {
+    if (settings?.ringtone) setRingtone(settings.ringtone)
+    if (settings?.volume !== undefined) setVolume(settings.volume)
+  }, [settings?.ringtone, settings?.volume])
 
   const handleSelectRingtone = (id: string) => {
+    setRingtone(id)
     updateSettings.mutate({ userId, ringtone: id })
     setPreviewing(id)
     previewRingtone(id, volume)
@@ -31,6 +41,7 @@ export function CallSettingsPage({ userId, onBack }: CallSettingsPageProps) {
   }
 
   const handleVolumeChange = (v: number) => {
+    setVolume(v)
     updateSettings.mutate({ userId, volume: v })
   }
 
