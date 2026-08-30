@@ -176,6 +176,11 @@ export function useToggleBlock() {
       } else {
         const { error } = await supabase.from('blocks').delete().eq('blocker_id', blockerId).eq('blocked_id', blockedId)
         if (error) throw error
+        await supabase.from('notifications').insert({
+          user_id: blockedId,
+          actor_id: blockerId,
+          type: 'unblocked',
+        })
       }
     },
     onSuccess: (_, { blockerId, blockedId }) => {
