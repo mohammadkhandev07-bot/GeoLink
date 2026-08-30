@@ -10,7 +10,7 @@ import { Profile } from '@/lib/types/database.types'
 export const STORY_REACTION_EMOJIS = ['😍', '😂', '😮', '😢', '🔥', '👏', '😡', '🙏']
 
 // ------------------------------------------------------------------
-// Likes Function
+// Likes
 // ------------------------------------------------------------------
 export function useStoryLike(storyId?: string, userId?: string) {
   const supabase = createClient()
@@ -36,13 +36,18 @@ export function useToggleStoryLike() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ storyId, userId, liked }: { storyId: string; userId: string; liked: boolean }) => {
+    mutationFn: async ({ storyId, userId, liked, storyOwnerId }: { storyId: string; userId: string; liked: boolean; storyOwnerId?: string }) => {
       if (liked) {
         const { error } = await supabase.from('story_likes').delete().eq('story_id', storyId).eq('user_id', userId)
         if (error) throw error
       } else {
         const { error } = await supabase.from('story_likes').insert({ story_id: storyId, user_id: userId })
         if (error) throw error
+        if (storyOwnerId && storyOwnerId !== userId) {
+          await supabase.from('notifications').insert({
+            user_id: storyOwnerId, actor_id: userId, type: 'story_like', story_id: storyId,
+          })
+        }
       }
     },
     onSuccess: (_, { storyId, userId }) => {
@@ -78,11 +83,16 @@ export function useSetStoryReaction() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ storyId, userId, emoji }: { storyId: string; userId: string; emoji: string }) => {
+    mutationFn: async ({ storyId, userId, emoji, storyOwnerId }: { storyId: string; userId: string; emoji: string; storyOwnerId?: string }) => {
       const { error } = await supabase
         .from('story_reactions')
         .upsert({ story_id: storyId, user_id: userId, emoji }, { onConflict: 'story_id,user_id' })
       if (error) throw error
+      if (storyOwnerId && storyOwnerId !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: storyOwnerId, actor_id: userId, type: 'story_react', emoji, story_id: storyId,
+        })
+      }
     },
     onSuccess: (_, { storyId, userId }) => {
       queryClient.invalidateQueries({ queryKey: ['story-reaction', storyId, userId] })
