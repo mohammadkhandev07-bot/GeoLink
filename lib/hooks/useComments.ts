@@ -9,7 +9,7 @@ export type CommentTarget = 'post' | 'story'
 
 // Quick-pick reaction emojis shown right on each comment - same set used
 // for story reactions elsewhere in the app, for a consistent feel.
-export const COMMENT_REACTION_EMOJIS = ['😍', '😂', '😮', '😢', '🔥', '👏', '😡', '🙏']
+export const COMMENT_REACTION_EMOJIS = ['😂', '🤣', '😭', '🥺', '😄', '😊', '🙂', '😅', '🫠', '😎', '😍', '🥰', '❤️', '💖', '✨', '🔥', '💯', '👍', '🙌', '🤝', 👏', '✌️', '🤞', '🙏', '🤔', '🙄', '🤦‍♂️', '🤷‍♂️', '😳', '😮', '😬', '💀', '🤡']
 
 function tableConfig(target: CommentTarget) {
   return target === 'story'
