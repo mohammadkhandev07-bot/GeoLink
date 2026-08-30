@@ -132,7 +132,7 @@ export default function SavedPostsPage() {
   return (
     <div className="max-w-xl mx-auto pb-20">
       <div className="sticky top-14 z-10 bg-background border-b px-4 py-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pl-9 lg:pl-0">
           {selectedFolderId ? (
             <button onClick={() => setSelectedFolderId(null)} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-5 w-5" />
@@ -142,7 +142,7 @@ export default function SavedPostsPage() {
           )}
           <h1 className="text-xl font-bold">{selectedFolder ? selectedFolder.name : 'Saved Posts'}</h1>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5 pl-9 lg:pl-0">
           {selectedFolderId ? `${savedPosts.length} saved posts` : `${folders.length}/${MAX_SAVED_FOLDERS} folders`}
         </p>
       </div>
