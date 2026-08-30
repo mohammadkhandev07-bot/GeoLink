@@ -17,7 +17,7 @@ interface CommentThreadProps {
    *  overlay panel) vs the roomier feed card layout. */
   variant?: 'compact' | 'default'
   /** Hide the "add a comment" composer entirely (e.g. story owners don't
-   *  Post fresh top-level comments on their own story, same as before -
+   *  post fresh top-level comments on their own story, same as before -
    *  they can still like/react/reply to existing ones). */
   hideComposer?: boolean
   className?: string
@@ -39,11 +39,7 @@ export function CommentThread({
   const addComment = useAddComment(target)
 
   const [input, setInput] = useState('')
-  const [replyTo, setReplyTo] = useState<{ topLevelId: string; username: string } | null>(null)
-
-  const handleReply = (topLevelId: string, username: string) => {
-    setReplyTo({ topLevelId, username })
-  }
+  const [replyTo, setReplyTo] = useState<{ topLevelId: string; commentId: string; userId: string; username: string; content: string } | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,6 +50,9 @@ export function CommentThread({
       content: input.trim(),
       replyParentId: replyTo?.topLevelId,
       ownerId,
+      replyToCommentId: replyTo?.commentId,
+      replyToUserId: replyTo?.userId,
+      replyToContent: replyTo?.content,
     })
     setInput('')
     setReplyTo(null)
@@ -75,7 +74,7 @@ export function CommentThread({
               targetId={targetId}
               currentUserId={currentUserId}
               ownerId={ownerId}
-              onReply={handleReply}
+              onReply={setReplyTo}
             />
           ))
         )}
