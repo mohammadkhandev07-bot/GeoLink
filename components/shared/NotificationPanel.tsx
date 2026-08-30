@@ -11,12 +11,22 @@ import { cn } from '@/lib/utils/helpers'
 
 interface Notification {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'unfollow' | 'message' | 'blocked'
+  type:
+    | 'like' | 'comment' | 'follow' | 'unfollow' | 'message' | 'new_post'
+    | 'blocked' | 'unblocked'
+    | 'share_post' | 'photo' | 'video' | 'voice_message'
+    | 'story_reply' | 'message_reply' | 'repost'
+    | 'comment_like' | 'comment_react' | 'comment_reply'
+    | 'story_like' | 'story_react' | 'story_comment'
+    | 'story_comment_like' | 'story_comment_react' | 'story_comment_reply'
   is_read: boolean
   created_at: string
   message: string | null
+  context_text: string | null
+  emoji: string | null
   post_id: string | null
   story_id: string | null
+  comment_id: string | null
   actor: { id: string; username: string; avatar_url: string | null }
 }
 
@@ -53,28 +63,55 @@ export function NotificationPanel() {
   const prevCountRef = useRef(0)
   const supabase = createClient()
 
+  const clip = (s: string | null, n = 40) => (s && s.length > n ? `${s.slice(0, n)}...` : s || '')
+
   const getNotifText = (n: Notification) => {
     switch (n.type) {
-      case 'like': return n.story_id ? 'liked your story' : 'liked your post'
-      case 'comment': return n.story_id ? `commented on your story: "${n.message?.slice(0, 40)}"` : `commented: "${n.message?.slice(0, 40)}"`
+      case 'like': return 'liked your post'
+      case 'comment': return `commented on your post: "${clip(n.message)}"`
       case 'follow': return 'started following you'
       case 'unfollow': return 'unfollowed you'
-      case 'message': return `sent you a message`
+      case 'message': return 'sent you a message'
       case 'blocked': return 'blocked you'
+      case 'unblocked': return 'unblocked you'
+      case 'new_post': return 'shared a new post'
+      case 'share_post': return 'shared a post with you'
+      case 'photo': return 'sent a photo'
+      case 'video': return 'sent a video'
+      case 'voice_message': return 'sent a voice message'
+      case 'story_reply': return `replied to your story: "${clip(n.message)}"`
+      case 'message_reply': return `replied to your message: "${clip(n.message)}"`
+      case 'repost': return 'reposted your post'
+      case 'comment_like': return `liked your comment: "${clip(n.message)}"`
+      case 'comment_react': return `reacted ${n.emoji ?? ''} to your comment: "${clip(n.message)}"`
+      case 'comment_reply': return `replied to your comment "${clip(n.context_text, 25)}": "${clip(n.message)}"`
+      case 'story_like': return 'liked your story'
+      case 'story_react': return `reacted ${n.emoji ?? ''} to your story`
+      case 'story_comment': return `commented on your story: "${clip(n.message)}"`
+      case 'story_comment_like': return `liked your story comment: "${clip(n.message)}"`
+      case 'story_comment_react': return `reacted ${n.emoji ?? ''} to your story comment: "${clip(n.message)}"`
+      case 'story_comment_reply': return `replied to your story comment "${clip(n.context_text, 25)}": "${clip(n.message)}"`
       default: return ''
     }
   }
 
   const getNotifLink = (n: Notification) => {
     switch (n.type) {
-      // Stories live at the top of the feed - there's no separate story URL,
-      // so this opens the feed where the person can tap the story ring.
-      case 'like': case 'comment': return '/feed'
+      // Feed/story links stay generic - there's no deep-link-to-a-specific-
+      // post or story route yet, so these just open the feed, same as before.
+      case 'like': case 'comment': case 'new_post': case 'repost':
+      case 'comment_like': case 'comment_react': case 'comment_reply':
+      case 'story_like': case 'story_react': case 'story_comment':
+      case 'story_comment_like': case 'story_comment_react': case 'story_comment_reply':
+        return '/feed'
       case 'follow': case 'unfollow': return `/profile/${n.actor?.username}`
-      case 'message': return '/chat'
-      case 'blocked': return '/'
+      case 'message': case 'message_reply': case 'story_reply': case 'share_post':
+      case 'photo': case 'video': case 'voice_message':
+        return '/chat'
+      case 'blocked': case 'unblocked': return '/'
       default: return '/feed'
     }
+
   }
 
   const fetchNotifications = async () => {
@@ -123,10 +160,15 @@ export function NotificationPanel() {
       setUnreadCount(unread)
       setBadge(unread)
 
-      // Show native push notification if new one arrived while app was in background
+      // Show a native OS notification when something new arrives while
+      // the tab is backgrounded - except for chat messages, which
+      // already get their own dedicated push notification sent straight
+      // from the server the moment they're sent (see sendMessage in
+      // useRealtimeMessages.ts). Doing it here too was firing a second,
+      // duplicate notification for the exact same message.
       if (unread > prevCountRef.current && document.hidden) {
         const newest = data.find(n => !n.is_read)
-        if (newest) {
+        if (newest && newest.type !== 'message') {
           await showNativeNotification('SociaLens', `${newest.actor?.username} ${getNotifText(newest)}`, getNotifLink(newest))
         }
       }
