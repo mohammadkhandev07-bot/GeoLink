@@ -43,7 +43,7 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
     if (!videoRef.current) return
     if (isActive && !showComments && !showShare) {
       // Browsers can block autoplay-with-sound without a prior tap on the
-      // Page - if that happens, fall back to starting muted rather than
+      // page - if that happens, fall back to starting muted rather than
       // The video just not playing at all, and let the mute button take
       // over from there.
       videoRef.current.play().catch(() => {
@@ -183,8 +183,9 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
         </div>
       </div>
 
-      {/* Mute - top-left, out of the way of everything else */}
-      <button onClick={onToggleMute} className="absolute top-3 left-3 z-20">
+      {/* Mute - top-right, so it stays clear of the back button which
+          now also lives in this reel's top-left corner. */}
+      <button onClick={onToggleMute} className="absolute top-3 right-3 z-20">
         <div className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm">
           {isMuted ? <VolumeX className="h-4 w-4 text-white" /> : <Volume2 className="h-4 w-4 text-white" />}
         </div>
