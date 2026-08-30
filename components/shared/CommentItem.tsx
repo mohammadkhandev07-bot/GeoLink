@@ -26,7 +26,7 @@ interface CommentItemProps {
   currentUserId?: string
   ownerId?: string
   isReply?: boolean
-  onReply: (topLevelId: string, username: string) => void
+  onReply: (target: { topLevelId: string; commentId: string; userId: string; username: string; content: string }) => void
 }
 
 export function CommentItem({ comment, target, targetId, currentUserId, ownerId, isReply, onReply }: CommentItemProps) {
@@ -45,7 +45,10 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
 
   const handleLike = () => {
     if (!currentUserId) return
-    toggleLike.mutate({ commentId: comment.id, userId: currentUserId, liked: comment.is_liked, targetId })
+    toggleLike.mutate({
+      commentId: comment.id, userId: currentUserId, liked: comment.is_liked, targetId,
+      commentAuthorId: comment.user_id, commentContent: comment.content,
+    })
   }
 
   const handleReact = (emoji: string) => {
@@ -53,7 +56,10 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
     if (comment.my_reaction === emoji) {
       removeReaction.mutate({ commentId: comment.id, userId: currentUserId, targetId })
     } else {
-      setReaction.mutate({ commentId: comment.id, userId: currentUserId, emoji, targetId })
+      setReaction.mutate({
+        commentId: comment.id, userId: currentUserId, emoji, targetId,
+        commentAuthorId: comment.user_id, commentContent: comment.content,
+      })
     }
     setShowReactionPicker(false)
   }
@@ -124,7 +130,15 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
           </div>
 
           <button
-            onClick={() => onReply(isReply ? (comment.parent_id as string) : comment.id, comment.profiles?.username)}
+            onClick={() =>
+              onReply({
+                topLevelId: isReply ? (comment.parent_id as string) : comment.id,
+                commentId: comment.id,
+                userId: comment.user_id,
+                username: comment.profiles?.username,
+                content: comment.content,
+              })
+            }
             disabled={!currentUserId}
             className="font-semibold hover:text-foreground"
           >
