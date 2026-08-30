@@ -10,6 +10,7 @@ export type CommentTarget = 'post' | 'story'
 // Quick-pick reaction emojis shown right on each comment - same set used
 // for story reactions elsewhere in the app, for a consistent feel.
 export const COMMENT_REACTION_EMOJIS = ['😍', '😂', '😮', '😢', '🔥', '👏', '😡', '🙏']
+
 function tableConfig(target: CommentTarget) {
   return target === 'story'
     ? {
@@ -18,6 +19,10 @@ function tableConfig(target: CommentTarget) {
         reactions: 'story_comment_reactions',
         deletes: 'story_comment_deletes',
         parentField: 'story_id' as const,
+        notifyComment: 'story_comment' as const,
+        notifyCommentLike: 'story_comment_like' as const,
+        notifyCommentReact: 'story_comment_react' as const,
+        notifyCommentReply: 'story_comment_reply' as const,
       }
     : {
         comments: 'comments',
@@ -25,6 +30,10 @@ function tableConfig(target: CommentTarget) {
         reactions: 'comment_reactions',
         deletes: 'comment_deletes',
         parentField: 'post_id' as const,
+        notifyComment: 'comment' as const,
+        notifyCommentLike: 'comment_like' as const,
+        notifyCommentReact: 'comment_react' as const,
+        notifyCommentReply: 'comment_reply' as const,
       }
 }
 
@@ -153,6 +162,9 @@ export function useAddComment(target: CommentTarget) {
       content,
       replyParentId,
       ownerId,
+      replyToCommentId,
+      replyToUserId,
+      replyToContent,
     }: {
       targetId: string
       userId: string
@@ -163,6 +175,13 @@ export function useAddComment(target: CommentTarget) {
       replyParentId?: string
       /** Post/story owner - notified about the new comment, same as before. */
       ownerId?: string
+      /** The id/author/text of the SPECIFIC comment or reply the Reply
+       *  button was pressed on - used only to notify that person
+       *  ("replied to your comment"), separate from replyParentId which is
+       *  purely about where the row nests in the thread. */
+      replyToCommentId?: string
+      replyToUserId?: string
+      replyToContent?: string
     }) => {
       const insertRow: Record<string, any> = { [cfg.parentField]: targetId, user_id: userId, content: content.trim() }
       if (replyParentId) insertRow.parent_id = replyParentId
@@ -171,12 +190,36 @@ export function useAddComment(target: CommentTarget) {
 
       if (target === 'post') {
         await supabase.rpc('increment_comments', { post_id: targetId })
-        if (ownerId && ownerId !== userId) {
-          await supabase.from('notifications').insert({
-            user_id: ownerId, actor_id: userId, type: 'comment', message: content.trim(), post_id: targetId,
-          })
-        }
       }
+
+      // The post/story owner hears about every comment left on their
+      // content, including replies - a reply is still a comment on their post/story.
+      if (ownerId && ownerId !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: ownerId,
+          actor_id: userId,
+          type: cfg.notifyComment,
+          message: content.trim(),
+          comment_id: data.id,
+          ...(target === 'post' ? { post_id: targetId } : { story_id: targetId }),
+        })
+      }
+
+      // The person being replied to hears about it too, separately from
+      // the owner notification above (and never doubles up with it when
+      // the owner IS the person being replied to).
+      if (replyToCommentId && replyToUserId && replyToUserId !== userId && replyToUserId !== ownerId) {
+        await supabase.from('notifications').insert({
+          user_id: replyToUserId,
+          actor_id: userId,
+          type: cfg.notifyCommentReply,
+          message: content.trim(),
+          context_text: replyToContent ?? null,
+          comment_id: replyToCommentId,
+          ...(target === 'post' ? { post_id: targetId } : { story_id: targetId }),
+        })
+      }
+
       return data
     },
     onSuccess: (_data, vars) => {
@@ -191,13 +234,37 @@ export function useToggleCommentLike(target: CommentTarget) {
   const cfg = tableConfig(target)
 
   return useMutation({
-    mutationFn: async ({ commentId, userId, liked }: { commentId: string; userId: string; liked: boolean; targetId: string }) => {
+    mutationFn: async ({
+      commentId,
+      userId,
+      liked,
+      commentAuthorId,
+      commentContent,
+    }: {
+      commentId: string
+      userId: string
+      liked: boolean
+      targetId: string
+      /** Who wrote the comment and what it said - only used to send them
+       *  a "liked your comment" notification when liking (not unliking). */
+      commentAuthorId?: string
+      commentContent?: string
+    }) => {
       if (liked) {
         const { error } = await supabase.from(cfg.likes).delete().eq('comment_id', commentId).eq('user_id', userId)
         if (error) throw error
       } else {
         const { error } = await supabase.from(cfg.likes).insert({ comment_id: commentId, user_id: userId })
         if (error) throw error
+        if (commentAuthorId && commentAuthorId !== userId) {
+          await supabase.from('notifications').insert({
+            user_id: commentAuthorId,
+            actor_id: userId,
+            type: cfg.notifyCommentLike,
+            message: commentContent ?? null,
+            comment_id: commentId,
+          })
+        }
       }
     },
     onSuccess: (_d, vars) => {
@@ -212,11 +279,34 @@ export function useSetCommentReaction(target: CommentTarget) {
   const cfg = tableConfig(target)
 
   return useMutation({
-    mutationFn: async ({ commentId, userId, emoji }: { commentId: string; userId: string; emoji: string; targetId: string }) => {
+    mutationFn: async ({
+      commentId,
+      userId,
+      emoji,
+      commentAuthorId,
+      commentContent,
+    }: {
+      commentId: string
+      userId: string
+      emoji: string
+      targetId: string
+      commentAuthorId?: string
+      commentContent?: string
+    }) => {
       const { error } = await supabase
         .from(cfg.reactions)
         .upsert({ comment_id: commentId, user_id: userId, emoji }, { onConflict: 'comment_id,user_id' })
       if (error) throw error
+      if (commentAuthorId && commentAuthorId !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: commentAuthorId,
+          actor_id: userId,
+          type: cfg.notifyCommentReact,
+          message: commentContent ?? null,
+          emoji,
+          comment_id: commentId,
+        })
+      }
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['comment-thread', target, vars.targetId] })
