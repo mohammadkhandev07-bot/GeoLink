@@ -38,7 +38,7 @@ interface StoryViewerProps {
 
 // Figures out which scene should be showing right now, given how far into
 // the story's total duration we are - mirrors how the timeline strip laid
-// Scenes out one after another in the composer. Works for either text or
+// scenes out one after another in the composer. Works for either text or
 // photo scenes since both just need { duration }.
 function getActiveScene<T extends { duration: number }>(scenes: T[] | null, elapsedSeconds: number): T | null {
   if (!scenes || scenes.length === 0) return null
@@ -331,7 +331,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
 
   const handleLike = () => {
     if (!currentUserId || !likeData) return
-    toggleLike.mutate({ storyId: story.id, userId: currentUserId, liked: likeData.liked })
+    toggleLike.mutate({ storyId: story.id, userId: currentUserId, liked: likeData.liked, storyOwnerId: story.user_id })
   }
 
   const handleReact = (emoji: string) => {
@@ -339,7 +339,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
     if (myReaction === emoji) {
       removeReaction.mutate({ storyId: story.id, userId: currentUserId })
     } else {
-      setReaction.mutate({ storyId: story.id, userId: currentUserId, emoji })
+      setReaction.mutate({ storyId: story.id, userId: currentUserId, emoji, storyOwnerId: story.user_id })
     }
     setShowReactionBar(false)
   }
