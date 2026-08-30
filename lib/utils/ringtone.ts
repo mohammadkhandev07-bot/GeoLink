@@ -65,7 +65,10 @@ let intervalId: ReturnType<typeof setInterval> | null = null
 function playPattern(pattern: [number, number, number][], volume: number) {
   if (!audioCtx) return
   const now = audioCtx.currentTime
-  const peak = 0.15 * Math.max(0, Math.min(1, volume))
+  // At volume=1 (100%) this should actually ring at full, phone-ringer
+  // loudness - it was capped at just 15% gain before, which is why "100%"
+  // still sounded faint. 0.9 leaves a hair of headroom so nothing clips.
+  const peak = 0.9 * Math.max(0, Math.min(1, volume))
   for (const [freq, startOffset, duration] of pattern) {
     const osc = audioCtx.createOscillator()
     const gain = audioCtx.createGain()
