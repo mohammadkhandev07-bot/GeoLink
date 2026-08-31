@@ -167,14 +167,21 @@ export function NotificationPanel() {
       setBadge(unread)
 
       // Show a native OS notification when something new arrives while
-      // the tab is backgrounded - except for chat messages, which
-      // already get their own dedicated push notification sent straight
-      // from the server the moment they're sent (see sendMessage in
-      // useRealtimeMessages.ts). Doing it here too was firing a second,
-      // duplicate notification for the exact same message.
+      // the tab is backgrounded - except for anything chat/call related,
+      // which already gets its own dedicated push notification sent
+      // straight from the server the instant it's sent or started (see
+      // sendMessage in useRealtimeMessages.ts and startCall in
+      // useCall.ts). Doing it here too was firing a second, duplicate
+      // notification for the same message/photo/video/voice
+      // note/shared post/reply/call every time - this covers every type
+      // that route already handles, not just plain text messages.
+      const CHAT_AND_CALL_TYPES = new Set([
+        'message', 'photo', 'video', 'voice_message', 'share_post',
+        'story_reply', 'message_reply', 'call',
+      ])
       if (unread > prevCountRef.current && document.hidden) {
         const newest = data.find(n => !n.is_read)
-        if (newest && newest.type !== 'message') {
+        if (newest && !CHAT_AND_CALL_TYPES.has(newest.type)) {
           await showNativeNotification('SociaLens', `${newest.actor?.username} ${getNotifText(newest)}`, getNotifLink(newest))
         }
       }
