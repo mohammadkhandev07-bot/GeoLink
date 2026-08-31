@@ -19,6 +19,7 @@ interface Notification {
     | 'comment_like' | 'comment_react' | 'comment_reply'
     | 'story_like' | 'story_react' | 'story_comment'
     | 'story_comment_like' | 'story_comment_react' | 'story_comment_reply'
+    | 'call'
   is_read: boolean
   created_at: string
   message: string | null
@@ -91,6 +92,11 @@ export function NotificationPanel() {
       case 'story_comment_like': return `liked your story comment: "${clip(n.message)}"`
       case 'story_comment_react': return `reacted ${n.emoji ?? ''} to your story comment: "${clip(n.message)}"`
       case 'story_comment_reply': return `replied to your story comment "${clip(n.context_text, 25)}": "${clip(n.message)}"`
+      case 'call':
+        return n.message === 'missed' ? 'missed call'
+          : n.message === 'rejected' ? 'call declined'
+          : n.message === 'cancelled' ? 'cancelled call'
+          : 'called you'
       default: return ''
     }
   }
@@ -98,7 +104,7 @@ export function NotificationPanel() {
   const getNotifLink = (n: Notification) => {
     switch (n.type) {
       // Feed/story links stay generic - there's no deep-link-to-a-specific-
-      // Post or story route yet, so these just open the feed, same as before.
+      // post or story route yet, so these just open the feed, same as before.
       case 'like': case 'comment': case 'new_post': case 'repost':
       case 'comment_like': case 'comment_react': case 'comment_reply':
       case 'story_like': case 'story_react': case 'story_comment':
@@ -106,7 +112,7 @@ export function NotificationPanel() {
         return '/feed'
       case 'follow': case 'unfollow': return `/profile/${n.actor?.username}`
       case 'message': case 'message_reply': case 'story_reply': case 'share_post':
-      case 'photo': case 'video': case 'voice_message':
+      case 'photo': case 'video': case 'voice_message': case 'call':
         return '/chat'
       case 'blocked': case 'unblocked': return '/'
       default: return '/feed'
