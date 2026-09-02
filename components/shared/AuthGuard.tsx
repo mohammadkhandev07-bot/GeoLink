@@ -49,7 +49,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!ready) return <PageLoader />
   // The appeal page itself has to stay reachable even while suspended -
-  // everything else behind AuthGuard is locked to the suspension screen.
+  // Everything else behind AuthGuard is locked to the suspension screen.
   if (suspension && pathname !== '/appeal') {
     return <SuspendedScreen reason={suspension.reason} deadline={suspension.deadline} />
   }
