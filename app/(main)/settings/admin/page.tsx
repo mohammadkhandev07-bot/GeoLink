@@ -2,160 +2,70 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Ban, ShieldAlert, Check, ChevronDown } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ReportWithProfiles } from '@/lib/types/database.types'
-import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
-import {
-  useReportTargetPreview,
-  useSuspendUser,
-  useRestrictUser,
-  useDismissReport,
-  RestrictionFeature,
-} from '@/lib/hooks/useAdmin'
+import { ChevronLeft, ShieldCheck } from 'lucide-react'
+import { useUser } from '@/lib/hooks/useUser'
+import { PageLoader } from '@/components/shared/LoadingSpinner'
+import { useReports, ReportStatusFilter } from '@/lib/hooks/useAdmin'
+import { AdminReportCard } from '@/components/admin/AdminReportCard'
 
-const REASON_LABELS: Record<string, string> = {
-  spam: 'Spam',
-  nudity: 'Nudity or sexual content',
-  harassment: 'Harassment or bullying',
-  fake_account: 'Fake account',
-  hate_speech: 'Hate speech',
-  other: 'Other',
-}
-
-const TARGET_LABELS: Record<string, string> = {
-  post: 'Post',
-  story: 'Story',
-  comment: 'Comment',
-  story_comment: 'Story comment',
-  message: 'Message',
-  user: 'Account',
-}
-
-const RESTRICTION_OPTIONS: { value: RestrictionFeature; label: string }[] = [
-  { value: 'post', label: 'Posting' },
-  { value: 'comment', label: 'Commenting' },
-  { value: 'message', label: 'Messaging' },
-  { value: 'story', label: 'Stories' },
+const TABS: { value: ReportStatusFilter; label: string }[] = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'actioned', label: 'Actioned' },
+  { value: 'dismissed', label: 'Dismissed' },
 ]
 
-export function AdminReportCard({ report, actionable }: { report: ReportWithProfiles; actionable: boolean }) {
-  const { data: preview } = useReportTargetPreview(report)
-  const suspendUser = useSuspendUser()
-  const restrictUser = useRestrictUser()
-  const dismissReport = useDismissReport()
+export default function AdminPanelPage() {
+  const { profile, loading } = useUser()
+  const [tab, setTab] = useState<ReportStatusFilter>('pending')
+  const { data: reports = [], isLoading } = useReports(tab)
 
-  const [showRestrictMenu, setShowRestrictMenu] = useState(false)
-  const [confirmingSuspend, setConfirmingSuspend] = useState(false)
-  const busy = suspendUser.isPending || restrictUser.isPending || dismissReport.isPending
+  if (loading) return <PageLoader />
 
-  const handleSuspend = () => {
-    suspendUser.mutate({
-      userId: report.reported_user_id,
-      reason: `${REASON_LABELS[report.reason]}${report.details ? ` - ${report.details}` : ''}`,
-      reportId: report.id,
-    })
-    setConfirmingSuspend(false)
-  }
-
-  const handleRestrict = (feature: RestrictionFeature) => {
-    restrictUser.mutate({ userId: report.reported_user_id, feature, reportId: report.id })
-    setShowRestrictMenu(false)
+  // Not the admin account - nothing here for them, same treatment as any
+  // other page that doesn't apply to the current user.
+  if (!profile?.is_admin) {
+    return (
+      <div className="max-w-xl mx-auto p-4">
+        <p className="text-sm text-muted-foreground text-center py-16">You don't have access to this page.</p>
+      </div>
+    )
   }
 
   return (
-    <div className="rounded-2xl border p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm min-w-0">
-          <Link href={`/profile/${report.reporter?.username}`} className="flex items-center gap-1.5 shrink-0 hover:underline">
-            <Avatar className="h-5 w-5"><AvatarImage src={getAvatarUrl(report.reporter?.avatar_url)} /><AvatarFallback className="text-[9px]">{report.reporter?.username?.[0]?.toUpperCase()}</AvatarFallback></Avatar>
-            <span className="font-medium">{report.reporter?.username}</span>
-          </Link>
-          <span className="text-muted-foreground shrink-0">reported</span>
-          <Link href={`/profile/${report.reported_user?.username}`} className="flex items-center gap-1.5 shrink-0 hover:underline">
-            <Avatar className="h-5 w-5"><AvatarImage src={getAvatarUrl(report.reported_user?.avatar_url)} /><AvatarFallback className="text-[9px]">{report.reported_user?.username?.[0]?.toUpperCase()}</AvatarFallback></Avatar>
-            <span className="font-medium">{report.reported_user?.username}</span>
-          </Link>
-        </div>
-        <span className="text-[10px] text-muted-foreground shrink-0">{formatTimeAgo(report.created_at)}</span>
+    <div className="max-w-xl mx-auto p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <Link href="/settings" className="text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-5 w-5" />
+        </Link>
+        <ShieldCheck className="h-5 w-5 text-pink-500" />
+        <h1 className="text-xl font-bold">Admin Panel</h1>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="px-2 py-0.5 rounded-full bg-muted font-medium">{TARGET_LABELS[report.target_type]}</span>
-        <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium">{REASON_LABELS[report.reason]}</span>
-      </div>
-
-      {report.details && (
-        <p className="text-sm bg-muted/60 rounded-lg px-3 py-2">
-          <span className="text-muted-foreground text-xs block mb-0.5">Reporter's note</span>
-          {report.details}
-        </p>
-      )}
-
-      {preview && (
-        <p className="text-sm bg-muted/60 rounded-lg px-3 py-2">
-          <span className="text-muted-foreground text-xs block mb-0.5">Content</span>
-          "{preview}"
-        </p>
-      )}
-
-      {actionable && (
-        <div className="flex items-center gap-2 flex-wrap pt-1">
-          {!confirmingSuspend ? (
-            <button
-              onClick={() => setConfirmingSuspend(true)}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium hover:bg-red-500/20 disabled:opacity-50"
-            >
-              <Ban className="h-3.5 w-3.5" /> Suspend
-            </button>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Suspend this account?</span>
-              <button onClick={handleSuspend} disabled={busy} className="px-2.5 py-1 rounded-full bg-red-500 text-white text-xs font-medium">
-                Yes, suspend
-              </button>
-              <button onClick={() => setConfirmingSuspend(false)} className="px-2.5 py-1 rounded-full border text-xs">
-                Cancel
-              </button>
-            </div>
-          )}
-
-          <div className="relative">
-            <button
-              onClick={() => setShowRestrictMenu(v => !v)}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-medium hover:bg-amber-500/20 disabled:opacity-50"
-            >
-              <ShieldAlert className="h-3.5 w-3.5" /> Restrict <ChevronDown className="h-3 w-3" />
-            </button>
-            {showRestrictMenu && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setShowRestrictMenu(false)} />
-                <div className="absolute left-0 top-full mt-1 bg-card border rounded-xl shadow-xl overflow-hidden w-40 z-40">
-                  {RESTRICTION_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => handleRestrict(opt.value)}
-                      className="w-full text-left px-3.5 py-2.5 text-sm hover:bg-muted"
-                    >
-                      {opt.label} (10 days)
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
+      <div className="flex gap-1 bg-muted rounded-xl p-1">
+        {TABS.map(t => (
           <button
-            onClick={() => dismissReport.mutate({ reportId: report.id })}
-            disabled={busy}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium hover:bg-accent disabled:opacity-50"
+            key={t.value}
+            onClick={() => setTab(t.value)}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t.value ? 'bg-card shadow-sm' : 'text-muted-foreground'
+            }`}
           >
-            <Check className="h-3.5 w-3.5" /> Dismiss
+            {t.label}
           </button>
-        </div>
-      )}
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground text-center py-10">Loading reports...</p>
+        ) : reports.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10">No {tab} reports.</p>
+        ) : (
+          reports.map(report => (
+            <AdminReportCard key={report.id} report={report} actionable={tab === 'pending'} />
+          ))
+        )}
+      </div>
     </div>
   )
 }
