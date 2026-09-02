@@ -2,13 +2,14 @@
 
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Repeat2 } from 'lucide-react'
+import { Heart, MessageCircle, Volume2, VolumeX, Share2, X, Repeat2, MoreVertical, Flag } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
 import { SaveButton } from '@/components/shared/SaveButton'
 import { RepostBadge } from '@/components/shared/RepostBadge'
 import { CommentThread } from '@/components/shared/CommentThread'
+import { ReportModal } from '@/components/shared/ReportModal'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -30,6 +31,8 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
   const [paused, setPaused] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const [progress, setProgress] = useState(0) // 0-100
   const [seeking, setSeeking] = useState(false)
   const hasCountedViewRef = useRef(false)
@@ -233,6 +236,30 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
           className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm"
           iconClassName="h-5 w-5 text-white"
         />
+
+        {/* More - Report, for anyone else's reel */}
+        {user && user.id !== post.user_id && (
+          <div className="relative">
+            <button onClick={() => setShowMenu(v => !v)} className="flex flex-col items-center gap-0.5">
+              <div className="p-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+                <MoreVertical className="h-5 w-5 text-white" />
+              </div>
+            </button>
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-full bottom-0 mr-2 z-40 bg-card border rounded-xl shadow-xl overflow-hidden w-40">
+                  <button
+                    onClick={() => { setShowMenu(false); setShowReport(true) }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+                  >
+                    <Flag className="h-3.5 w-3.5" /> Report
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* "X reposted" badge - shows every follower who reposted this reel,
@@ -294,6 +321,15 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
 
       {/* Share Modal */}
       {showShare && <ShareModal post={post} onClose={() => setShowShare(false)} />}
+      {showReport && user && (
+        <ReportModal
+          reporterId={user.id}
+          reportedUserId={post.user_id}
+          targetType="post"
+          targetId={post.id}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   )
 }
