@@ -11,7 +11,7 @@ interface FollowButtonProps {
   currentUserId?: string
 }
 
-export function FollowButton({ targetUserId, isPrivate, currentUserId }: FollowButtonProps) {
+export function FollowButton({ targetUserId, targetUsername, isPrivate, currentUserId }: FollowButtonProps) {
   const { data: followStatus } = useFollowStatus(currentUserId, targetUserId)
   const followUser = useFollowUser()
   const unfollowUser = useUnfollowUser()
@@ -23,8 +23,14 @@ export function FollowButton({ targetUserId, isPrivate, currentUserId }: FollowB
 
   if (!currentUserId || currentUserId === targetUserId) return null
 
+  // SociaLensOfficial is the account this app's own admin panel/broadcasts
+  // run through - it has to be able to reach every account, so nobody can
+  // unfollow it once they're following it.
+  const isProtectedOfficialAccount = targetUsername === 'SociaLensOfficial'
+  const isFollowingProtected = isProtectedOfficialAccount && followStatus?.status === 'accepted'
+
   const handleFollow = async () => {
-    if (submittingRef.current) return
+    if (submittingRef.current || isFollowingProtected) return
     submittingRef.current = true
     try {
       if (followStatus) {
@@ -53,7 +59,8 @@ export function FollowButton({ targetUserId, isPrivate, currentUserId }: FollowB
       size="sm"
       variant={variant}
       onClick={handleFollow}
-      disabled={followUser.isPending || unfollowUser.isPending}
+      disabled={followUser.isPending || unfollowUser.isPending || isFollowingProtected}
+      title={isFollowingProtected ? "You can't unfollow this account" : undefined}
       className={label === 'Follow' ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:opacity-90 border-0' : ''}
     >
       {label}
