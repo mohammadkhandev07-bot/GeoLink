@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Repeat2 } from 'lucide-react'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Repeat2, Flag } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -12,6 +12,7 @@ import { PostCaption } from '@/components/shared/PostCaption'
 import { SaveButton } from '@/components/shared/SaveButton'
 import { RepostBadge } from '@/components/shared/RepostBadge'
 import { CommentThread } from '@/components/shared/CommentThread'
+import { ReportModal } from '@/components/shared/ReportModal'
 import { PostWithProfile } from '@/lib/types/database.types'
 import { formatTimeAgo, formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { createClient } from '@/lib/supabase/client'
@@ -30,6 +31,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   const [likesCount, setLikesCount] = useState(post.likes_count)
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const supabase = createClient()
   const queryClient = useQueryClient()
   const articleRef = useRef<HTMLElement>(null)
@@ -48,7 +50,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   // Counts a view the first time this post actually scrolls into view -
   // not just when the component mounts (it might be far down an
   // unopened feed) and never more than once per mount, so scrolling past
-  // It back and forth doesn't inflate the count.
+  // it back and forth doesn't inflate the count.
   useEffect(() => {
     const el = articleRef.current
     if (!el) return
@@ -113,15 +115,21 @@ export function PostCard({ post, onDelete }: PostCardProps) {
             <p className="text-xs text-muted-foreground mt-0.5">{formatTimeAgo(post.created_at)}</p>
           </div>
         </Link>
-        {isOwner && (
+        {(isOwner || user) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(post.id)}>
-                <Trash2 className="h-4 w-4 mr-2" /> Delete Post
-              </DropdownMenuItem>
+              {isOwner ? (
+                <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(post.id)}>
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete Post
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => setShowReport(true)}>
+                  <Flag className="h-4 w-4 mr-2" /> Report
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -188,6 +196,15 @@ export function PostCard({ post, onDelete }: PostCardProps) {
       )}
 
       {showShare && <ShareModal post={post} onClose={() => setShowShare(false)} />}
+      {showReport && user && (
+        <ReportModal
+          reporterId={user.id}
+          reportedUserId={post.user_id}
+          targetType="post"
+          targetId={post.id}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </article>
   )
 }
