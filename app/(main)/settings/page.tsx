@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const supabase = createClient()
 
   // PWA install - lives here (not the landing page) so it only shows up once
-  // someone already has an account and has spent a bit of time in the app,
+  // Someone already has an account and has spent a bit of time in the app,
   // which is also when the browser is actually willing to fire the native prompt.
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [installed, setInstalled] = useState(false)
