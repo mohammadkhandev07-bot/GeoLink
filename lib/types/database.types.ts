@@ -30,8 +30,49 @@ export type Profile = {
   posts_count: number
   followers_count: number
   following_count: number
+  is_admin: boolean
+  is_suspended: boolean
+  suspended_at: string | null
+  suspension_deadline: string | null
+  suspension_reason: string | null
+  restrict_post_until: string | null
+  restrict_comment_until: string | null
+  restrict_message_until: string | null
+  restrict_story_until: string | null
   created_at: string
   updated_at: string
+}
+
+export type Report = {
+  id: string
+  reporter_id: string
+  reported_user_id: string
+  target_type: 'post' | 'story' | 'comment' | 'story_comment' | 'message' | 'user'
+  post_id: string | null
+  story_id: string | null
+  comment_id: string | null
+  story_comment_id: string | null
+  message_id: string | null
+  reason: 'spam' | 'nudity' | 'harassment' | 'fake_account' | 'hate_speech' | 'other'
+  details: string | null
+  status: 'pending' | 'actioned' | 'dismissed'
+  reviewed_at: string | null
+  created_at: string
+}
+
+export type ReportWithProfiles = Report & {
+  reporter: Profile
+  reported_user: Profile
+}
+
+export type AccountAppeal = {
+  id: string
+  user_id: string
+  photo_url: string
+  letter: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  reviewed_at: string | null
 }
 
 export type Post = {
