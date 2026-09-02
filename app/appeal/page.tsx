@@ -5,7 +5,7 @@ import { FileClock } from 'lucide-react'
 
 // Full appeal form (photo + face check, letter, password confirm) lands
 // here in the next pass - this placeholder just keeps the link from the
-// suspension screen from 404ing in the meantime.
+// Suspension screen from 404ing in the meantime.
 export default function AppealPage() {
   const router = useRouter()
 
