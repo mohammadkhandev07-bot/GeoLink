@@ -2,11 +2,12 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
-import { Heart, MoreHorizontal, Trash2, EyeOff, Eye, MessageCircle } from 'lucide-react'
+import { Heart, MoreHorizontal, Trash2, EyeOff, Eye, MessageCircle, Flag } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { CommentReactionPicker } from '@/components/shared/CommentReactionPicker'
 import { CommentReactorsDialog } from '@/components/shared/CommentReactorsDialog'
+import { ReportModal } from '@/components/shared/ReportModal'
 import {
   CommentTarget,
   useToggleCommentLike,
@@ -32,6 +33,7 @@ interface CommentItemProps {
 export function CommentItem({ comment, target, targetId, currentUserId, ownerId, isReply, onReply }: CommentItemProps) {
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [showReactorsList, setShowReactorsList] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const reactButtonRef = useRef<HTMLButtonElement>(null)
 
   const toggleLike = useToggleCommentLike(target)
@@ -70,7 +72,7 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
     .slice(0, 3)
     .map(([emoji]) => emoji)
   // Only the post/story owner gets to see who reacted and with what -
-  // Everyone else just sees the compact count, same as everyone else's view.
+  // everyone else just sees the compact count, same as everyone else's view.
   const isOwnerViewing = !!currentUserId && !!ownerId && currentUserId === ownerId
 
   return (
@@ -170,7 +172,7 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
         )}
       </div>
 
-      {isMine && (
+      {isMine ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="text-muted-foreground hover:text-foreground shrink-0 p-1 -mr-1">
@@ -204,7 +206,20 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
+      ) : currentUserId ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="text-muted-foreground hover:text-foreground shrink-0 p-1 -mr-1">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem className="text-destructive" onClick={() => setShowReport(true)}>
+              <Flag className="h-4 w-4 mr-2" /> Report
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
 
       {isOwnerViewing && totalReactions > 0 && (
         <CommentReactorsDialog
@@ -212,6 +227,16 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
           commentId={comment.id}
           open={showReactorsList}
           onOpenChange={setShowReactorsList}
+        />
+      )}
+
+      {showReport && currentUserId && (
+        <ReportModal
+          reporterId={currentUserId}
+          reportedUserId={comment.user_id}
+          targetType={target === 'story' ? 'story_comment' : 'comment'}
+          targetId={comment.id}
+          onClose={() => setShowReport(false)}
         />
       )}
     </div>
