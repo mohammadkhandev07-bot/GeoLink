@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { MoreVertical, Reply as ReplyIcon, Smile, Pencil, Trash2, EyeOff, Copy, Volume2, Square, Forward, Check, Download, Gauge, Phone, Video } from 'lucide-react'
+import { MoreVertical, Reply as ReplyIcon, Smile, Pencil, Trash2, EyeOff, Copy, Volume2, Square, Forward, Check, Download, Gauge, Phone, Video, Flag } from 'lucide-react'
 import { SharedPostMessage } from './SharedPostMessage'
 import { SharedStoryMessage } from './SharedStoryMessage'
 import { AperonixReplyMessage } from './AperonixReplyMessage'
@@ -24,6 +24,7 @@ import {
   useReplyPreview,
 } from '@/lib/hooks/useMessageActions'
 import { speakText, stopSpeaking } from '@/lib/utils/voice'
+import { ReportModal } from '@/components/shared/ReportModal'
 
 interface ChatMessageProps {
   message: Message
@@ -57,6 +58,7 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showForward, setShowForward] = useState(false)
   const [showReactors, setShowReactors] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(message.content)
   const [copied, setCopied] = useState(false)
@@ -341,6 +343,14 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
                     <Trash2 className="h-3.5 w-3.5" /> Unsend
                   </button>
                 )}
+                {!isOwn && (
+                  <button
+                    onClick={() => { setShowCallMenu(false); setShowReport(true) }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+                  >
+                    <Flag className="h-3.5 w-3.5" /> Report
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -580,6 +590,14 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
                 <Trash2 className="h-3.5 w-3.5" /> Unsend
               </button>
             )}
+            {!isOwn && (
+              <button
+                onClick={() => { setShowMenu(false); setShowReport(true) }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+              >
+                <Flag className="h-3.5 w-3.5" /> Report
+              </button>
+            )}
           </div>
         </>
       )}
@@ -632,6 +650,16 @@ export function ChatMessage({ message, isOwn, currentUserId, otherUsername, onRe
             story_id: (message as any).story_id ?? null,
           }}
           onClose={() => setShowForward(false)}
+        />
+      )}
+
+      {showReport && (
+        <ReportModal
+          reporterId={currentUserId}
+          reportedUserId={message.sender_id}
+          targetType="message"
+          targetId={message.id}
+          onClose={() => setShowReport(false)}
         />
       )}
 
