@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
-import { Grid3x3, Film, Lock, X, Play, Heart, MessageCircle, Send, MoreVertical, Trash2, Share2, Repeat2, Eye } from 'lucide-react'
+import { Grid3x3, Film, Lock, X, Play, Heart, MessageCircle, Send, MoreVertical, Trash2, Share2, Repeat2, Eye, Flag } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase/client'
 import { PostWithProfile } from '@/lib/types/database.types'
@@ -17,6 +17,7 @@ import { ShareModal } from '@/components/shared/ShareModal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
 import { useIsReposted, useToggleRepost } from '@/lib/hooks/useRepost'
+import { ReportModal } from '@/components/shared/ReportModal'
 
 interface ProfileTabsProps {
   profileId: string
@@ -36,6 +37,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
   const [comments, setComments] = useState<any[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [showPostMenu, setShowPostMenu] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const queryClient = useQueryClient()
@@ -300,7 +302,7 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
             <X className="h-5 w-5" />
           </button>
 
-          {user && (selectedPost.user_id === user.id || selectedPost.reposted_by?.[0]?.id === user.id) && (
+          {user && (
             <div className="absolute top-4 right-16 z-10" onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowPostMenu(v => !v)}
                 className="bg-white/20 rounded-full p-2 text-white hover:bg-white/30">
@@ -328,6 +330,15 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         {deleting ? 'Removing...' : 'Remove repost'}
+                      </button>
+                    )}
+                    {selectedPost.user_id !== user.id && (
+                      <button
+                        onClick={() => { setShowPostMenu(false); setShowReport(true) }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+                      >
+                        <Flag className="h-3.5 w-3.5" />
+                        Report
                       </button>
                     )}
                   </div>
@@ -452,6 +463,15 @@ export function ProfileTabs({ profileId, isPrivate, isFollowing, isOwn }: Profil
                 )}
               </div>
               {showShare && <ShareModal post={selectedPost} onClose={() => setShowShare(false)} />}
+              {showReport && user && (
+                <ReportModal
+                  reporterId={user.id}
+                  reportedUserId={selectedPost.user_id}
+                  targetType="post"
+                  targetId={selectedPost.id}
+                  onClose={() => setShowReport(false)}
+                />
+              )}
             </div>
           </div>
         </div>
