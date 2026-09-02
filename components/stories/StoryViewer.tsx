@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2, Eye } from 'lucide-react'
+import { X, Music, MoreVertical, Heart, MessageCircle, Send, Pencil, EyeOff, Trash2, Loader2, Eye, Flag } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl, formatTimeAgo, cn } from '@/lib/utils/helpers'
 import { useDeleteStory } from '@/lib/hooks/useStories'
@@ -25,6 +25,7 @@ import { useCommentThread, countThread } from '@/lib/hooks/useComments'
 import { CommentThread } from '@/components/shared/CommentThread'
 import { StoryEditModal } from './StoryEditModal'
 import { StoryHideViewersModal } from './StoryHideViewersModal'
+import { ReportModal } from '@/components/shared/ReportModal'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 import type { TextScene, PhotoScene, VideoScene } from '@/lib/types/database.types'
@@ -66,6 +67,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
   const [showMenu, setShowMenu] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showHideViewers, setShowHideViewers] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showReactionBar, setShowReactionBar] = useState(false)
   const [showViews, setShowViews] = useState(false)
@@ -396,7 +398,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
             </div>
           </button>
           <div className="flex items-center gap-3">
-            {isOwn && (
+            {isOwn ? (
               <div className="relative">
                 <button onClick={() => setShowMenu((v) => !v)} className="text-white/80 hover:text-white">
                   <MoreVertical className="h-5 w-5" />
@@ -427,7 +429,26 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                   </>
                 )}
               </div>
-            )}
+            ) : currentUserId ? (
+              <div className="relative">
+                <button onClick={() => setShowMenu((v) => !v)} className="text-white/80 hover:text-white">
+                  <MoreVertical className="h-5 w-5" />
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setShowMenu(false)} />
+                    <div className="absolute right-0 top-8 bg-card rounded-xl shadow-xl overflow-hidden w-48 z-30 text-foreground">
+                      <button
+                        onClick={() => { setShowMenu(false); setShowReport(true) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Flag className="h-4 w-4" /> Report
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : null}
             <button onClick={onClose} className="text-white/80 hover:text-white">
               <X className="h-6 w-6" />
             </button>
@@ -726,6 +747,15 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
       )}
       {showHideViewers && (
         <StoryHideViewersModal ownerId={story.user_id} onClose={() => setShowHideViewers(false)} />
+      )}
+      {showReport && currentUserId && (
+        <ReportModal
+          reporterId={currentUserId}
+          reportedUserId={story.user_id}
+          targetType="story"
+          targetId={story.id}
+          onClose={() => setShowReport(false)}
+        />
       )}
     </div>
   )
