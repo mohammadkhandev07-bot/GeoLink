@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Lock, Users, ChevronRight, MessageCircle, Loader2 } from 'lucide-react'
+import { Lock, Users, ChevronRight, MessageCircle, Loader2, MoreVertical, Ban, Flag } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { FollowButton } from './FollowButton'
@@ -10,6 +10,8 @@ import { FollowersModal } from './FollowersModal'
 import { Profile } from '@/lib/types/database.types'
 import { formatCount, getAvatarUrl } from '@/lib/utils/helpers'
 import { useStartChat } from '@/lib/hooks/useStartChat'
+import { useBlockStatus, useToggleBlock } from '@/lib/hooks/useChatSettings'
+import { ReportModal } from '@/components/shared/ReportModal'
 import Link from 'next/link'
 
 interface ProfileHeaderProps {
@@ -20,7 +22,11 @@ interface ProfileHeaderProps {
 export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
   const isOwn = currentUserId === profile.id
   const [modal, setModal] = useState<'followers' | 'following' | null>(null)
+  const [showMenu, setShowMenu] = useState(false)
+  const [showReport, setShowReport] = useState(false)
   const { startChat, startingChatWith, error: chatError } = useStartChat()
+  const { data: blockStatus } = useBlockStatus(currentUserId, profile.id)
+  const toggleBlock = useToggleBlock()
 
   return (
     <div>
@@ -70,6 +76,35 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
                       </>
                     )}
                   </Button>
+                )}
+                {currentUserId && (
+                  <div className="relative">
+                    <Button variant="outline" size="sm" className="px-2" onClick={() => setShowMenu(v => !v)}>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                    {showMenu && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setShowMenu(false)} />
+                        <div className="absolute right-0 top-full mt-1 bg-card border rounded-xl shadow-xl overflow-hidden w-48 z-40">
+                          <button
+                            onClick={() => {
+                              setShowMenu(false)
+                              toggleBlock.mutate({ blockerId: currentUserId, blockedId: profile.id, block: !blockStatus?.iBlockedThem })
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm hover:bg-muted"
+                          >
+                            <Ban className="h-3.5 w-3.5" /> {blockStatus?.iBlockedThem ? 'Unblock' : 'Block'}
+                          </button>
+                          <button
+                            onClick={() => { setShowMenu(false); setShowReport(true) }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10"
+                          >
+                            <Flag className="h-3.5 w-3.5" /> Report
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </>
             )}
@@ -134,6 +169,14 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
           onClose={() => setModal(null)}
         />
       )}
+      {showReport && currentUserId && (
+        <ReportModal
+          reporterId={currentUserId}
+          reportedUserId={profile.id}
+          targetType="user"
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   )
-} 
+}
