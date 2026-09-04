@@ -28,7 +28,7 @@ export function useReports(status: ReportStatusFilter) {
 
 // A small extra detail line for the report - the actual comment/message
 // text, when the target still exists, so the admin doesn't have to go
-// hunting for context on their own.
+// Hunting for context on their own.
 export function useReportTargetPreview(report?: ReportWithProfiles) {
   const supabase = createClient()
 
