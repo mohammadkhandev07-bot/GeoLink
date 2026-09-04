@@ -5,19 +5,25 @@ import Link from 'next/link'
 import { ChevronLeft, ShieldCheck } from 'lucide-react'
 import { useUser } from '@/lib/hooks/useUser'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
-import { useReports, ReportStatusFilter } from '@/lib/hooks/useAdmin'
+import { useReports, usePendingAppeals, ReportStatusFilter } from '@/lib/hooks/useAdmin'
 import { AdminReportCard } from '@/components/admin/AdminReportCard'
+import { AdminAppealCard } from '@/components/admin/AdminAppealCard'
 
-const TABS: { value: ReportStatusFilter; label: string }[] = [
+type Tab = ReportStatusFilter | 'appeals'
+
+const TABS: { value: Tab; label: string }[] = [
   { value: 'pending', label: 'Pending' },
+  { value: 'appeals', label: 'Appeals' },
   { value: 'actioned', label: 'Actioned' },
   { value: 'dismissed', label: 'Dismissed' },
 ]
 
 export default function AdminPanelPage() {
   const { profile, loading } = useUser()
-  const [tab, setTab] = useState<ReportStatusFilter>('pending')
-  const { data: reports = [], isLoading } = useReports(tab)
+  const [tab, setTab] = useState<Tab>('pending')
+  const isReportsTab = tab === 'pending' || tab === 'actioned' || tab === 'dismissed'
+  const { data: reports = [], isLoading: reportsLoading } = useReports(isReportsTab ? tab : 'pending')
+  const { data: appeals = [], isLoading: appealsLoading } = usePendingAppeals()
 
   if (loading) return <PageLoader />
 
@@ -41,22 +47,35 @@ export default function AdminPanelPage() {
         <h1 className="text-xl font-bold">Admin Panel</h1>
       </div>
 
-      <div className="flex gap-1 bg-muted rounded-xl p-1">
+      <div className="flex gap-1 bg-muted rounded-xl p-1 overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.value}
             onClick={() => setTab(t.value)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap px-2 ${
               tab === t.value ? 'bg-card shadow-sm' : 'text-muted-foreground'
             }`}
           >
             {t.label}
+            {t.value === 'appeals' && appeals.length > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px]">
+                {appeals.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       <div className="space-y-3">
-        {isLoading ? (
+        {tab === 'appeals' ? (
+          appealsLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-10">Loading appeals...</p>
+          ) : appeals.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-10">No pending appeals.</p>
+          ) : (
+            appeals.map(appeal => <AdminAppealCard key={appeal.id} appeal={appeal} />)
+          )
+        ) : reportsLoading ? (
           <p className="text-sm text-muted-foreground text-center py-10">Loading reports...</p>
         ) : reports.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-10">No {tab} reports.</p>
