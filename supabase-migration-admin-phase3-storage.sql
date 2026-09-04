@@ -1,7 +1,7 @@
--- ============================================================
+-- ===========================================================
 -- SociaLens - Admin Panel Phase 3: Appeal Photo Storage
 -- Safe to run more than once.
--- ============================================================
+-- ===========================================================
 
 INSERT INTO storage.buckets (id, name, public) VALUES ('appeals', 'appeals', true) ON CONFLICT DO NOTHING;
 
