@@ -21,12 +21,14 @@ import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { isRestricted, restrictionMessage as restrictionLimitMessage } from '@/lib/utils/restrictionCheck'
+import { showToast } from '@/components/shared/Toast'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 
 export default function ChatRoomPage() {
   const params = useParams()
   const chatId = params.chatId as string
-  const { user, loading } = useUser()
+  const { user, profile, loading } = useUser()
   const [chat, setChat] = useState<ChatWithProfiles | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [canSend, setCanSend] = useState(true)
@@ -44,6 +46,14 @@ export default function ChatRoomPage() {
   const { messages, isTyping, onlineUsers, sendMessage, sendTypingIndicator, removeMessageLocally, patchMessageLocally } =
     useRealtimeMessages(chatId, user?.id ?? '')
   const { data: storyGroups = [] } = useActiveStories(user?.id)
+
+  const guardedSendMessage = async (payload: Parameters<typeof sendMessage>[0]) => {
+    if (isRestricted(profile?.restrict_message_until)) {
+      showToast(restrictionLimitMessage('messaging'), 'error')
+      return
+    }
+    return sendMessage(payload)
+  }
 
   const other = chat && user ? (chat.participant1_id === user.id ? chat.participant2 : chat.participant1) : null
 
@@ -341,7 +351,7 @@ export default function ChatRoomPage() {
       {/* Input */}
       {canSendFinal ? (
         <MessageInput
-          onSend={sendMessage}
+          onSend={guardedSendMessage}
           onTyping={sendTypingIndicator}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
