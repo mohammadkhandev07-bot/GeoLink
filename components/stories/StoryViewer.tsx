@@ -23,6 +23,7 @@ import {
 } from '@/lib/hooks/useStoryInteractions'
 import { useCommentThread, countThread } from '@/lib/hooks/useComments'
 import { CommentThread } from '@/components/shared/CommentThread'
+import { useUser } from '@/lib/hooks/useUser'
 import { StoryEditModal } from './StoryEditModal'
 import { StoryHideViewersModal } from './StoryHideViewersModal'
 import { ReportModal } from '@/components/shared/ReportModal'
@@ -52,6 +53,7 @@ function getActiveScene<T extends { duration: number }>(scenes: T[] | null, elap
 }
 
 export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }: StoryViewerProps) {
+  const { profile } = useUser()
   const router = useRouter()
   const [groupIndex, setGroupIndex] = useState(startGroupIndex)
   const [storyIndex, setStoryIndex] = useState(0)
@@ -730,6 +732,7 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                   targetId={story.id}
                   currentUserId={currentUserId}
                   ownerId={story.user_id}
+                  commentRestrictedUntil={profile?.restrict_comment_until}
                   hideComposer={isOwn}
                   emptyText="No comments yet."
                   variant="compact"
