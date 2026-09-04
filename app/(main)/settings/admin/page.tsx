@@ -28,7 +28,7 @@ export default function AdminPanelPage() {
   if (loading) return <PageLoader />
 
   // Not the admin account - nothing here for them, same treatment as any
-  // other page that doesn't apply to the current user.
+  // Other page that doesn't apply to the current user.
   if (!profile?.is_admin) {
     return (
       <div className="max-w-xl mx-auto p-4">
