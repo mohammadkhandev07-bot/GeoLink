@@ -4,6 +4,10 @@
     {
       "path": "/api/stories/cleanup",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/admin/cleanup-suspended",
+      "schedule": "0 * * * *"
     }
   ],
   "headers": [
@@ -34,4 +38,4 @@
       ]
     }
   ]
-} 
+}
