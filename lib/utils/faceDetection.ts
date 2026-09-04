@@ -5,7 +5,7 @@
 // dedicated backend. Model weights are pulled from the project's own
 // published weights on jsDelivr (a stable, versioned CDN mirror of the
 // face-api.js GitHub repo) the first time this is used, then cached by
-// the browser.
+// The browser.
 const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights'
 
 let modelsLoadedPromise: Promise<void> | null = null
