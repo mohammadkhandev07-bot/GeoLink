@@ -164,7 +164,7 @@ export default function AppealPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      {/* Hidden image used only to run the face check against - never shown to the user directly. */}
+      {/* Hidden image used only to run the face check against - Never shown to the user directly. */}
       <img ref={hiddenImgRef} alt="" className="hidden" />
 
       <div className="max-w-sm w-full space-y-5">
