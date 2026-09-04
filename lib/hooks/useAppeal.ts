@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 // Confirms the password actually belongs to this account before letting
 // an appeal go through - re-runs the normal password sign-in check
 // without disturbing the already-active session (Supabase just
-// re-validates the credentials and returns a session, which we discard).
+// Re-validates the credentials and returns a session, which we discard).
 export function useVerifyPassword() {
   const supabase = createClient()
 
