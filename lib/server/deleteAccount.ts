@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * Deletes a user's entire footprint - every table row, every storage
  * file this app can find a path for, and finally the auth.users login
  * itself. Used both when someone deletes their own account and by the
- * cron job that removes a suspended account once its 24h appeal window
+ * Cron job that removes a suspended account once its 24h appeal window
  * has passed with no approved appeal.
  */
 export async function deleteAccountCompletely(userId: string) {
