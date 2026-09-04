@@ -26,7 +26,7 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onDelete }: PostCardProps) {
-  const { user } = useUser()
+  const { user, profile } = useUser()
   const [liked, setLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(post.likes_count)
   const [showComments, setShowComments] = useState(false)
@@ -190,6 +190,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
             targetId={post.id}
             currentUserId={user?.id}
             ownerId={post.user_id}
+            commentRestrictedUntil={profile?.restrict_comment_until}
             listClassName="max-h-48 mb-3"
           />
         </div>
