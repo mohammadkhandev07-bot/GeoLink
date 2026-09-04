@@ -3,7 +3,7 @@
 // separate on/off boolean) is what makes the 10-day auto-lift work
 // without needing a job to actively flip anything off: the moment the
 // deadline passes, this just naturally returns false again everywhere
-// it's checked.
+// It's checked.
 export function isRestricted(until: string | null | undefined): boolean {
   if (!until) return false
   return new Date(until).getTime() > Date.now()
