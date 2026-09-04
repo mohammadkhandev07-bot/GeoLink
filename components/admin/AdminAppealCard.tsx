@@ -23,7 +23,7 @@ export function AdminAppealCard({ appeal }: { appeal: AppealWithProfile }) {
       </div>
 
       <div className="flex gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* Eslint-disable-next-line @next/next/no-img-element */}
         <img src={appeal.photo_url} alt="Appeal photo" className="h-20 w-20 rounded-xl object-cover border shrink-0" />
         <p className="text-sm bg-muted/60 rounded-lg px-3 py-2 flex-1">{appeal.letter}</p>
       </div>
