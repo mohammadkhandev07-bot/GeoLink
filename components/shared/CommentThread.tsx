@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Send, X } from 'lucide-react'
 import { CommentItem } from '@/components/shared/CommentItem'
 import { CommentTarget, useCommentThread, useAddComment } from '@/lib/hooks/useComments'
+import { isRestricted, restrictionMessage } from '@/lib/utils/restrictionCheck'
+import { showToast } from '@/components/shared/Toast'
 
 interface CommentThreadProps {
   target: CommentTarget
@@ -12,6 +14,9 @@ interface CommentThreadProps {
   /** id of the post/story owner - lets them still see comments their
    *  commenters have hidden from everyone else. */
   ownerId?: string
+  /** Deadline from the viewer's own profile.restrict_comment_until, if
+   *  any - blocks new comments/replies until it passes. */
+  commentRestrictedUntil?: string | null
   emptyText?: string
   /** Compact list styling for tight spaces (e.g. inside a reel/story
    *  overlay panel) vs the roomier feed card layout. */
@@ -29,6 +34,7 @@ export function CommentThread({
   targetId,
   currentUserId,
   ownerId,
+  commentRestrictedUntil,
   emptyText = 'No comments yet!',
   variant = 'default',
   hideComposer = false,
@@ -44,6 +50,10 @@ export function CommentThread({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentUserId || !input.trim()) return
+    if (isRestricted(commentRestrictedUntil)) {
+      showToast(restrictionMessage('commenting'), 'error')
+      return
+    }
     await addComment.mutateAsync({
       targetId,
       userId: currentUserId,
