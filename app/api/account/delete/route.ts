@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { deleteAccountCompletely } from '@/lib/server/deleteAccount'
 
 // Being logged in already proves who you are - Supabase's session cookie is
-// the identity check here, so no separate password step is needed (and
+// The identity check here, so no separate password step is needed (and
 // Google/OAuth accounts never had a password to check in the first place).
 export async function POST() {
   const supabase = await createClient()
