@@ -36,7 +36,7 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
   const [progress, setProgress] = useState(0) // 0-100
   const [seeking, setSeeking] = useState(false)
   const hasCountedViewRef = useRef(false)
-  const { user } = useUser()
+  const { user, profile } = useUser()
   const supabase = createClient()
 
   const { data: isReposted = false } = useIsReposted(post.id, user?.id)
@@ -311,6 +311,7 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
               targetId={post.id}
               currentUserId={user?.id}
               ownerId={post.user_id}
+              commentRestrictedUntil={profile?.restrict_comment_until}
               variant="compact"
               className="flex-1 flex flex-col min-h-0"
               listClassName="flex-1"
