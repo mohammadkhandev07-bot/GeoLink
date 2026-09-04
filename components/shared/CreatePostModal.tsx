@@ -10,6 +10,7 @@ import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { compressImageIfNeeded, LONG_CACHE_CONTROL } from '@/lib/utils/imageCompression'
+import { isRestricted, restrictionMessage } from '@/lib/utils/restrictionCheck'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface CreatePostModalProps {
@@ -215,6 +216,10 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
   const handlePost = async () => {
     if (!user) return
+    if (isRestricted(profile?.restrict_post_until)) {
+      alert(restrictionMessage('posting'))
+      return
+    }
     setPosting(true)
     setUploadProgress(0)
 
