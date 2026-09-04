@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { ReportWithProfiles } from '@/lib/types/database.types'
+import { ReportWithProfiles, AccountAppeal } from '@/lib/types/database.types'
 
 const RESTRICTION_DAYS = 10
 const SUSPENSION_HOURS = 24
@@ -136,5 +136,56 @@ export function useRestrictUser() {
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-reports'] }),
+  })
+}
+
+// ------------------------------------------------------------------
+// Account appeals - reviewed by an admin. Approving one lifts the
+// suspension immediately; rejecting just leaves it as-is (the 24h
+// countdown on the suspension screen keeps running either way).
+// ------------------------------------------------------------------
+export type AppealWithProfile = AccountAppeal & { profiles: any }
+
+export function usePendingAppeals() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['admin-appeals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('account_appeals')
+        .select('*, profiles(*)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data as unknown as AppealWithProfile[]
+    },
+  })
+}
+
+export function useReviewAppeal() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ appealId, userId, approve }: { appealId: string; userId: string; approve: boolean }) => {
+      const { error: appealErr } = await supabase
+        .from('account_appeals')
+        .update({ status: approve ? 'approved' : 'rejected', reviewed_at: new Date().toISOString() })
+        .eq('id', appealId)
+      if (appealErr) throw appealErr
+
+      if (approve) {
+        const { error: profileErr } = await supabase
+          .from('profiles')
+          .update({ is_suspended: false, suspended_at: null, suspension_deadline: null, suspension_reason: null })
+          .eq('id', userId)
+        if (profileErr) throw profileErr
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-appeals'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+    },
   })
 }
