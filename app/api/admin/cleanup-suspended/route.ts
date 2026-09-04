@@ -6,7 +6,7 @@ import { deleteAccountCompletely } from '@/lib/server/deleteAccount'
 // Anyone whose 24h suspension deadline has passed without their appeal
 // being approved gets permanently deleted - account, posts, messages,
 // everything. An appeal still pending review at the deadline does NOT
-// save them; only an *approved* appeal (which clears is_suspended)
+// Save them; only an *approved* appeal (which clears is_suspended)
 // keeps this from happening.
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
