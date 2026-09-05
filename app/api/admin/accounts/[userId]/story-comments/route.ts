@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/server/requireAdmin'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ userId: string }> }) {
   const auth = await requireAdmin()
-  if (auth.error) return auth.error
+  if (!auth.ok) return auth.error
   const { admin } = auth
   const { userId } = await params
 
