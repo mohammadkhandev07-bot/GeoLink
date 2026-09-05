@@ -10,7 +10,8 @@ import { useUser } from '@/lib/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { compressImageIfNeeded, LONG_CACHE_CONTROL } from '@/lib/utils/imageCompression'
-import { isRestricted, restrictionMessage } from '@/lib/utils/restrictionCheck'
+import { isRestricted } from '@/lib/utils/restrictionCheck'
+import { RestrictionPopup } from '@/components/shared/RestrictionPopup'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface CreatePostModalProps {
@@ -89,6 +90,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   })
   const [generateError, setGenerateError] = useState('')
   const [aiContext, setAiContext] = useState('')
+  const [showRestrictionPopup, setShowRestrictionPopup] = useState(false)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -217,7 +219,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   const handlePost = async () => {
     if (!user) return
     if (isRestricted(profile?.restrict_post_until)) {
-      alert(restrictionMessage('posting'))
+      setShowRestrictionPopup(true)
       return
     }
     setPosting(true)
@@ -277,6 +279,10 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   }
 
   return (
+    <>
+      {showRestrictionPopup && (
+        <RestrictionPopup feature="posting" until={profile?.restrict_post_until} onClose={() => setShowRestrictionPopup(false)} />
+      )}
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
       onClick={onClose}>
       <div className="bg-card border rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl"
@@ -542,5 +548,6 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
         )}
       </div>
     </div>
+    </>
   )
 }
