@@ -48,7 +48,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Quick links to the accounts currently under a suspension/restriction,
-          regardless of which report (if any) put them there. */}
+          Regardless of which report (if any) put them there. */}
       <div className="grid grid-cols-2 gap-2">
         <Link
           href="/settings/admin/reports/suspended"
