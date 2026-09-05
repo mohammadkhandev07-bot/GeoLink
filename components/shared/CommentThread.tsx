@@ -12,7 +12,7 @@ interface CommentThreadProps {
   targetId: string
   currentUserId?: string
   /** Id of the post/story owner - lets them still see comments their
-   *  commenters have hidden from everyone else. */
+   *  Commenters have hidden from everyone else. */
   ownerId?: string
   /** Deadline from the viewer's own profile.restrict_comment_until, if
    *  any - blocks new comments/replies until it passes. */
