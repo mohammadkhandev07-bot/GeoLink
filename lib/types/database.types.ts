@@ -75,6 +75,18 @@ export type AccountAppeal = {
   reviewed_at: string | null
 }
 
+export type ModerationLog = {
+  id: string
+  admin_id: string | null
+  target_user_id: string | null
+  target_username: string
+  action: 'suspend' | 'unsuspend' | 'restrict' | 'unrestrict' | 'delete_account' | 'appeal_approved' | 'appeal_rejected'
+  feature: 'post' | 'comment' | 'message' | 'story' | null
+  reason: string | null
+  report_id: string | null
+  created_at: string
+}
+
 export type Post = {
   id: string
   user_id: string
