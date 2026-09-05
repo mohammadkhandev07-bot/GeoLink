@@ -11,7 +11,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 // Every admin account-inspection screen ignores that account's privacy
-// settings on purpose - moderation needs to see private accounts, their
+// Settings on purpose - moderation needs to see private accounts, their
 // posts, comments, stories and likes the same as public ones. All of
 // this goes through /api/admin/accounts/*, which checks the caller is an
 // admin server-side before touching another account's data.
