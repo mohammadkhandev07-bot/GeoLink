@@ -49,7 +49,7 @@ const nextConfig = {
   // which exists (or is needed) in the browser bundle. Without this,
   // webpack tries to resolve them at build time and the whole build
   // fails with "Module not found". Since face-api.js only ever runs
-  // client-side here, it's safe to tell webpack to just stub these out
+  // Client-side here, it's safe to tell webpack to just stub these out
   // for the browser bundle - that code path never actually executes.
   webpack: (config, { isServer }) => {
     if (!isServer) {
