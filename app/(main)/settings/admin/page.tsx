@@ -12,7 +12,7 @@ export default function AdminPanelPage() {
 
   if (loading) return <PageLoader />
 
-  // Not the admin account - nothing here for them, same treatment as any
+  // Not the admin account - Nothing here for them, same treatment as any
   // Other page that doesn't apply to the current user.
   if (!profile?.is_admin) {
     return (
