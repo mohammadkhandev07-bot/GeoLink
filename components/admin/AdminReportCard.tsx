@@ -52,6 +52,7 @@ export function AdminReportCard({ report, actionable }: { report: ReportWithProf
   const handleSuspend = () => {
     suspendUser.mutate({
       userId: report.reported_user_id,
+      username: report.reported_user?.username ?? '',
       reason: `${REASON_LABELS[report.reason]}${report.details ? ` - ${report.details}` : ''}`,
       reportId: report.id,
     })
@@ -59,7 +60,7 @@ export function AdminReportCard({ report, actionable }: { report: ReportWithProf
   }
 
   const handleRestrict = (feature: RestrictionFeature) => {
-    restrictUser.mutate({ userId: report.reported_user_id, feature, reportId: report.id })
+    restrictUser.mutate({ userId: report.reported_user_id, username: report.reported_user?.username ?? '', feature, reportId: report.id })
     setShowRestrictMenu(false)
   }
 
