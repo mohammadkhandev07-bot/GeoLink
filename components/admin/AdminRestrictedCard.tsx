@@ -58,4 +58,4 @@ export function AdminRestrictedCard({ account, feature, until }: { account: Prof
       )}
     </div>
   )
-}
+} 
