@@ -1,29 +1,14 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ShieldCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShieldCheck, Flag } from 'lucide-react'
 import { useUser } from '@/lib/hooks/useUser'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
-import { useReports, usePendingAppeals, ReportStatusFilter } from '@/lib/hooks/useAdmin'
-import { AdminReportCard } from '@/components/admin/AdminReportCard'
-import { AdminAppealCard } from '@/components/admin/AdminAppealCard'
-
-type Tab = ReportStatusFilter | 'appeals'
-
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'appeals', label: 'Appeals' },
-  { value: 'actioned', label: 'Actioned' },
-  { value: 'dismissed', label: 'Dismissed' },
-]
+import { usePendingReportsCount } from '@/lib/hooks/useAdmin'
 
 export default function AdminPanelPage() {
   const { profile, loading } = useUser()
-  const [tab, setTab] = useState<Tab>('pending')
-  const isReportsTab = tab === 'pending' || tab === 'actioned' || tab === 'dismissed'
-  const { data: reports = [], isLoading: reportsLoading } = useReports(isReportsTab ? tab : 'pending')
-  const { data: appeals = [], isLoading: appealsLoading } = usePendingAppeals()
+  const { data: pendingCount = 0 } = usePendingReportsCount()
 
   if (loading) return <PageLoader />
 
@@ -47,43 +32,29 @@ export default function AdminPanelPage() {
         <h1 className="text-xl font-bold">Admin Panel</h1>
       </div>
 
-      <div className="flex gap-1 bg-muted rounded-xl p-1 overflow-x-auto">
-        {TABS.map(t => (
-          <button
-            key={t.value}
-            onClick={() => setTab(t.value)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap px-2 ${
-              tab === t.value ? 'bg-card shadow-sm' : 'text-muted-foreground'
-            }`}
-          >
-            {t.label}
-            {t.value === 'appeals' && appeals.length > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px]">
-                {appeals.length}
+      <div className="rounded-2xl border divide-y overflow-hidden">
+        <Link
+          href="/settings/admin/reports"
+          className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-pink-500/10 flex items-center justify-center shrink-0">
+              <Flag className="h-5 w-5 text-pink-500" />
+            </div>
+            <div>
+              <span className="text-sm font-medium block">Reports</span>
+              <span className="text-xs text-muted-foreground">Review reports, appeals, suspensions & restrictions</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-medium">
+                {pendingCount}
               </span>
             )}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {tab === 'appeals' ? (
-          appealsLoading ? (
-            <p className="text-sm text-muted-foreground text-center py-10">Loading appeals...</p>
-          ) : appeals.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-10">No pending appeals.</p>
-          ) : (
-            appeals.map(appeal => <AdminAppealCard key={appeal.id} appeal={appeal} />)
-          )
-        ) : reportsLoading ? (
-          <p className="text-sm text-muted-foreground text-center py-10">Loading reports...</p>
-        ) : reports.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-10">No {tab} reports.</p>
-        ) : (
-          reports.map(report => (
-            <AdminReportCard key={report.id} report={report} actionable={tab === 'pending'} />
-          ))
-        )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </Link>
       </div>
     </div>
   )
