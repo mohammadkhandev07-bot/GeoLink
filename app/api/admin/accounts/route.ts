@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/server/requireAdmin'
 // to hide people from moderation. Search matches username or full name.
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin()
-  if (auth.error) return auth.error
+  if (!auth.ok) return auth.error
   const { admin } = auth
 
   const q = request.nextUrl.searchParams.get('q')?.trim()
