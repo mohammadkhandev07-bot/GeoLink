@@ -227,7 +227,7 @@ export type TextScene = {
   backgroundColor: string   // hex, or "gradient:#hex1:#hex2"
   textColor: string         // hex, or "gradient:#hex1:#hex2"
   fontFamily?: string
-  textX: number              // percent from left, where the text box sits
+  textX: number              // percent from left, Where the text box sits
   textY: number              // percent from top
   textSize: number           // font size in px
   musicUrl?: string
