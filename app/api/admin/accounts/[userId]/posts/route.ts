@@ -16,4 +16,4 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ posts: data })
-}
+} 
