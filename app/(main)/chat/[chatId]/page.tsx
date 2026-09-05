@@ -21,8 +21,8 @@ import { StoryViewer } from '@/components/stories/StoryViewer'
 import { createClient } from '@/lib/supabase/client'
 import { ChatWithProfiles, Message } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
-import { isRestricted, restrictionMessage as restrictionLimitMessage } from '@/lib/utils/restrictionCheck'
-import { showToast } from '@/components/shared/Toast'
+import { isRestricted } from '@/lib/utils/restrictionCheck'
+import { RestrictionPopup } from '@/components/shared/RestrictionPopup'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 
 export default function ChatRoomPage() {
@@ -40,6 +40,7 @@ export default function ChatRoomPage() {
   const [showSettingsPage, setShowSettingsPage] = useState(false)
   const [showCallSettings, setShowCallSettings] = useState(false)
   const [savingWallpaper, setSavingWallpaper] = useState(false)
+  const [showRestrictionPopup, setShowRestrictionPopup] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -49,7 +50,7 @@ export default function ChatRoomPage() {
 
   const guardedSendMessage = async (payload: Parameters<typeof sendMessage>[0]) => {
     if (isRestricted(profile?.restrict_message_until)) {
-      showToast(restrictionLimitMessage('messaging'), 'error')
+      setShowRestrictionPopup(true)
       return
     }
     return sendMessage(payload)
@@ -278,6 +279,9 @@ export default function ChatRoomPage() {
 
   return (
     <div className="relative flex flex-col h-[100dvh] lg:h-[calc(100vh-3.5rem)] max-w-xl mx-auto">
+      {showRestrictionPopup && (
+        <RestrictionPopup feature="messaging" until={profile?.restrict_message_until} onClose={() => setShowRestrictionPopup(false)} />
+      )}
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b bg-background sticky top-0 lg:top-14 z-10">
         <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
