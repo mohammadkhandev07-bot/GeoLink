@@ -8,12 +8,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 // account's data - including private ones - without fighting normal
 // user-scoped RLS. Centralized here so each route is just a couple of
 // lines instead of repeating this block everywhere.
+//
+// Returns a discriminated union tagged on `ok` - callers check
+// `if (!auth.ok) return auth.error` before touching `auth.admin`.
 export async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: NextResponse.json({ error: 'Not signed in' }, { status: 401 }) as const }
+    return { ok: false as const, error: NextResponse.json({ error: 'Not signed in' }, { status: 401 }) }
   }
 
   const { data: callerProfile } = await supabase
@@ -23,8 +26,8 @@ export async function requireAdmin() {
     .single()
 
   if (!callerProfile?.is_admin) {
-    return { error: NextResponse.json({ error: 'Not authorized' }, { status: 403 }) as const }
+    return { ok: false as const, error: NextResponse.json({ error: 'Not authorized' }, { status: 403 }) }
   }
 
-  return { admin: createAdminClient(), user }
+  return { ok: true as const, admin: createAdminClient(), user }
 }
