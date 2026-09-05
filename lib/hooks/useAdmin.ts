@@ -27,7 +27,7 @@ export function useReports(status: ReportStatusFilter) {
 }
 
 // Small helper used by the Reports hub to show a live pending-reports
-// Badge without pulling the whole list down.
+// badge without pulling the whole list down.
 export function usePendingReportsCount() {
   const supabase = createClient()
   return useQuery({
@@ -140,10 +140,12 @@ export function useSuspendUser() {
       }
       await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'suspend', reason, reportId })
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
       queryClient.invalidateQueries({ queryKey: ['admin-reports-count'] })
       queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-account', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-accounts'] })
     },
   })
 }
@@ -161,9 +163,11 @@ export function useUnsuspendUser() {
       if (error) throw error
       await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'unsuspend' })
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
       queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-account', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-accounts'] })
     },
   })
 }
@@ -186,10 +190,12 @@ export function useRestrictUser() {
       }
       await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'restrict', feature, reportId })
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
       queryClient.invalidateQueries({ queryKey: ['admin-reports-count'] })
       queryClient.invalidateQueries({ queryKey: ['admin-restricted'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-account', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-accounts'] })
     },
   })
 }
@@ -207,7 +213,11 @@ export function useLiftRestriction() {
       if (error) throw error
       await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'unrestrict', feature })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-restricted'] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-restricted'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-account', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-accounts'] })
+    },
   })
 }
 
