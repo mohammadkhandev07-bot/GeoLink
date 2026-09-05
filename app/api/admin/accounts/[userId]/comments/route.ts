@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
 
   // Every comment this account has ever posted, plus a preview of the
   // post it was left on (and who that post belongs to) so an admin can
-  // see the context without hopping to a second screen.
+  // See the context without hopping to a second screen.
   const { data, error } = await admin
     .from('comments')
     .select('*, posts(id, content, media_url, media_type, user_id, profiles(username, avatar_url))')
