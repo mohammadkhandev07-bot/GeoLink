@@ -43,7 +43,7 @@ export default function AdminAccountLikesPage() {
           {likes.map(like => (
             <div key={like.id} className="rounded-2xl border p-4 flex items-center gap-3">
               {like.posts?.media_url && like.posts.media_type === 'image' && (
-                // eslint-disable-next-line @next/next/no-img-element
+                // Eslint-disable-next-line @next/next/no-img-element
                 <img src={like.posts.media_url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
               )}
               {like.posts?.media_url && like.posts.media_type === 'video' && (
