@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { Send, X } from 'lucide-react'
 import { CommentItem } from '@/components/shared/CommentItem'
 import { CommentTarget, useCommentThread, useAddComment } from '@/lib/hooks/useComments'
-import { isRestricted, restrictionMessage } from '@/lib/utils/restrictionCheck'
-import { showToast } from '@/components/shared/Toast'
+import { isRestricted } from '@/lib/utils/restrictionCheck'
+import { RestrictionPopup } from '@/components/shared/RestrictionPopup'
 
 interface CommentThreadProps {
   target: CommentTarget
@@ -46,12 +46,13 @@ export function CommentThread({
 
   const [input, setInput] = useState('')
   const [replyTo, setReplyTo] = useState<{ topLevelId: string; commentId: string; userId: string; username: string; content: string } | null>(null)
+  const [showRestrictionPopup, setShowRestrictionPopup] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentUserId || !input.trim()) return
     if (isRestricted(commentRestrictedUntil)) {
-      showToast(restrictionMessage('commenting'), 'error')
+      setShowRestrictionPopup(true)
       return
     }
     await addComment.mutateAsync({
@@ -70,6 +71,9 @@ export function CommentThread({
 
   return (
     <div className={className}>
+      {showRestrictionPopup && (
+        <RestrictionPopup feature="commenting" until={commentRestrictedUntil} onClose={() => setShowRestrictionPopup(false)} />
+      )}
       <div className={`space-y-3 overflow-y-auto overflow-x-hidden scrollbar-hide ${listClassName}`}>
         {isLoading ? (
           <p className="text-xs text-muted-foreground text-center py-4">Loading comments...</p>
