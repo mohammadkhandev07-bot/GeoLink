@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
 
   // Comments live on the story, not the account, so first find which
   // stories are currently active for this account, then pull every
-  // comment left on any of them.
+  // Comment left on any of them.
   const { data: stories, error: storiesErr } = await admin
     .from('stories')
     .select('id')
