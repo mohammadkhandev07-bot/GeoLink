@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { ReportWithProfiles, AccountAppeal } from '@/lib/types/database.types'
+import { ReportWithProfiles, AccountAppeal, ModerationLog, Profile } from '@/lib/types/database.types'
 
 const RESTRICTION_DAYS = 10
 const SUSPENSION_HOURS = 24
@@ -22,6 +22,20 @@ export function useReports(status: ReportStatusFilter) {
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as ReportWithProfiles[]
+    },
+  })
+}
+
+// Small helper used by the Reports hub to show a live pending-reports
+// badge without pulling the whole list down.
+export function usePendingReportsCount() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['admin-reports-count', 'pending'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      if (error) throw error
+      return count ?? 0
     },
   })
 }
@@ -62,6 +76,33 @@ function reportStatusUpdate(supabase: ReturnType<typeof createClient>, reportId:
   return supabase.from('reports').update({ status, reviewed_at: new Date().toISOString() }).eq('id', reportId)
 }
 
+// Every admin action gets one row here, best-effort - if this insert ever
+// fails, we don't want that to take down the actual moderation action,
+// so callers fire-and-log rather than treating this as critical-path.
+async function logModerationAction(
+  supabase: ReturnType<typeof createClient>,
+  entry: {
+    targetUserId: string
+    targetUsername: string
+    action: ModerationLog['action']
+    feature?: ModerationLog['feature']
+    reason?: string | null
+    reportId?: string | null
+  }
+) {
+  const { data: { user } } = await supabase.auth.getUser()
+  const { error } = await supabase.from('moderation_logs').insert({
+    admin_id: user?.id ?? null,
+    target_user_id: entry.targetUserId,
+    target_username: entry.targetUsername,
+    action: entry.action,
+    feature: entry.feature ?? null,
+    reason: entry.reason ?? null,
+    report_id: entry.reportId ?? null,
+  })
+  if (error) console.error('[moderation log] failed to record action:', error)
+}
+
 export function useDismissReport() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -80,7 +121,7 @@ export function useSuspendUser() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ userId, reason, reportId }: { userId: string; reason: string; reportId?: string }) => {
+    mutationFn: async ({ userId, username, reason, reportId }: { userId: string; username: string; reason: string; reportId?: string }) => {
       const now = new Date()
       const deadline = new Date(now.getTime() + SUSPENSION_HOURS * 60 * 60 * 1000)
       const { error } = await supabase
@@ -97,8 +138,13 @@ export function useSuspendUser() {
         const { error: reportErr } = await reportStatusUpdate(supabase, reportId, 'actioned')
         if (reportErr) throw reportErr
       }
+      await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'suspend', reason, reportId })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-reports'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-reports-count'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
+    },
   })
 }
 
@@ -107,14 +153,18 @@ export function useUnsuspendUser() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ userId }: { userId: string }) => {
+    mutationFn: async ({ userId, username }: { userId: string; username: string }) => {
       const { error } = await supabase
         .from('profiles')
         .update({ is_suspended: false, suspended_at: null, suspension_deadline: null, suspension_reason: null })
         .eq('id', userId)
       if (error) throw error
+      await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'unsuspend' })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-reports'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
+    },
   })
 }
 
@@ -125,7 +175,7 @@ export function useRestrictUser() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ userId, feature, reportId }: { userId: string; feature: RestrictionFeature; reportId?: string }) => {
+    mutationFn: async ({ userId, username, feature, reportId }: { userId: string; username: string; feature: RestrictionFeature; reportId?: string }) => {
       const until = new Date(Date.now() + RESTRICTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
       const column = `restrict_${feature}_until`
       const { error } = await supabase.from('profiles').update({ [column]: until }).eq('id', userId)
@@ -134,8 +184,109 @@ export function useRestrictUser() {
         const { error: reportErr } = await reportStatusUpdate(supabase, reportId, 'actioned')
         if (reportErr) throw reportErr
       }
+      await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'restrict', feature, reportId })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-reports'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-reports-count'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-restricted'] })
+    },
+  })
+}
+
+// Admin lifting a restriction early, before its 10-day deadline - from
+// the Restrictions page rather than from a fresh report.
+export function useLiftRestriction() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, username, feature }: { userId: string; username: string; feature: RestrictionFeature }) => {
+      const column = `restrict_${feature}_until`
+      const { error } = await supabase.from('profiles').update({ [column]: null }).eq('id', userId)
+      if (error) throw error
+      await logModerationAction(supabase, { targetUserId: userId, targetUsername: username, action: 'unrestrict', feature })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-restricted'] }),
+  })
+}
+
+// ------------------------------------------------------------------
+// Suspended Accounts page - "Active" (currently suspended) reads
+// straight off profiles; "History" reads the audit log, which is the
+// only place that still has a record once an unsuspend/permanent
+// delete has happened.
+// ------------------------------------------------------------------
+export function useActiveSuspensions() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['admin-suspended', 'active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('is_suspended', true)
+        .order('suspended_at', { ascending: false })
+      if (error) throw error
+      return data as unknown as Profile[]
+    },
+  })
+}
+
+export function useSuspensionHistory() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['admin-suspended', 'history'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('moderation_logs')
+        .select('*')
+        .in('action', ['unsuspend', 'delete_account'])
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return data as unknown as ModerationLog[]
+    },
+  })
+}
+
+// ------------------------------------------------------------------
+// Restrictions page - "Active" pulls every profile with at least one
+// restrict_*_until still in the future (one row per user, but a user
+// can carry more than one active feature restriction at once so we
+// expand those into one card per feature client-side). "History" is
+// the log of restrict/unrestrict actions.
+// ------------------------------------------------------------------
+export function useActiveRestrictions() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['admin-restricted', 'active'],
+    queryFn: async () => {
+      const now = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`restrict_post_until.gt.${now},restrict_comment_until.gt.${now},restrict_message_until.gt.${now},restrict_story_until.gt.${now}`)
+      if (error) throw error
+      return data as unknown as Profile[]
+    },
+  })
+}
+
+export function useRestrictionHistory() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['admin-restricted', 'history'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('moderation_logs')
+        .select('*')
+        .in('action', ['restrict', 'unrestrict'])
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return data as unknown as ModerationLog[]
+    },
   })
 }
 
@@ -143,6 +294,9 @@ export function useRestrictUser() {
 // Account appeals - reviewed by an admin. Approving one lifts the
 // suspension immediately; rejecting just leaves it as-is (the 24h
 // countdown on the suspension screen keeps running either way).
+// A rejected appeal can now optionally be followed by permanently
+// deleting the account outright, when the admin decides it isn't
+// genuine (see usePermanentlyDeleteAppealUser below).
 // ------------------------------------------------------------------
 export type AppealWithProfile = AccountAppeal & { profiles: any }
 
@@ -168,7 +322,7 @@ export function useReviewAppeal() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ appealId, userId, approve }: { appealId: string; userId: string; approve: boolean }) => {
+    mutationFn: async ({ appealId, userId, username, approve }: { appealId: string; userId: string; username: string; approve: boolean }) => {
       const { error: appealErr } = await supabase
         .from('account_appeals')
         .update({ status: approve ? 'approved' : 'rejected', reviewed_at: new Date().toISOString() })
@@ -182,10 +336,43 @@ export function useReviewAppeal() {
           .eq('id', userId)
         if (profileErr) throw profileErr
       }
+
+      await logModerationAction(supabase, {
+        targetUserId: userId,
+        targetUsername: username,
+        action: approve ? 'appeal_approved' : 'appeal_rejected',
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-appeals'] })
       queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
+    },
+  })
+}
+
+// Permanently deletes the appealing user's entire account - for when the
+// admin looks at the appeal and decides it isn't genuine. Goes through
+// the server route since deleting someone else's auth login needs the
+// service role key, which never runs in the browser.
+export function usePermanentlyDeleteAppealUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, appealId, reason }: { userId: string; appealId: string; reason?: string }) => {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: userId, appealId, reason: reason || 'Appeal rejected - account permanently deleted' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not delete that account.')
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-appeals'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
     },
   })
 }
