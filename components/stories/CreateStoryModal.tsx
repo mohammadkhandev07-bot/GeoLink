@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Type, ImageIcon, Video, Lock } from 'lucide-react'
+import { X, Type, ImageIcon, Video } from 'lucide-react'
 import { TextStoryModal } from './TextStoryModal'
 import { PhotoStoryModal } from './PhotoStoryModal'
 import { VideoStoryModal } from './VideoStoryModal'
 import { useUser } from '@/lib/hooks/useUser'
-import { isRestricted, restrictionMessage } from '@/lib/utils/restrictionCheck'
+import { isRestricted } from '@/lib/utils/restrictionCheck'
+import { RestrictionPopup } from '@/components/shared/RestrictionPopup'
 
 interface CreateStoryModalProps {
   userId: string
@@ -31,16 +32,7 @@ export function CreateStoryModal({ userId, onClose }: CreateStoryModalProps) {
   }
 
   if (restricted) {
-    return (
-      <div className="fixed inset-0 bg-black/60 z-[100] flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-card rounded-2xl w-full max-w-sm p-6 text-center space-y-3" onClick={(e) => e.stopPropagation()}>
-          <Lock className="h-8 w-8 text-red-500 mx-auto" />
-          <p className="font-semibold">Stories restricted</p>
-          <p className="text-sm text-muted-foreground">{restrictionMessage('posting stories')}</p>
-          <button onClick={onClose} className="text-sm text-pink-500 font-medium">Close</button>
-        </div>
-      </div>
-    )
+    return <RestrictionPopup feature="posting stories" until={profile?.restrict_story_until} onClose={onClose} />
   }
 
   return (
@@ -104,4 +96,4 @@ export function CreateStoryModal({ userId, onClose }: CreateStoryModalProps) {
       </div>
     </div>
   )
-} 
+}
