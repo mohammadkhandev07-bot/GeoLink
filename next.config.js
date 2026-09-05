@@ -41,6 +41,28 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
+
+  // face-api.js (used for the appeal-photo face check) pulls in
+  // @tensorflow/tfjs-core, which supports a Node.js backend as well as
+  // the browser one. That Node backend code references 'fs' and
+  // node-fetch references the optional 'encoding' package - neither of
+  // which exists (or is needed) in the browser bundle. Without this,
+  // webpack tries to resolve them at build time and the whole build
+  // fails with "Module not found". Since face-api.js only ever runs
+  // client-side here, it's safe to tell webpack to just stub these out
+  // for the browser bundle - that code path never actually executes.
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+        encoding: false,
+      }
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig
