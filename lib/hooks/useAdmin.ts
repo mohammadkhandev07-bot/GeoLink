@@ -27,7 +27,7 @@ export function useReports(status: ReportStatusFilter) {
 }
 
 // Small helper used by the Reports hub to show a live pending-reports
-// Badge without pulling the whole list down.
+// badge without pulling the whole list down.
 export function usePendingReportsCount() {
   const supabase = createClient()
   return useQuery({
@@ -344,6 +344,33 @@ export function useReviewAppeal() {
       })
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-appeals'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
+    },
+  })
+}
+
+// Permanently deletes any account outright, straight from the Action
+// page - not tied to an appeal at all (appealId is optional and only
+// passed when this happens to originate from one).
+export function useAdminPermanentlyDeleteAccount() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, reason }: { userId: string; reason?: string }) => {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: userId, reason: reason || 'Permanently deleted by admin' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not delete that account.')
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-account', variables.userId] })
       queryClient.invalidateQueries({ queryKey: ['admin-appeals'] })
       queryClient.invalidateQueries({ queryKey: ['admin-reports'] })
       queryClient.invalidateQueries({ queryKey: ['admin-suspended'] })
