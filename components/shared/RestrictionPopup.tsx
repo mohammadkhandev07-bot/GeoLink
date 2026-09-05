@@ -12,7 +12,7 @@ interface RestrictionPopupProps {
 // A proper modal popup for "you're restricted" moments, used in place of
 // a plain alert()/toast so the person actually sees why an action was
 // blocked and exactly when it'll be available again - not just a message
-// that flashes by.
+// That flashes by.
 export function RestrictionPopup({ feature, until, onClose }: RestrictionPopupProps) {
   return (
     <div className="fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center p-4" onClick={onClose}>
