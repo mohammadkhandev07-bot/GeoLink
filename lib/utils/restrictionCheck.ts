@@ -10,7 +10,7 @@ export function isRestricted(until: string | null | undefined): boolean {
 }
 
 // Whole days left until a restriction lifts, rounded up so "23 hours
-// left" still reads as "1 day left" rather than "0 days left".
+// Left" still reads as "1 day left" rather than "0 days left".
 export function daysRemaining(until: string | null | undefined): number {
   if (!until) return 0
   const ms = new Date(until).getTime() - Date.now()
