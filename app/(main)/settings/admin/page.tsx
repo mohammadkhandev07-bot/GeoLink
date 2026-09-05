@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, ShieldCheck, Flag } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShieldCheck, Flag, Users } from 'lucide-react'
 import { useUser } from '@/lib/hooks/useUser'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { usePendingReportsCount } from '@/lib/hooks/useAdmin'
@@ -12,7 +12,7 @@ export default function AdminPanelPage() {
 
   if (loading) return <PageLoader />
 
-  // Not the admin account - Nothing here for them, same treatment as any
+  // Not the admin account - nothing here for them, same treatment as any
   // Other page that doesn't apply to the current user.
   if (!profile?.is_admin) {
     return (
@@ -54,6 +54,22 @@ export default function AdminPanelPage() {
             )}
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
+        </Link>
+
+        <Link
+          href="/settings/admin/accounts"
+          className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5 text-purple-500" />
+            </div>
+            <div>
+              <span className="text-sm font-medium block">Accounts</span>
+              <span className="text-xs text-muted-foreground">Browse every account's posts, comments, stories & likes</span>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
         </Link>
       </div>
     </div>
