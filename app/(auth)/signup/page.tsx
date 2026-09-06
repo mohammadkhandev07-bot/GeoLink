@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
+import { Captcha } from '@/components/shared/Captcha'
 
 interface SignupForm {
   email: string
@@ -44,6 +45,7 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
   const [pendingEmail, setPendingEmail] = useState('')
   const router = useRouter()
@@ -61,6 +63,20 @@ export default function SignupPage() {
     setError(null)
 
     try {
+      // Server-side captcha check first - if this fails, nothing about
+      // the account gets created at all.
+      const captchaRes = await fetch('/api/captcha/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: captchaToken }),
+      })
+      const captchaData = await captchaRes.json()
+      if (!captchaData.success) {
+        setError(captchaData.error || 'Please complete the captcha.')
+        setLoading(false)
+        return
+      }
+
       // 1. Signup karo
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
@@ -264,11 +280,13 @@ export default function SignupPage() {
             </span>
           </label>
 
+          <Captcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
+
           <Button
             type="submit"
             className="w-full"
             variant="gradient"
-            disabled={loading || !agreedToTerms}
+            disabled={loading || !agreedToTerms || (!!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken)}
           >
             {loading ? 'Creating account...' : 'Sign Up'}
           </Button>
