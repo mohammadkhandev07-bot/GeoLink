@@ -11,6 +11,7 @@ import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
 import { SaveButton } from '@/components/shared/SaveButton'
 import { RepostBadge } from '@/components/shared/RepostBadge'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { CommentThread } from '@/components/shared/CommentThread'
 import { ReportModal } from '@/components/shared/ReportModal'
 import { PostWithProfile } from '@/lib/types/database.types'
@@ -130,7 +131,10 @@ export function PostCard({ post, onDelete }: PostCardProps) {
             <AvatarFallback>{post.profiles.username?.[0]?.toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold text-sm leading-none">{post.profiles.username}</p>
+            <p className="font-semibold text-sm leading-none flex items-center gap-1">
+              {post.profiles.username}
+              {post.profiles.is_verified && <VerifiedBadge type={post.profiles.verification_type} className="text-xs" />}
+            </p>
             <p className="text-xs text-muted-foreground mt-0.5">{formatTimeAgo(post.created_at)}</p>
           </div>
         </Link>
