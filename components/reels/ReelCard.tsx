@@ -8,6 +8,7 @@ import { ShareModal } from '@/components/shared/ShareModal'
 import { PostCaption } from '@/components/shared/PostCaption'
 import { SaveButton } from '@/components/shared/SaveButton'
 import { RepostBadge } from '@/components/shared/RepostBadge'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { CommentThread } from '@/components/shared/CommentThread'
 import { ReportModal } from '@/components/shared/ReportModal'
 import { PostWithProfile } from '@/lib/types/database.types'
@@ -275,7 +276,10 @@ export function ReelCard({ post, isActive, isMuted, onToggleMute }: ReelCardProp
               {post.profiles.username?.[0]?.toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <span className="text-white font-semibold text-sm drop-shadow">@{post.profiles.username}</span>
+          <span className="text-white font-semibold text-sm drop-shadow flex items-center gap-1">
+            @{post.profiles.username}
+            {post.profiles.is_verified && <VerifiedBadge type={post.profiles.verification_type} className="text-xs" />}
+          </span>
         </Link>
         {post.content && (
           <PostCaption
