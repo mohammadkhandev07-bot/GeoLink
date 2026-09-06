@@ -413,3 +413,38 @@ export function usePermanentlyDeleteAppealUser() {
     },
   })
 }
+
+// ------------------------------------------------------------------
+// Verification tick - grants or revokes the *blue* tick only. The
+// yellow tick belongs to SociaLensOfficial alone and is set directly in
+// the database (see supabase-migration-verification-tick.sql); there is
+// intentionally no code path here that can produce a second yellow tick.
+// Granting sends the recipient a congratulations notification that
+// appears to come from SociaLensOfficial specifically, regardless of
+// which admin account performed the action.
+// ------------------------------------------------------------------
+export function useSetVerification() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, grant }: { userId: string; grant: boolean }) => {
+      if (grant) {
+        const { error } = await supabase.from('profiles').update({ verification_type: 'blue', is_verified: true }).eq('id', userId)
+        if (error) throw error
+
+        const { data: official } = await supabase.from('profiles').select('id').eq('username', 'SociaLensOfficial').maybeSingle()
+        if (official?.id) {
+          await supabase.from('notifications').insert({ user_id: userId, actor_id: official.id, type: 'verified' })
+        }
+      } else {
+        const { error } = await supabase.from('profiles').update({ verification_type: null, is_verified: false }).eq('id', userId)
+        if (error) throw error
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-account', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-accounts'] })
+    },
+  })
+}
