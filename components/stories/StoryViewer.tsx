@@ -27,6 +27,7 @@ import { useUser } from '@/lib/hooks/useUser'
 import { StoryEditModal } from './StoryEditModal'
 import { StoryHideViewersModal } from './StoryHideViewersModal'
 import { ReportModal } from '@/components/shared/ReportModal'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { loadGoogleFont } from '@/lib/utils/googleFonts'
 import { resolveBackgroundCss, getTextFillStyle } from '@/lib/utils/storyStyle'
 import type { TextScene, PhotoScene, VideoScene } from '@/lib/types/database.types'
@@ -395,7 +396,10 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
               <AvatarFallback>{group.profile?.username?.[0]?.toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-white text-sm font-medium leading-none">{group.profile?.username}</p>
+              <p className="text-white text-sm font-medium leading-none flex items-center gap-1">
+                {group.profile?.username}
+                {group.profile?.is_verified && <VerifiedBadge type={group.profile.verification_type} className="text-xs" />}
+              </p>
               <p className="text-white/60 text-xs mt-0.5">{formatTimeAgo(story.created_at)}</p>
             </div>
           </button>
@@ -635,8 +639,9 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                           <AvatarFallback>{v.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
-                      <Link href={`/profile/${v.profiles?.username}`} onClick={e => e.stopPropagation()} className="flex-1 min-w-0">
+                      <Link href={`/profile/${v.profiles?.username}`} onClick={e => e.stopPropagation()} className="flex-1 min-w-0 flex items-center gap-1">
                         <p className="text-sm font-medium truncate hover:underline">{v.profiles?.username}</p>
+                        {v.profiles?.is_verified && <VerifiedBadge type={v.profiles.verification_type} className="text-xs shrink-0" />}
                       </Link>
                       <p className="text-[11px] text-muted-foreground shrink-0">{formatTimeAgo(v.viewed_at)}</p>
                     </div>
@@ -670,8 +675,9 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                           <AvatarFallback>{l.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </Link>
-                      <Link href={`/profile/${l.profiles?.username}`} onClick={e => e.stopPropagation()} className="flex-1 min-w-0">
+                      <Link href={`/profile/${l.profiles?.username}`} onClick={e => e.stopPropagation()} className="flex-1 min-w-0 flex items-center gap-1">
                         <p className="text-sm font-medium truncate hover:underline">{l.profiles?.username}</p>
+                        {l.profiles?.is_verified && <VerifiedBadge type={l.profiles.verification_type} className="text-xs shrink-0" />}
                       </Link>
                       <Heart className="h-4 w-4 fill-red-500 text-red-500 shrink-0" />
                     </div>
@@ -703,8 +709,9 @@ export function StoryViewer({ groups, startGroupIndex, currentUserId, onClose }:
                         <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
                         <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center gap-1">
                         <p className="text-sm font-medium truncate">{r.profiles?.username}</p>
+                        {r.profiles?.is_verified && <VerifiedBadge type={r.profiles.verification_type} className="text-xs shrink-0" />}
                       </div>
                       <span className="text-xl leading-none shrink-0">{r.emoji}</span>
                     </div>
