@@ -6,6 +6,7 @@ import { Ban, ShieldAlert, Check, ChevronDown } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ReportWithProfiles } from '@/lib/types/database.types'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import {
   useReportTargetPreview,
   useSuspendUser,
@@ -71,11 +72,13 @@ export function AdminReportCard({ report, actionable }: { report: ReportWithProf
           <Link href={`/profile/${report.reporter?.username}`} className="flex items-center gap-1.5 shrink-0 hover:underline">
             <Avatar className="h-5 w-5"><AvatarImage src={getAvatarUrl(report.reporter?.avatar_url)} /><AvatarFallback className="text-[9px]">{report.reporter?.username?.[0]?.toUpperCase()}</AvatarFallback></Avatar>
             <span className="font-medium">{report.reporter?.username}</span>
+            {report.reporter?.is_verified && <VerifiedBadge type={report.reporter.verification_type} className="text-xs" />}
           </Link>
           <span className="text-muted-foreground shrink-0">reported</span>
           <Link href={`/profile/${report.reported_user?.username}`} className="flex items-center gap-1.5 shrink-0 hover:underline">
             <Avatar className="h-5 w-5"><AvatarImage src={getAvatarUrl(report.reported_user?.avatar_url)} /><AvatarFallback className="text-[9px]">{report.reported_user?.username?.[0]?.toUpperCase()}</AvatarFallback></Avatar>
             <span className="font-medium">{report.reported_user?.username}</span>
+            {report.reported_user?.is_verified && <VerifiedBadge type={report.reported_user.verification_type} className="text-xs" />}
           </Link>
         </div>
         <span className="text-[10px] text-muted-foreground shrink-0">{formatTimeAgo(report.created_at)}</span>
@@ -159,4 +162,4 @@ export function AdminReportCard({ report, actionable }: { report: ReportWithProf
       )}
     </div>
   )
-} 
+}
