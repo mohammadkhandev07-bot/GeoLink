@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Ban, ShieldAlert, Trash2, Loader2, Check } from 'lucide-react'
+import { ChevronLeft, Ban, ShieldAlert, Trash2, Loader2, Check, BadgeCheck } from 'lucide-react'
 import { useRouter, useParams } from 'next/navigation'
 import { useUser } from '@/lib/hooks/useUser'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
@@ -13,6 +13,7 @@ import {
   useRestrictUser,
   useLiftRestriction,
   useAdminPermanentlyDeleteAccount,
+  useSetVerification,
   RestrictionFeature,
 } from '@/lib/hooks/useAdmin'
 import { isRestricted, daysRemaining } from '@/lib/utils/restrictionCheck'
@@ -36,10 +37,13 @@ export default function AdminAccountActionPage() {
   const restrictUser = useRestrictUser()
   const liftRestriction = useLiftRestriction()
   const deleteAccount = useAdminPermanentlyDeleteAccount()
+  const setVerification = useSetVerification()
 
   const [suspendReason, setSuspendReason] = useState('')
   const [confirmingSuspend, setConfirmingSuspend] = useState(false)
   const [confirmingUnsuspend, setConfirmingUnsuspend] = useState(false)
+  const [confirmingVerify, setConfirmingVerify] = useState(false)
+  const [confirmingUnverify, setConfirmingUnverify] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -184,6 +188,63 @@ export default function AdminAccountActionPage() {
         </div>
       </div>
 
+      {/* Verification tick */}
+      <div className="rounded-2xl border p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <BadgeCheck className="h-4 w-4 text-cyan-500" />
+          <h2 className="text-sm font-semibold">Verification Tick</h2>
+        </div>
+
+        {account.verification_type === 'yellow' ? (
+          <p className="text-xs text-muted-foreground">
+            This is the official SociaLens account - its yellow tick can't be changed here.
+          </p>
+        ) : account.verification_type === 'blue' ? (
+          <>
+            <p className="text-xs text-muted-foreground">This account has the blue verification tick.</p>
+            {!confirmingUnverify ? (
+              <button
+                onClick={() => setConfirmingUnverify(true)}
+                className="px-3 py-1.5 rounded-full border text-xs font-medium hover:bg-accent"
+              >
+                Remove tick
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Remove the blue tick?</span>
+                <button
+                  onClick={() => { setVerification.mutate({ userId, grant: false }); setConfirmingUnverify(false) }}
+                  disabled={setVerification.isPending}
+                  className="px-2.5 py-1 rounded-full bg-red-500 text-white text-xs font-medium flex items-center gap-1"
+                >
+                  {setVerification.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Yes, remove'}
+                </button>
+                <button onClick={() => setConfirmingUnverify(false)} className="px-2.5 py-1 rounded-full border text-xs">No</button>
+              </div>
+            )}
+          </>
+        ) : !confirmingVerify ? (
+          <button
+            onClick={() => setConfirmingVerify(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/10 text-cyan-600 text-xs font-medium hover:bg-cyan-500/20"
+          >
+            <BadgeCheck className="h-3.5 w-3.5" /> Give blue tick
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Give @{account.username} the blue tick?</span>
+            <button
+              onClick={() => { setVerification.mutate({ userId, grant: true }); setConfirmingVerify(false) }}
+              disabled={setVerification.isPending}
+              className="px-2.5 py-1 rounded-full bg-cyan-500 text-white text-xs font-medium flex items-center gap-1"
+            >
+              {setVerification.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Yes'}
+            </button>
+            <button onClick={() => setConfirmingVerify(false)} className="px-2.5 py-1 rounded-full border text-xs">No</button>
+          </div>
+        )}
+      </div>
+
       {/* Permanent delete */}
       <div className="rounded-2xl border border-red-500/20 p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -227,4 +288,4 @@ export default function AdminAccountActionPage() {
       </div>
     </div>
   )
-} 
+}
