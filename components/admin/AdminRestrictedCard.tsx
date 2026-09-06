@@ -6,6 +6,7 @@ import { X, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Profile } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { useLiftRestriction, RestrictionFeature } from '@/lib/hooks/useAdmin'
 import { daysRemaining } from '@/lib/utils/restrictionCheck'
 
@@ -29,7 +30,10 @@ export function AdminRestrictedCard({ account, feature, until }: { account: Prof
           <AvatarFallback className="text-xs">{account.username?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <span className="text-sm font-medium block truncate">{account.username}</span>
+          <span className="text-sm font-medium truncate flex items-center gap-1">
+            {account.username}
+            {account.is_verified && <VerifiedBadge type={account.verification_type} className="text-xs" />}
+          </span>
           <span className="text-[11px] text-amber-600">{FEATURE_LABELS[feature]} restricted &middot; {days} {days === 1 ? 'day' : 'days'} left</span>
         </div>
       </Link>
@@ -58,4 +62,4 @@ export function AdminRestrictedCard({ account, feature, until }: { account: Prof
       )}
     </div>
   )
-} 
+}
