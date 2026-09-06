@@ -9,6 +9,7 @@ import { getChatPreviewText } from '@/lib/utils/chatPreview'
 import { getClampedPopupPosition } from '@/lib/utils/popupPosition'
 import { useTogglePinChat, useToggleArchiveChat, useDeleteChatForMe, useToggleBlock } from '@/lib/hooks/useChatSettings'
 import type { Chat } from '@/lib/types/database.types'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 const MENU_WIDTH = 200
 const MENU_HEIGHT = 200
@@ -93,6 +94,7 @@ export function ChatListItem({ chat, other, currentUserId, unread, isPinned, isA
           <div className="flex items-center gap-1.5">
             {isPinned && <Pin className="h-3 w-3 text-muted-foreground shrink-0 fill-current" />}
             <p className={`text-sm truncate ${unread > 0 ? 'font-bold' : 'font-semibold'}`}>{other.username}</p>
+            {other.is_verified && <VerifiedBadge type={other.verification_type} className="text-xs shrink-0" />}
             <p className="text-xs text-muted-foreground shrink-0 ml-auto">
               {chat.last_message_time ? formatTimeAgo(chat.last_message_time) : ''}
             </p>
