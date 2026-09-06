@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { AdsterraBanner } from '@/components/shared/AdsterraBanner'
 import { CreatePostModal } from '@/components/shared/CreatePostModal'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 const navItems = [
   { href: '/feed', icon: Home, label: 'Home' },
@@ -52,7 +53,10 @@ export function Sidebar() {
                 <AvatarImage src={getAvatarUrl(profile.avatar_url)} />
                 <AvatarFallback>{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
-              <span>{profile.username}</span>
+              <span className="flex items-center gap-1">
+                {profile.username}
+                {profile.is_verified && <VerifiedBadge type={profile.verification_type} className="text-xs" />}
+              </span>
             </Link>
           )}
           <Link href="/chat/archive"
