@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { CommentReactionPicker } from '@/components/shared/CommentReactionPicker'
 import { CommentReactorsDialog } from '@/components/shared/CommentReactorsDialog'
 import { ReportModal } from '@/components/shared/ReportModal'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import {
   CommentTarget,
   useToggleCommentLike,
@@ -89,6 +90,9 @@ export function CommentItem({ comment, target, targetId, currentUserId, ownerId,
           <Link href={`/profile/${comment.profiles?.username}`} className="font-semibold mr-1 hover:underline">
             {comment.profiles?.username}
           </Link>
+          {comment.profiles?.is_verified && (
+            <VerifiedBadge type={comment.profiles.verification_type} className="text-xs mr-1" />
+          )}
           {comment.content}
         </p>
 
