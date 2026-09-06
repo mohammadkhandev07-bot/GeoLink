@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useFollowRequests, useRespondToFollowRequest } from '@/lib/hooks/useFollow'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 export function FollowRequestsDialog({ userId }: { userId: string }) {
   const { data: requests = [] } = useFollowRequests(userId)
@@ -43,7 +44,10 @@ export function FollowRequestsDialog({ userId }: { userId: string }) {
                   </Avatar>
                 </Link>
                 <div>
-                  <Link href={`/profile/${req.profiles?.username}`} className="font-semibold text-sm hover:underline block">{req.profiles?.username}</Link>
+                  <Link href={`/profile/${req.profiles?.username}`} className="font-semibold text-sm hover:underline flex items-center gap-1">
+                    {req.profiles?.username}
+                    {req.profiles?.is_verified && <VerifiedBadge type={req.profiles.verification_type} className="text-xs" />}
+                  </Link>
                   <p className="text-xs text-muted-foreground">{req.profiles?.full_name}</p>
                 </div>
               </div>
@@ -82,4 +86,4 @@ export function FollowRequestsDialog({ userId }: { userId: string }) {
       </DialogContent>
     </Dialog>
   )
-} 
+}
