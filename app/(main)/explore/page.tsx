@@ -14,6 +14,7 @@ import { getAvatarUrl, formatCount } from '@/lib/utils/helpers'
 import Link from 'next/link'
 import { Profile, PostWithProfile } from '@/lib/types/database.types'
 import { cn } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 type Tab = 'all' | 'profiles' | 'posts' | 'hashtags'
 
@@ -170,7 +171,10 @@ export default function ExplorePage() {
                     <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white font-bold">{profile.username?.[0]?.toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{profile.username}</p>
+                    <p className="font-semibold text-sm flex items-center gap-1">
+                      {profile.username}
+                      {profile.is_verified && <VerifiedBadge type={profile.verification_type} className="text-xs" />}
+                    </p>
                     {profile.full_name && <p className="text-xs text-muted-foreground">{profile.full_name}</p>}
                   </div>
                   <p className="text-xs text-muted-foreground shrink-0">{formatCount(profile.followers_count)} followers</p>
