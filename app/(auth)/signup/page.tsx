@@ -20,7 +20,7 @@ interface SignupForm {
 }
 
 // Lets people jump straight to their inbox instead of hunting for the tab
-// themselves - covers the providers the vast majority of users are on.
+// Themselves - covers the providers the vast majority of users are on.
 function getEmailProviderLink(email: string): { name: string; url: string } | null {
   const domain = email.split('@')[1]?.toLowerCase()
   if (!domain) return null
