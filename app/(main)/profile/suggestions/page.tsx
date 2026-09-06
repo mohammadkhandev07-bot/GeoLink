@@ -10,6 +10,7 @@ import { useUser } from '@/lib/hooks/useUser'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { FollowButton } from '@/components/profile/FollowButton'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { Profile } from '@/lib/types/database.types'
 
 export default function SuggestionsPage() {
@@ -116,7 +117,10 @@ export default function SuggestionsPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{profile.username}</p>
+                  <p className="text-sm font-semibold truncate flex items-center gap-1">
+                    {profile.username}
+                    {profile.is_verified && <VerifiedBadge type={profile.verification_type} className="text-xs shrink-0" />}
+                  </p>
                   {profile.full_name && <p className="text-xs text-muted-foreground truncate">{profile.full_name}</p>}
                 </div>
               </Link>
