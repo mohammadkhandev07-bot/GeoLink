@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
+import { Captcha } from '@/components/shared/Captcha'
 
 interface LoginForm {
   email: string
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -34,6 +36,18 @@ export default function LoginPage() {
 
     setLoading(true)
     setError(null)
+
+    const captchaRes = await fetch('/api/captcha/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: captchaToken }),
+    })
+    const captchaData = await captchaRes.json()
+    if (!captchaData.success) {
+      setError(captchaData.error || 'Please complete the captcha.')
+      setLoading(false)
+      return
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,
@@ -114,7 +128,9 @@ export default function LoginPage() {
             </span>
           </label>
 
-          <Button type="submit" className="w-full" variant="gradient" disabled={loading || !agreedToTerms}>
+          <Captcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
+
+          <Button type="submit" className="w-full" variant="gradient" disabled={loading || !agreedToTerms || (!!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken)}>
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
