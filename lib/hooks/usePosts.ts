@@ -53,7 +53,7 @@ export function useFeedPosts(userId?: string) {
       // reposted, not when the original post was first made.
       const { data: reposts } = await supabase
         .from('reposts')
-        .select('created_at, profiles!reposts_user_id_fkey(id,username,avatar_url), posts(*, profiles(*))')
+        .select('created_at, profiles!reposts_user_id_fkey(id,username,avatar_url,is_verified,verification_type), posts(*, profiles(*))')
         .in('user_id', followingIds)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -156,7 +156,7 @@ export function useReelsPosts(userId?: string) {
 
       const { data: reposts } = await supabase
         .from('reposts')
-        .select('post_id, created_at, profiles!reposts_user_id_fkey(id,username,avatar_url)')
+        .select('post_id, created_at, profiles!reposts_user_id_fkey(id,username,avatar_url,is_verified,verification_type)')
         .in('post_id', posts.map(p => p.id))
         .in('user_id', followingIds)
         .order('created_at', { ascending: false })
