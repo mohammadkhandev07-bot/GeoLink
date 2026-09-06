@@ -23,6 +23,7 @@ import { ChatWithProfiles, Message } from '@/lib/types/database.types'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { isRestricted } from '@/lib/utils/restrictionCheck'
 import { RestrictionPopup } from '@/components/shared/RestrictionPopup'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 
 export default function ChatRoomPage() {
@@ -92,7 +93,7 @@ export default function ChatRoomPage() {
   }, [chatId])
 
   // Live-check the other person's Message Privacy setting every time this
-  // Conversation is opened - It may have changed since the chat was created.
+  // Conversation is opened - it may have changed since the chat was created.
   useEffect(() => {
     if (!chat || !user) return
     const otherP = chat.participant1_id === user.id ? chat.participant2 : chat.participant1
@@ -305,9 +306,10 @@ export default function ChatRoomPage() {
           <button
             onClick={() => theyBlockedMe ? undefined : (hasStory ? setShowStory(true) : router.push(`/profile/${other.username}`))}
             disabled={theyBlockedMe}
-            className="font-semibold text-sm hover:underline text-left truncate block"
+            className="font-semibold text-sm hover:underline text-left truncate flex items-center gap-1"
           >
             {displayName}
+            {!theyBlockedMe && other.is_verified && <VerifiedBadge type={other.verification_type} className="text-xs shrink-0" />}
           </button>
           {!theyBlockedMe && (
             <div className="flex items-center gap-1">
