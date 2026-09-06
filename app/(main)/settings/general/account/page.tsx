@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, User, Bookmark, Heart } from 'lucide-react'
+import { ChevronLeft, ChevronRight, User, Bookmark, Heart, Ban } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useUser } from '@/lib/hooks/useUser'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
@@ -41,6 +41,13 @@ export default function AccountSettingsPage() {
             <div className="flex items-center gap-3">
               <Heart className="h-5 w-5" />
               <span className="text-sm font-medium">Liked Videos</span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link href="/settings/general/account/blocked" className="flex items-center justify-between py-3 hover:text-pink-500 transition-colors">
+            <div className="flex items-center gap-3">
+              <Ban className="h-5 w-5" />
+              <span className="text-sm font-medium">Block List</span>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
