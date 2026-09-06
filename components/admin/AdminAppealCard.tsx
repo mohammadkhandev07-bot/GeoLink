@@ -6,6 +6,7 @@ import { Check, X, Trash2, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { AppealWithProfile, useReviewAppeal, usePermanentlyDeleteAppealUser } from '@/lib/hooks/useAdmin'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 export function AdminAppealCard({ appeal }: { appeal: AppealWithProfile }) {
   const reviewAppeal = useReviewAppeal()
@@ -39,12 +40,13 @@ export function AdminAppealCard({ appeal }: { appeal: AppealWithProfile }) {
             <AvatarFallback className="text-[9px]">{username?.[0]?.toUpperCase()}</AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium">{username}</span>
+          {appeal.profiles?.is_verified && <VerifiedBadge type={appeal.profiles.verification_type} className="text-xs" />}
         </Link>
         <span className="text-[10px] text-muted-foreground">{formatTimeAgo(appeal.created_at)}</span>
       </div>
 
       <div className="flex gap-3">
-        {/* Eslint-Disable-next-line @next/next/no-img-element */}
+        {/* Eslint-disable-next-line @next/next/no-img-element */}
         <img src={appeal.photo_url} alt="Appeal photo" className="h-20 w-20 rounded-xl object-cover border shrink-0" />
         <p className="text-sm bg-muted/60 rounded-lg px-3 py-2 flex-1">{appeal.letter}</p>
       </div>
