@@ -6,6 +6,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Profile } from '@/lib/types/database.types'
 import { getAvatarUrl, formatTimeAgo } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { useUnsuspendUser } from '@/lib/hooks/useAdmin'
 
 export function AdminSuspendedCard({ account }: { account: Profile }) {
@@ -23,7 +24,10 @@ export function AdminSuspendedCard({ account }: { account: Profile }) {
             <AvatarFallback className="text-xs">{account.username?.[0]?.toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <span className="text-sm font-medium block truncate">{account.username}</span>
+            <span className="text-sm font-medium truncate flex items-center gap-1">
+              {account.username}
+              {account.is_verified && <VerifiedBadge type={account.verification_type} className="text-xs" />}
+            </span>
             <span className="text-[10px] text-muted-foreground">Suspended {formatTimeAgo(account.suspended_at || account.created_at)}</span>
           </div>
         </Link>
@@ -66,4 +70,4 @@ export function AdminSuspendedCard({ account }: { account: Profile }) {
       )}
     </div>
   )
-} 
+}
