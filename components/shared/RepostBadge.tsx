@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { Repeat2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
-type Reposter = { id: string; username: string; avatar_url: string | null }
+type Reposter = { id: string; username: string; avatar_url: string | null; is_verified?: boolean; verification_type?: 'blue' | 'yellow' | null }
 
 interface RepostBadgeProps {
   reposters: Reposter[]
@@ -74,7 +75,10 @@ export function RepostBadge({ reposters, variant = 'overlay', className = '' }: 
             <Repeat2 className="h-2 w-2 text-white" />
           </div>
         </div>
-        <span className="text-white text-[11px] font-medium truncate">{label}</span>
+        <span className="text-white text-[11px] font-medium truncate flex items-center gap-1">
+          {label}
+          {reposters.length === 1 && visible[0].is_verified && <VerifiedBadge type={visible[0].verification_type} className="text-[10px]" />}
+        </span>
       </Link>
     )
   }
@@ -83,7 +87,10 @@ export function RepostBadge({ reposters, variant = 'overlay', className = '' }: 
     <Link href={`/profile/${visible[0].username}`} className={`flex items-center gap-2 px-4 pt-3 text-xs text-muted-foreground hover:text-foreground ${className}`}>
       {stack}
       <Repeat2 className="h-3.5 w-3.5 shrink-0" />
-      <span className="font-medium truncate">{label}</span>
+      <span className="font-medium truncate flex items-center gap-1">
+        {label}
+        {reposters.length === 1 && visible[0].is_verified && <VerifiedBadge type={visible[0].verification_type} className="text-xs" />}
+      </span>
     </Link>
   )
 }
