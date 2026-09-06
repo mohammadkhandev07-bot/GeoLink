@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { X, Users } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
 import { Profile } from '@/lib/types/database.types'
@@ -107,7 +108,7 @@ export function FollowersModal({ profileId, type, onClose }: FollowersModalProps
                   )}
                 </div>
                 {person.is_verified && (
-                  <span className="text-cyan-500 text-sm shrink-0">✓</span>
+                  <VerifiedBadge type={person.verification_type} className="text-sm shrink-0" />
                 )}
               </Link>
             ))
