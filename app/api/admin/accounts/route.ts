@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server/requireAdmin'
 
 // Every account shows up here regardless of is_private - privacy controls
-// Who else on the platform can see someone's content, it was never meant
-// To hide people from moderation. Search matches username or full name.
+// who else on the platform can see someone's content, it was never meant
+// to hide people from moderation. Search matches username or full name.
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin()
   if (!auth.ok) return auth.error
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   let query = admin
     .from('profiles')
-    .select('id, username, full_name, avatar_url, is_private, is_admin, is_suspended, is_verified, posts_count, followers_count, created_at')
+    .select('id, username, full_name, avatar_url, is_private, is_admin, is_suspended, is_verified, verification_type, posts_count, followers_count, created_at')
     .order('username', { ascending: true })
     .limit(100)
 
