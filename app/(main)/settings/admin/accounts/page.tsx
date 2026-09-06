@@ -7,6 +7,7 @@ import { useUser } from '@/lib/hooks/useUser'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { useAdminAccountsList } from '@/lib/hooks/useAdminAccounts'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { getAvatarUrl, formatCount } from '@/lib/utils/helpers'
 
 export default function AdminAccountsPage() {
@@ -64,6 +65,7 @@ export default function AdminAccountsPage() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium truncate">{account.username}</span>
                   {account.is_private && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  {account.is_verified && <VerifiedBadge type={account.verification_type} className="text-xs" />}
                   {account.is_admin && <ShieldCheck className="h-3 w-3 text-pink-500 shrink-0" />}
                   {account.is_suspended && <Ban className="h-3 w-3 text-red-500 shrink-0" />}
                 </div>
@@ -77,4 +79,4 @@ export default function AdminAccountsPage() {
       </div>
     </div>
   )
-} 
+}
