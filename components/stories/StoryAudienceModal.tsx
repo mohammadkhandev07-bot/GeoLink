@@ -5,6 +5,7 @@ import { Globe, Users, UserCheck, ListChecks, Check, Search, Loader2 } from 'luc
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import type { StoryVisibility } from '@/lib/types/database.types'
 
 interface Person {
@@ -12,6 +13,8 @@ interface Person {
   username: string
   avatar_url: string | null
   full_name: string | null
+  is_verified?: boolean
+  verification_type?: 'blue' | 'yellow' | null
 }
 
 interface StoryAudienceModalProps {
@@ -46,11 +49,11 @@ export function StoryAudienceModal({ userId, isPending, confirmLabel, onClose, o
       setLoadingPeople(true)
       const { data: f1 } = await supabase
         .from('follows')
-        .select('profiles!follows_following_id_fkey(id,username,avatar_url,full_name)')
+        .select('profiles!follows_following_id_fkey(id,username,avatar_url,full_name,is_verified,verification_type)')
         .eq('follower_id', userId).eq('status', 'accepted')
       const { data: f2 } = await supabase
         .from('follows')
-        .select('profiles!follows_follower_id_fkey(id,username,avatar_url,full_name)')
+        .select('profiles!follows_follower_id_fkey(id,username,avatar_url,full_name,is_verified,verification_type)')
         .eq('following_id', userId).eq('status', 'accepted')
       const l1 = (f1 || []).map((d: any) => d.profiles).filter(Boolean)
       const l2 = (f2 || []).map((d: any) => d.profiles).filter(Boolean)
@@ -138,7 +141,10 @@ export function StoryAudienceModal({ userId, isPending, confirmLabel, onClose, o
                           <AvatarFallback>{p.username[0]?.toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0 text-left">
-                          <p className="text-sm font-medium truncate">{p.username}</p>
+                          <p className="text-sm font-medium truncate flex items-center gap-1">
+                            {p.username}
+                            {p.is_verified && <VerifiedBadge type={p.verification_type} className="text-xs shrink-0" />}
+                          </p>
                           {p.full_name && <p className="text-xs text-muted-foreground truncate">{p.full_name}</p>}
                         </div>
                         <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSel ? 'bg-pink-500 border-pink-500' : 'border-muted-foreground'}`}>
