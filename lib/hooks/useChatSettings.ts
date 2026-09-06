@@ -224,6 +224,68 @@ export function useBlockedByOthers(userId?: string) {
 }
 
 // ------------------------------------------------------------------
+// Block List screen - every account this person has blocked, with their
+// profile info attached, minus whichever ones they've chosen to "hide"
+// from this list (hiding doesn't unblock them, it just stops showing
+// up here - see hidden_block_entries).
+// ------------------------------------------------------------------
+export function useMyBlockedUsers(userId?: string) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['my-blocked-users', userId],
+    queryFn: async () => {
+      if (!userId) return []
+      const { data: blockRows, error: blockErr } = await supabase
+        .from('blocks')
+        .select('blocked_id, created_at')
+        .eq('blocker_id', userId)
+        .order('created_at', { ascending: false })
+      if (blockErr) throw blockErr
+      if (!blockRows || blockRows.length === 0) return []
+
+      const { data: hiddenRows } = await supabase
+        .from('hidden_block_entries')
+        .select('hidden_user_id')
+        .eq('user_id', userId)
+      const hiddenSet = new Set((hiddenRows || []).map(h => h.hidden_user_id))
+
+      const visibleIds = blockRows.map(b => b.blocked_id).filter(id => !hiddenSet.has(id))
+      if (visibleIds.length === 0) return []
+
+      const { data: profiles, error: profilesErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', visibleIds)
+      if (profilesErr) throw profilesErr
+
+      // Keep the original most-recently-blocked-first order from blockRows.
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+      return blockRows
+        .filter(b => !hiddenSet.has(b.blocked_id))
+        .map(b => ({ ...profileMap.get(b.blocked_id)!, blocked_at: b.created_at }))
+        .filter(p => !!p.id)
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useHideBlockEntry() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, hiddenUserId }: { userId: string; hiddenUserId: string }) => {
+      const { error } = await supabase.from('hidden_block_entries').insert({ user_id: userId, hidden_user_id: hiddenUserId })
+      if (error) throw error
+    },
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['my-blocked-users', userId] })
+    },
+  })
+}
+
+// ------------------------------------------------------------------
 // Chat wallpaper - a personal display setting, like nicknames. Scoped to
 // (chat_id, user_id): the wallpaper I set here only ever applies to this
 // one conversation, and only on my own screen - it never appears for the
