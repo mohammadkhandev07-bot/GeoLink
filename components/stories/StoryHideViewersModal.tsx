@@ -5,6 +5,7 @@ import { X, Search, EyeOff } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { useHiddenViewers, useToggleHiddenViewer } from '@/lib/hooks/useStories'
 
 interface Person {
@@ -12,6 +13,8 @@ interface Person {
   username: string
   avatar_url: string | null
   full_name: string | null
+  is_verified?: boolean
+  verification_type?: 'blue' | 'yellow' | null
 }
 
 interface StoryHideViewersModalProps {
@@ -33,11 +36,11 @@ export function StoryHideViewersModal({ ownerId, onClose }: StoryHideViewersModa
     const fetchPeople = async () => {
       const { data: f1 } = await supabase
         .from('follows')
-        .select('profiles!follows_follower_id_fkey(id,username,avatar_url,full_name)')
+        .select('profiles!follows_follower_id_fkey(id,username,avatar_url,full_name,is_verified,verification_type)')
         .eq('following_id', ownerId).eq('status', 'accepted')
       const { data: f2 } = await supabase
         .from('follows')
-        .select('profiles!follows_following_id_fkey(id,username,avatar_url,full_name)')
+        .select('profiles!follows_following_id_fkey(id,username,avatar_url,full_name,is_verified,verification_type)')
         .eq('follower_id', ownerId).eq('status', 'accepted')
       const l1 = (f1 || []).map((d: any) => d.profiles).filter(Boolean)
       const l2 = (f2 || []).map((d: any) => d.profiles).filter(Boolean)
@@ -94,7 +97,10 @@ export function StoryHideViewersModal({ ownerId, onClose }: StoryHideViewersModa
                     <AvatarFallback>{p.username[0]?.toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-medium truncate">{p.username}</p>
+                    <p className="text-sm font-medium truncate flex items-center gap-1">
+                      {p.username}
+                      {p.is_verified && <VerifiedBadge type={p.verification_type} className="text-xs shrink-0" />}
+                    </p>
                     {p.full_name && <p className="text-xs text-muted-foreground truncate">{p.full_name}</p>}
                   </div>
                   <div className={`h-6 w-11 rounded-full flex items-center px-0.5 shrink-0 transition-colors ${isHidden ? 'bg-pink-500 justify-end' : 'bg-muted justify-start'}`}>
