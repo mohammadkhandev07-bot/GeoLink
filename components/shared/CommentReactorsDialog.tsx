@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CommentTarget, useCommentReactors } from '@/lib/hooks/useComments'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 interface CommentReactorsDialogProps {
   target: CommentTarget
@@ -41,7 +42,10 @@ export function CommentReactorsDialog({ target, commentId, open, onOpenChange }:
                   <AvatarImage src={getAvatarUrl(r.profiles?.avatar_url)} />
                   <AvatarFallback>{r.profiles?.username?.[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <span className="flex-1 text-sm font-medium truncate">{r.profiles?.username}</span>
+                <span className="flex-1 min-w-0 text-sm font-medium truncate flex items-center gap-1">
+                  {r.profiles?.username}
+                  {r.profiles?.is_verified && <VerifiedBadge type={r.profiles.verification_type} className="text-xs shrink-0" />}
+                </span>
                 <span className="text-xl leading-none shrink-0">{r.emoji}</span>
               </Link>
             ))
