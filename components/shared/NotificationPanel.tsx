@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { formatTimeAgo, getAvatarUrl } from '@/lib/utils/helpers'
 import { cn } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 interface Notification {
   id: string
@@ -19,7 +20,7 @@ interface Notification {
     | 'comment_like' | 'comment_react' | 'comment_reply'
     | 'story_like' | 'story_react' | 'story_comment'
     | 'story_comment_like' | 'story_comment_react' | 'story_comment_reply'
-    | 'call'
+    | 'call' | 'verified'
   is_read: boolean
   created_at: string
   message: string | null
@@ -28,7 +29,7 @@ interface Notification {
   post_id: string | null
   story_id: string | null
   comment_id: string | null
-  actor: { id: string; username: string; avatar_url: string | null }
+  actor: { id: string; username: string; avatar_url: string | null; is_verified?: boolean; verification_type?: 'blue' | 'yellow' | null }
 }
 
 function setBadge(count: number) {
@@ -97,6 +98,7 @@ export function NotificationPanel() {
           : n.message === 'rejected' ? 'call declined'
           : n.message === 'cancelled' ? 'cancelled call'
           : 'called you'
+      case 'verified': return "verified your account - congratulations! \ud83c\udf89 You now have the blue tick."
       default: return ''
     }
   }
@@ -115,6 +117,7 @@ export function NotificationPanel() {
       case 'photo': case 'video': case 'voice_message': case 'call':
         return '/chat'
       case 'blocked': case 'unblocked': return '/'
+      case 'verified': return '/feed'
       default: return '/feed'
     }
 
@@ -146,7 +149,7 @@ export function NotificationPanel() {
 
     let query = supabase
       .from('notifications')
-      .select('*, actor:profiles!notifications_actor_id_fkey(id, username, avatar_url)')
+      .select('*, actor:profiles!notifications_actor_id_fkey(id, username, avatar_url, is_verified, verification_type)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -277,7 +280,11 @@ export function NotificationPanel() {
                   <AvatarFallback>{n.actor?.username?.[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm"><span className="font-semibold">{n.actor?.username}</span>{' '}<span className="text-muted-foreground">{getNotifText(n)}</span></p>
+                  <p className="text-sm">
+                    <span className="font-semibold">{n.actor?.username}</span>
+                    {n.actor?.is_verified && <VerifiedBadge type={n.actor.verification_type} className="text-xs mx-1" />}
+                    {' '}<span className="text-muted-foreground">{getNotifText(n)}</span>
+                  </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{formatTimeAgo(n.created_at)}</p>
                 </div>
                 {!n.is_read && <div className="h-2 w-2 rounded-full bg-pink-500 shrink-0 mt-1.5" />}
