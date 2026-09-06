@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Lock, Users, ChevronRight, MessageCircle, Loader2, MoreVertical, Ban, Flag } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 import { Button } from '@/components/ui/button'
 import { FollowButton } from './FollowButton'
 import { FollowersModal } from './FollowersModal'
@@ -116,7 +117,7 @@ export function ProfileHeader({ profile, currentUserId }: ProfileHeaderProps) {
           <div className="flex items-center gap-1.5">
             <h1 className="font-bold text-lg">{profile.full_name || profile.username}</h1>
             {profile.is_private && <Lock className="h-4 w-4 text-muted-foreground" />}
-            {profile.is_verified && <span className="text-cyan-500 text-sm">✓</span>}
+            {profile.is_verified && <VerifiedBadge type={profile.verification_type} />}
           </div>
           <p className="text-muted-foreground text-sm">@{profile.username}</p>
           {profile.bio && <p className="text-sm mt-2">{profile.bio}</p>}
