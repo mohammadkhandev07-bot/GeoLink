@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl } from '@/lib/utils/helpers'
+import { VerifiedBadge } from '@/components/shared/VerifiedBadge'
 
 export type PrivacyLevel = 'everyone' | 'followers' | 'following' | 'selected' | 'none'
 export type PrivacyCategory =
@@ -24,6 +25,8 @@ interface Profile {
   id: string
   username: string
   avatar_url: string | null
+  is_verified?: boolean
+  verification_type?: 'blue' | 'yellow' | null
 }
 
 export function PrivacyOptionSelector({
@@ -54,7 +57,7 @@ export function PrivacyOptionSelector({
     const load = async () => {
       const { data } = await supabase
         .from('privacy_selected_users')
-        .select('selected_user_id, profiles!privacy_selected_users_selected_user_id_fkey(id, username, avatar_url)')
+        .select('selected_user_id, profiles!privacy_selected_users_selected_user_id_fkey(id, username, avatar_url, is_verified, verification_type)')
         .eq('owner_id', userId)
         .eq('category', category)
       const people = (data || []).map((r: any) => r.profiles).filter(Boolean)
@@ -68,7 +71,7 @@ export function PrivacyOptionSelector({
     const t = setTimeout(async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
+        .select('id, username, avatar_url, is_verified, verification_type')
         .ilike('username', `%${search.trim()}%`)
         .neq('id', userId)
         .limit(10)
@@ -160,7 +163,10 @@ export function PrivacyOptionSelector({
                   {selected.map(p => (
                     <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl">
                       <Avatar className="h-8 w-8"><AvatarImage src={getAvatarUrl(p.avatar_url)} /><AvatarFallback>{p.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
-                      <span className="flex-1 text-sm">{p.username}</span>
+                      <span className="flex-1 text-sm flex items-center gap-1">
+                        {p.username}
+                        {p.is_verified && <VerifiedBadge type={p.verification_type} className="text-xs" />}
+                      </span>
                       <button onClick={() => removePerson(p)} className="text-xs text-red-500">Remove</button>
                     </div>
                   ))}
@@ -169,7 +175,10 @@ export function PrivacyOptionSelector({
               {results.filter(r => !selected.some(s => s.id === r.id)).map(p => (
                 <button key={p.id} onClick={() => addPerson(p)} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-accent text-left">
                   <Avatar className="h-8 w-8"><AvatarImage src={getAvatarUrl(p.avatar_url)} /><AvatarFallback>{p.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
-                  <span className="flex-1 text-sm">{p.username}</span>
+                  <span className="flex-1 text-sm flex items-center gap-1">
+                    {p.username}
+                    {p.is_verified && <VerifiedBadge type={p.verification_type} className="text-xs" />}
+                  </span>
                   <span className="text-xs text-pink-500">Add</span>
                 </button>
               ))}
