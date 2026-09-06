@@ -35,6 +35,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const articleRef = useRef<HTMLElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const hasCountedViewRef = useRef(false)
 
   const { data: isReposted = false } = useIsReposted(post.id, user?.id)
@@ -67,6 +68,24 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     observer.observe(el)
     return () => observer.disconnect()
   }, [post.id])
+
+  // Pauses this post's video the moment it scrolls mostly out of view -
+  // otherwise a video someone started playing keeps running (and making
+  // sound) even after they've scrolled well past it in the feed.
+  useEffect(() => {
+    const videoEl = videoRef.current
+    if (!videoEl) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) {
+          videoEl.pause()
+        }
+      },
+      { threshold: 0.25 }
+    )
+    observer.observe(videoEl)
+    return () => observer.disconnect()
+  }, [post.media_url])
 
   const toggleComments = () => {
     setShowComments((v) => !v)
@@ -142,7 +161,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
       )}
       {post.media_url && post.media_type === 'video' && (
         <div className="w-full bg-black" style={{ maxHeight: '480px' }}>
-          <video src={post.media_url} controls className="w-full" style={{ maxHeight: '480px', objectFit: 'contain' }} preload="metadata" />
+          <video ref={videoRef} src={post.media_url} controls className="w-full" style={{ maxHeight: '480px', objectFit: 'contain' }} preload="metadata" />
         </div>
       )}
 
